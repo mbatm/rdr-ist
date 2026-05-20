@@ -130,12 +130,12 @@ async function drawTemplate(ctx,{ bgImg,w,h,baslik,spotBaslik,kategori,tarih,tex
   // Başlık — güçlü shadow
   ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=isDark?10:22; ctx.shadowOffsetY=2
   ctx.fillStyle='#ffffff'
-  ctx.font=
+  ctx.font=`700 ${titleSz}px Arial, "Helvetica Neue", sans-serif`
   titleLines.forEach((line,i)=>ctx.fillText(line,textX,blockY+lineH*(i+1)-lineH*.22))
 
   // Spot başlık
   if (spotLines.length) {
-    ctx.font=
+    ctx.font=`400 ${spotSz}px Arial, "Helvetica Neue", sans-serif`
     ctx.fillStyle='rgba(255,255,255,.88)'; ctx.shadowBlur=isDark?6:15
     const sy0=blockY+titleH+gapSpot
     spotLines.forEach((line,i)=>ctx.fillText(line,textX,sy0+spotLineH*(i+1)-spotLineH*.22))
@@ -146,18 +146,18 @@ async function drawTemplate(ctx,{ bgImg,w,h,baslik,spotBaslik,kategori,tarih,tex
   const badgeY   = h-badgeSz-Math.round(h*.028)
   const badgeFnt = Math.round(badgeSz*.46)
   const badgeTxt = (kategori||'GENEL').toUpperCase()
-  ctx.font=
+  ctx.font=`700 ${badgeFnt}px Arial, sans-serif`
   const btw = ctx.measureText(badgeTxt).width
   const bph = Math.round(badgeSz*.55), bpv = Math.round(badgeSz*.68)
   const bw  = btw+bph*2
 
   ctx.fillStyle='#D63031'
   roundRect(ctx,pad,badgeY,bw,badgeSz,Math.round(badgeSz*.48)); ctx.fill()
-  ctx.fillStyle='#fff'; ctx.font=
+  ctx.fillStyle='#fff'; ctx.font=`700 ${badgeFnt}px Arial, sans-serif`
   ctx.fillText(badgeTxt,pad+bph,badgeY+bpv)
 
   if (tarih) {
-    ctx.font=
+    ctx.font=`400 ${badgeFnt}px Arial, sans-serif`
     ctx.fillStyle='rgba(255,255,255,.82)'
     ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=4
     const dtw=ctx.measureText(tarih).width
