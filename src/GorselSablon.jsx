@@ -106,9 +106,9 @@ async function drawTemplate(ctx,{ bgImg,w,h,baslik,spotBaslik,kategori,tarih,tex
   const lineH    = titleSz*1.32
   const spotLineH = spotSz*1.4
 
-  ctx.font=
+  ctx.font=`700 ${titleSz}px Arial, "Helvetica Neue", sans-serif`
   const titleLines = wrapText(ctx,baslik||'',textMaxW,3)
-  ctx.font=
+  ctx.font=`400 ${spotSz}px Arial, "Helvetica Neue", sans-serif`
   const spotLines  = spotBaslik ? wrapText(ctx,spotBaslik,textMaxW,2) : []
 
   const titleH  = titleLines.length*lineH
