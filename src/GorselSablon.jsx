@@ -167,7 +167,7 @@ async function drawTemplate(ctx,{ bgImg,w,h,baslik,spotBaslik,kategori,tarih,tex
 }
 
 const Ic = ({n,size=15,style={}}) =>
-  <i className={} aria-hidden="true" style={{fontSize:size,...style}}/>
+  <i className={`ti ti-${n}`} aria-hidden="true" style={{fontSize:size,...style}}/>
 
 export default function GorselSablon({ gorselUrl, baslik, spotBaslik, kategori, tarih }) {
   const [format,   setFormat]  = useState('instagram')
