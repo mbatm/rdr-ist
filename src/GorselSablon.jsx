@@ -197,7 +197,7 @@ export default function GorselSablon({ gorselUrl, baslik, spotBaslik, kategori, 
     const ctx = canvas.getContext('2d')
     ctx.scale(DPR, DPR)
 
-    const proxyUrl = 
+    const proxyUrl = `/api/gorsel-proxy?url=${encodeURIComponent(gorselUrl)}`
     const bgImg = await new Promise(res=>{
       const img=new Image(); img.crossOrigin='anonymous'
       img.onload=()=>res(img); img.onerror=()=>res(null); img.src=proxyUrl
@@ -221,7 +221,7 @@ export default function GorselSablon({ gorselUrl, baslik, spotBaslik, kategori, 
     if (canvasRef.current.width !== f.w*DPR) { await render(fmt) }
     const a=document.createElement('a')
     a.href=canvasRef.current.toDataURL('image/png') // PNG — kayıpsız
-    a.download=
+    a.download=`kayserim-${fmt}-${Date.now()}.png`
     a.click()
   }
 
