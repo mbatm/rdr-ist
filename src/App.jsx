@@ -643,6 +643,14 @@ export default function App() {
           .map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
 
         const tumHaberler = [...eskiler, ...rssHaberler]
+
+        // Tarih sıralaması — en yeni en üstte
+        tumHaberler.sort((a, b) => {
+          const dateA = new Date(a.tarih_iso || a.tarih || 0)
+          const dateB = new Date(b.tarih_iso || b.tarih || 0)
+          return dateB - dateA
+        })
+
         setHaberler(tumHaberler)
 
         const yeniSayi = rssHaberler.filter(h => h.durum === 'bekliyor').length
