@@ -1,28 +1,12 @@
-/**
- * GET /api/rss
- * Cloudflare Pages Function — 1ha RSS proxy
- * RSS_API_KEY environment variable olarak Cloudflare dashboard'dan eklenir
- */
 export async function onRequestGet({ env }) {
-  try {
-    const rssKey = env.RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5'
-    const response = await fetch(`https://1ha.com.tr/api/rss/${rssKey}`, {
-      headers: { 'User-Agent': 'rdr.ist/1.0' },
-    })
+  const rssRes = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
+    { headers: { 'User-Agent': 'rdr.ist/1.0' } })
+  const xml = await rssRes.text()
 
-    if (!response.ok) {
-      return new Response(`RSS fetch hatası: HTTP ${response.status}`, { status: 502 })
-    }
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
+  const sonUc = items.slice(-3).map(m => m[1]).join('\n\n---\n\n')
 
-    const xml = await response.text()
-
-    return new Response(xml, {
-      headers: {
-        'Content-Type': 'application/rss+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=120', // 2 dakika cache
-      },
-    })
-  } catch (err) {
-    return new Response(`RSS hatası: ${err.message}`, { status: 500 })
-  }
+  return new Response(sonUc, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+  })
 }
