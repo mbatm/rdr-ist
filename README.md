@@ -57,3 +57,4 @@ npm run dev
 > RSS_API_KEY=cmp6vldho000210g6tt26pvc5
 > ```
 > Sonra: `npx wrangler pages dev dist --compatibility-date=2024-01-01`
+ 
