@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import GorselSablon from './GorselSablon.jsx'
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const MOCK = [
@@ -352,135 +353,16 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
 }
 
 // ── İŞLEME SONUCU ─────────────────────────────────────────────────────────
-function Isleme({ content, processing, error }) {
+function Isleme({ content, processing, error, selectedHaber }) {
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(null)
-  const [gorselUrl, setGorselUrl] = useState(null)
-  const [gorselYukleniyor, setGorselYukleniyor] = useState(false)
-  const [videoYukleniyor, setVideoYukleniyor] = useState(false)
   const [rssYukleniyor, setRssYukleniyor] = useState(false)
   const [rssKaydedildi, setRssKaydedildi] = useState(false)
-  const canvasRef = useRef(null)
 
   const copy = (text, field) => {
     navigator.clipboard?.writeText(text).catch(() => {})
     setCopied(field)
     setTimeout(() => setCopied(null), 2000)
-  }
-
-  // ── GÖRSEL ÜRET ──
-  const gorselUret = async () => {
-    if (!content?.gorsel_prompt) return
-    setGorselYukleniyor(true)
-    try {
-      const res = await fetch('/api/gorsel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: content.gorsel_prompt }),
-      })
-      const data = await res.json()
-      if (data.url) {
-        setGorselUrl(data.url)
-      } else if (data.id) {
-        // Polling
-        for (let i = 0; i < 20; i++) {
-          await new Promise(r => setTimeout(r, 3000))
-          const poll = await fetch(`/api/gorsel?id=${data.id}`)
-          const p = await poll.json()
-          if (p.url) { setGorselUrl(p.url); break }
-          if (p.status === 'failed') break
-        }
-      }
-    } catch (e) { console.error(e) }
-    setGorselYukleniyor(false)
-  }
-
-  // ── VİDEO OLUŞTUR ──
-  const videoOlustur = async () => {
-    const canvas = canvasRef.current
-    if (!canvas || !content) return
-    setVideoYukleniyor(true)
-
-    canvas.width = 1280
-    canvas.height = 720
-    const ctx = canvas.getContext('2d')
-
-    const stream = canvas.captureStream(30)
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' })
-    const chunks = []
-    recorder.ondataavailable = e => chunks.push(e.data)
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `${content.url_slug || 'haber'}.webm`; a.click()
-      setVideoYukleniyor(false)
-    }
-
-    // Arka plan görseli yükle
-    let img = null
-    const bgSrc = gorselUrl || null
-    if (bgSrc) {
-      img = new Image(); img.crossOrigin = 'anonymous'; img.src = bgSrc
-      await new Promise(r => { img.onload = r; img.onerror = () => { img = null; r() } })
-    }
-
-    recorder.start()
-    const title = content.site_basligi || content.baslik || ''
-    const kategori = content.kategori || ''
-    const totalFrames = 450 // 15 saniye @ 30fps
-    let frame = 0
-
-    const tick = () => {
-      if (frame >= totalFrames) { recorder.stop(); return }
-      const t = frame / totalFrames
-
-      // Arka plan
-      if (img) { ctx.drawImage(img, 0, 0, 1280, 720) }
-      else { ctx.fillStyle = '#080D15'; ctx.fillRect(0, 0, 1280, 720) }
-
-      // Koyu overlay
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'
-      ctx.fillRect(0, 0, 1280, 720)
-
-      // Alt kırmızı bant (slide up animasyonu)
-      const bandY = 720 - Math.min(100, t * 400)
-      ctx.fillStyle = '#E63946'
-      ctx.fillRect(0, bandY, 1280, 120)
-
-      // kayserim.net
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 22px Arial'
-      ctx.fillText('kayserim.net', 40, bandY + 38)
-
-      // Kategori
-      if (kategori) {
-        ctx.font = '18px Arial'
-        ctx.fillStyle = 'rgba(255,255,255,0.8)'
-        ctx.fillText(kategori.toUpperCase(), 40, bandY + 65)
-      }
-
-      // Başlık (fade in)
-      const alpha = Math.min(1, t * 4)
-      ctx.globalAlpha = alpha
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 56px Arial'
-      // Word wrap
-      const words = title.split(' ')
-      let line = ''; let y = 280; const maxW = 1100
-      for (const w of words) {
-        const test = line + w + ' '
-        if (ctx.measureText(test).width > maxW && line) {
-          ctx.fillText(line.trim(), 80, y); line = w + ' '; y += 72
-        } else { line = test }
-      }
-      ctx.fillText(line.trim(), 80, y)
-      ctx.globalAlpha = 1
-
-      frame++
-      requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
   }
 
   // ── RSS KAYDET ──
@@ -493,7 +375,7 @@ function Isleme({ content, processing, error }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...content,
-          gorsel_url: gorselUrl || '',
+          gorsel_url: selectedHaber?.gorsel || '',
           kayserim_link: link || '',
           tarih_iso: new Date().toISOString(),
         }),
@@ -616,53 +498,15 @@ function Isleme({ content, processing, error }) {
       <Field label="Video başlığı" value={content.youtube_baslik||''} field="yt_t" />
       <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
 
-      {/* ── GÖRSEL ── */}
-      <Divider label="AI Görsel Üretimi (FLUX)" ic="photo-ai" />
-      {content.gorsel_prompt && <Field label="FLUX prompt (ingilizce)" value={content.gorsel_prompt} field="img" />}
-
-      {!gorselUrl && (
-        <button
-          onClick={gorselUret}
-          disabled={gorselYukleniyor}
-          style={{ fontWeight:500, background:'rgba(120,80,255,0.15)', border:'0.5px solid rgba(120,80,255,0.35)', color:'#a89cff', marginBottom:'0.875rem' }}
-        >
-          <Ic n={gorselYukleniyor ? 'loader-2' : 'sparkles'} size={15} />
-          {gorselYukleniyor ? 'FLUX görsel oluşturuluyor… (~10sn)' : 'Görsel Üret (FLUX)'}
-        </button>
-      )}
-
-      {gorselUrl && (
-        <div style={{ marginBottom:'0.875rem' }}>
-          <img src={gorselUrl} alt="AI görsel" style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', marginBottom:8 }} />
-          <div style={{ display:'flex', gap:8 }}>
-            <a href={gorselUrl} download={`${content.url_slug||'gorsel'}.jpg`} target="_blank" rel="noreferrer">
-              <button style={{ fontSize:12, background:'rgba(0,212,170,0.12)', border:'0.5px solid rgba(0,212,170,0.3)', color:'#00D4AA' }}>
-                <Ic n="download" size={13} /> Görseli İndir
-              </button>
-            </a>
-            <button onClick={() => copy(gorselUrl, 'gorsel_url')} style={{ fontSize:12, color: copied==='gorsel_url'?'#00D4AA':'var(--muted)', background: copied==='gorsel_url'?'rgba(0,212,170,0.1)':'transparent', border:`0.5px solid ${copied==='gorsel_url'?'rgba(0,212,170,0.3)':'var(--border)'}` }}>
-              <Ic n={copied==='gorsel_url'?'check':'copy'} size={12} /> URL Kopyala
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── VİDEO ── */}
-      <Divider label="Video Oluştur (Tarayıcıda)" ic="video" />
-      <div style={{ background:'rgba(255,255,255,0.03)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'12px 14px', marginBottom:'0.875rem' }}>
-        <div style={{ fontSize:12, color:'var(--muted)', marginBottom:10 }}>
-          Haber başlığı + görsel kullanarak 15 saniyelik sosyal medya klibi oluşturur. WebM formatında indirilir.
-        </div>
-        <button
-          onClick={videoOlustur}
-          disabled={videoYukleniyor}
-          style={{ fontWeight:500, background:'rgba(230,57,70,0.12)', border:'0.5px solid rgba(230,57,70,0.3)', color:'#ff7b7b' }}
-        >
-          <Ic n={videoYukleniyor ? 'loader-2' : 'player-record'} size={15} />
-          {videoYukleniyor ? 'Video oluşturuluyor…' : 'Video Oluştur ve İndir'}
-        </button>
-        <canvas ref={canvasRef} style={{ display:'none' }} />
-      </div>
+      {/* ── SOSYAL MEDYA GÖRSELİ ── */}
+      <Divider label="Sosyal medya görseli" ic="photo" />
+      <GorselSablon
+        gorselUrl={selectedHaber?.gorsel || ''}
+        baslik={content.site_basligi || content.baslik || ''}
+        spotBaslik={content.h1_basligi || ''}
+        kategori={content.kategori || 'Genel'}
+        tarih={selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR')}
+      />
 
       {/* ── RSS KAYDET ── */}
       <Divider label="RSS Feed'e Kaydet" ic="rss" />
@@ -778,6 +622,15 @@ export default function App() {
       } catch (e) {
         addNotif('1ha bağlanamadı — örnek veriler kullanılıyor', 'warning')
       }
+
+      // Arka planda otomatik haber işleme — yeni haberleri Claude ile işleyip RSS'e ekler
+      try {
+        const otoRes = await fetch('/api/oto-isle')
+        const otoData = await otoRes.json()
+        if (otoData.islendi > 0) {
+          addNotif(`${otoData.islendi} haber otomatik işlendi → RSS güncellendi ✓`, 'success')
+        }
+      } catch { /* sessiz — arka plan görevi */ }
     })()
   }, [page])
 
@@ -848,7 +701,7 @@ export default function App() {
           {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} />}
           {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} />}
           {active === 'yeni'      && <YeniHaber selected={selected} setSelected={setSelected} onProcess={process} processing={processing} />}
-          {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} />}
+          {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} selectedHaber={selected} />}
           {active === 'ayarlar'   && <Ayarlar />}
         </div>
       </div>
