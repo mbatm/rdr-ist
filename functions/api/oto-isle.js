@@ -26,45 +26,55 @@ const STRATEJI_FALLBACK = {
 function buildPrompt(haber, strateji) {
   const kat = haber.kategori || 'Güncel'
   const katKw = (strateji.kategori[kat] || strateji.kategori['default']).join(', ')
-  const globalKw = strateji.global.yuksek.join(', ')
 
   return `Sen kayserim.net için kıdemli SEO editörüsün. Hedef: günlük 60.000 ziyaretçi.
 
-HABER:
+## HABER DİLİ KURALLARI (ZORUNLU)
+
+**Haber metni için:**
+- İlk cümle olayın tüm özünü içermeli: Kim, ne, nerede, ne zaman
+- Türk haber ajansı dili (AA/DHA): "gözaltına alındı", "yakalandı", "kaldırıldı"
+- Spekülasyon YASAK: "olmuş olabilir", "muhtemelen" yazılmaz
+- Editöryal yorum YASAK: "önlem alınmalıdır", "dikkat çekilmektedir" yazılmaz
+- Dolgu metin YASAK: anlamsız tekrar, genel tavsiye cümleleri yazılmaz
+- Sayıları kullan: "35 araç" > "çok sayıda araç"
+
+**Kategori örnekleri:**
+- Trafik: "Kaza saat 16.00 sıralarında Mimarsinan OSB'de meydana geldi. [Araç] [sonuç]. Yaralılar [hastane]ye kaldırıldı. Soruşturma başlatıldı."
+- Asayiş: "Kayseri'de [birim] tarafından [operasyon] kapsamında [sayı] şüpheli gözaltına alındı."
+- Konuşma: "[Unvan Ad Soyad], '[alıntı]' dedi."
+
+**YANLIŞ örnek (bu şekilde YAZMA):**
+"Kazada 3 kişi hafif yaralanmıştır. Benzer kazaları önlemek için güvenlik önlemleri alınmalıdır. OSB'de trafik güvenliğine dikkat çekilmektedir."
+
+**DOĞRU örnek (bu şekilde YAZ):**
+"Kaza saat 16.00 sıralarında Mimarsinan OSB 1'nci Cadde'de meydana geldi. Araçta bulunan 3 kişi hafif yaralandı. Yaralılar Kayseri Eğitim Araştırma Hastanesi'ne kaldırıldı. Kazayla ilgili soruşturma başlatıldı."
+
+## HABER BİLGİSİ
 Başlık: ${haber.baslik.slice(0,200)}
 Özet: ${haber.icerik.slice(0,300)}
 Kategori: ${kat}
 
-AHREFS VERİSİ (bu haberle ilgili):
-Genel yüksek değer: ${globalKw}
-Bu kategori hedefi: ${katKw}
-Rakip: kayseriolay.com (DR:31), kayserianadoluhaber.com.tr (DR:35)
-
-BAŞLIK KURALLARI:
-- "Kayseri" mutlaka ilk 3 kelimede geçsin
-- 55-65 karakter (SERP truncation önleme)
-- Varsa rakam kullan ("35 araç", "86 şahıs" gibi)
-- "Son dakika" veya "bugün" CTR'ı %40 artırır — ekle
-
-SLUG KURALI: daima "kayseri-" ile başla, hedef keyword ilk 3 kelimede
-
-SOSYAL BAŞLIK: max 7 kelime, duygusal, rakam içersin, Kayseri ile başlasın
-(Bu başlık Instagram/Twitter görselinde kullanılacak)
+## SEO STRATEJİSİ (Ahrefs verisi — hedef: günlük 60K ziyaretçi)
+Bu kategori için hedef kelimeler: ${katKw}
+- "Kayseri" ilk 3 kelimede geçmeli
+- Başlık 55-65 karakter
+- URL slug "kayseri-" ile başlamalı
 
 SADECE şu JSON formatını döndür:
 {
-  "site_basligi": "55-65 kar SEO başlık",
+  "site_basligi": "55-65 karakter, Kayseri içeren SEO başlık",
   "h1_basligi": "H1 başlık",
-  "sosyal_baslik": "max 7 kelime sosyal medya başlığı",
-  "meta_description": "max 155 kar — ${katKw.split(',')[0]} içersin",
+  "sosyal_baslik": "max 7 kelime, Kayseri ile başlayan sosyal medya başlığı",
+  "meta_description": "max 155 karakter, ${katKw.split(',')[0].trim()} içersin",
   "url_slug": "kayseri-ile-baslayan-slug",
-  "optimize_icerik": "min 150 kelime, doğal Kayseri geçişleriyle",
-  "ozet": "1 güçlü cümle",
-  "instagram": "emoji+hashtag 150 kar — #kayseri #kayserihaber",
-  "facebook": "100 kar metin",
-  "x_twitter": "max 230 kar — #KayseriSonDakika",
-  "youtube_baslik": "max 80 kar",
-  "youtube_aciklama": "250 kar — kayserim.net linkini belirt",
+  "optimize_icerik": "250-400 kelime, Türk haber ajansı dilinde, gerçek haber metni formatında — spekülasyon ve editöryal yorum olmadan",
+  "ozet": "1 cümle, haberin özü",
+  "instagram": "#kayseri #kayserihaber dahil 150 karakter",
+  "facebook": "100 karakter",
+  "x_twitter": "max 230 karakter #KayseriSonDakika dahil",
+  "youtube_baslik": "max 80 karakter",
+  "youtube_aciklama": "250 karakter",
   "hedef_kelimeler": ["${katKw.split(',')[0].trim()}","kayseri son dakika","kayseri haber"],
   "kategori": "${kat}",
   "oncelik": "orta",
