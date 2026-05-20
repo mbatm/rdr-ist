@@ -1,0 +1,66 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #080D15;
+  --surface:  #0F1923;
+  --card:     #141F2E;
+  --border:   rgba(255, 255, 255, 0.07);
+  --accent:   #E63946;
+  --teal:     #00D4AA;
+  --blue:     #4488FF;
+  --yellow:   #FFB700;
+  --text:     #E8EDF3;
+  --muted:    #5A7A95;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── inputs ── */
+input, textarea, select {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: var(--font);
+  outline: none;
+  width: 100%;
+}
+input:focus, textarea:focus { border-color: rgba(255,255,255,0.22); }
+textarea { resize: vertical; line-height: 1.7; }
+
+/* ── buttons ── */
+button {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.12s;
+}
+button:hover:not(:disabled) { background: var(--card); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
