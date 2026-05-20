@@ -18,46 +18,34 @@ function parseRSS(xml) {
   return items
 }
 
-export async function onRequestGet({ env }) {
-  try {
-    const rssRes = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
-      { headers: { 'User-Agent': 'rdr.ist/1.0' } })
-    if (!rssRes.ok) return Response.json({ hata: `RSS ${rssRes.status}` })
-
-    const xml = await rssRes.text()
-    const items = parseRSS(xml)
-    const mevcut = (await env.HABERLER.get('liste', 'json')) || []
-    const mevcutIds = new Set(mevcut.map(h => h.source_id))
-    const yeni = items.find(i => !mevcutIds.has(i.source_id))
-    if (!yeni) return Response.json({ islendi: 0, mesaj: 'Yeni haber yok' })
-
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        system: 'Sen kayserim.net SEO editörüsün. Yanıtın SADECE geçerli bir JSON objesi olmalı. Markdown, açıklama veya başka metin kesinlikle yazma.',
-        messages: [{ role: 'user', content:
+async function isleHaber(yeni, apiKey) {
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      system: 'Sen kayserim.net SEO editörüsün. Yanıtın SADECE geçerli bir JSON objesi olmalı. Markdown veya başka metin yazma.',
+      messages: [{ role: 'user', content:
 `Haber:
 BAŞLIK: ${yeni.baslik.slice(0,150)}
 ÖZET: ${yeni.icerik.slice(0,250)}
 KATEGORİ: ${yeni.kategori}
 
-Tam olarak şu JSON formatını döndür:
+Şu JSON formatını döndür:
 {
-  "site_basligi": "kısa SEO başlık",
+  "site_basligi": "SEO başlık max 70 karakter",
   "h1_basligi": "H1 başlık",
-  "meta_description": "kısa açıklama",
+  "meta_description": "açıklama max 155 karakter",
   "url_slug": "url-slug",
   "optimize_icerik": "100 kelimelik haber özeti",
   "ozet": "1 cümle özet",
-  "instagram": "instagram paylaşım metni #hashtag",
-  "facebook": "facebook paylaşım metni",
+  "instagram": "instagram metni #hashtag",
+  "facebook": "facebook metni",
   "x_twitter": "twitter metni #hashtag",
   "youtube_baslik": "youtube başlık",
   "youtube_aciklama": "youtube açıklama",
@@ -66,46 +54,71 @@ Tam olarak şu JSON formatını döndür:
   "oncelik": "orta",
   "gorsel_prompt": "English photo description"
 }`
-        }]
-      })
+      }]
     })
+  })
 
-    if (!claudeRes.ok) {
-      const err = await claudeRes.text()
-      return Response.json({ hata: `Claude ${claudeRes.status}`, detay: err.slice(0,300) })
+  if (!claudeRes.ok) throw new Error(`Claude ${claudeRes.status}`)
+  const data = await claudeRes.json()
+  let raw = data.content?.[0]?.text || ''
+  raw = raw.replace(/^```json\s*/,'').replace(/\s*```\s*$/,'').trim()
+  const s = raw.indexOf('{'), e = raw.lastIndexOf('}')
+  if (s === -1 || e <= s) throw new Error('JSON bulunamadi')
+  return JSON.parse(raw.slice(s, e + 1))
+}
+
+export async function onRequestGet({ env, request }) {
+  try {
+    // Kaç haber işleneceğini URL param ile ayarla: ?adet=5
+    const url   = new URL(request.url)
+    const adet  = Math.min(parseInt(url.searchParams.get('adet') || '3'), 5)
+
+    const rssRes = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
+      { headers: { 'User-Agent': 'rdr.ist/1.0' } })
+    if (!rssRes.ok) return Response.json({ hata: `RSS ${rssRes.status}` })
+
+    const xml    = await rssRes.text()
+    const items  = parseRSS(xml)
+    let mevcut   = (await env.HABERLER.get('liste', 'json')) || []
+    const mevcutIds = new Set(mevcut.map(h => h.source_id))
+
+    // İşlenecek yeni haberler
+    const yeniHaberler = items
+      .filter(i => !mevcutIds.has(i.source_id))
+      .slice(0, adet)
+
+    if (yeniHaberler.length === 0) {
+      return Response.json({ islendi: 0, mesaj: 'Yeni haber yok', kv_toplam: mevcut.length })
     }
 
-    const claudeData = await claudeRes.json()
-    let rawText = claudeData.content?.[0]?.text || ''
+    const basarili = []
+    const hatali   = []
 
-    // Markdown code block varsa temizle
-    rawText = rawText.replace(/^```json\s*/,'').replace(/\s*```\s*$/,'').trim()
-
-    // { ile } arasını çıkar
-    const start = rawText.indexOf('{')
-    const end   = rawText.lastIndexOf('}')
-    if (start === -1 || end === -1 || end <= start) {
-      return Response.json({ hata: 'JSON bulunamadi', yanit_uzunluk: rawText.length, yanit_bas: rawText.slice(0,200) })
+    for (const yeni of yeniHaberler) {
+      try {
+        const seo = await isleHaber(yeni, env.ANTHROPIC_API_KEY)
+        const kayit = {
+          ...seo,
+          source_id: yeni.source_id, source_url: yeni.source_url,
+          baslik: yeni.baslik, icerik: yeni.icerik,
+          gorsel: yeni.gorsel, gorsel_url: yeni.gorsel,
+          tarih_iso: yeni.tarih_iso, kaydedildi: new Date().toISOString(),
+          kayserim_link: '', durum: 'islendi'
+        }
+        mevcut = [kayit, ...mevcut.filter(h => h.source_id !== yeni.source_id)].slice(0, 200)
+        await env.HABERLER.put('liste', JSON.stringify(mevcut))
+        basarili.push(kayit.url_slug || yeni.source_id)
+      } catch (e) {
+        hatali.push({ id: yeni.source_id, hata: e.message })
+      }
     }
 
-    let seo
-    try {
-      seo = JSON.parse(rawText.slice(start, end + 1))
-    } catch (e) {
-      return Response.json({ hata: 'JSON parse hatasi', detay: e.message, yanit: rawText.slice(0,400) })
-    }
-
-    const kayit = {
-      ...seo,
-      source_id: yeni.source_id, source_url: yeni.source_url,
-      baslik: yeni.baslik, icerik: yeni.icerik,
-      gorsel: yeni.gorsel, gorsel_url: yeni.gorsel,
-      tarih_iso: yeni.tarih_iso, kaydedildi: new Date().toISOString(),
-      kayserim_link: '', durum: 'islendi'
-    }
-    await env.HABERLER.put('liste', JSON.stringify([kayit, ...mevcut].slice(0,200)))
-
-    return Response.json({ islendi: 1, slug: kayit.url_slug, baslik: yeni.baslik })
+    return Response.json({
+      islendi: basarili.length,
+      sluglar: basarili,
+      hatali,
+      kv_toplam: mevcut.length
+    })
   } catch (e) {
     return Response.json({ hata: e.message }, { status: 500 })
   }
