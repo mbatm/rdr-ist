@@ -43,6 +43,10 @@ export async function onRequestGet({ env }) {
       const guncDate  = formatDate(h.kaydedildi || h.tarih_iso || new Date().toISOString())
       const sonDakika = h.oncelik === 'yuksek' ? 'Evet' : 'Hayır'
 
+      const videoBlock = h.video
+        ? `<videos>\n        <video>\n          <path_video VideoKodu="${esc(haberKodu)}-v1" HaberKodu="${esc(haberKodu)}" filesize="0" duration="0">${esc(h.video)}</path_video>\n        </video>\n      </videos>`
+        : `<videos/>`
+
       const imageBlock = gorselUrl
         ? `<images>\n        <image ResimKodu="${esc(gorselKodu)}" HaberKodu="${esc(haberKodu)}" filesize="0">${esc(gorselUrl)}</image>\n      </images>`
         : `<images/>`
@@ -61,7 +65,7 @@ export async function onRequestGet({ env }) {
     <SonHaberGuncellenmeTarihi>${guncDate}</SonHaberGuncellenmeTarihi>
     <SonFotografEklenmeTarihi>${gorselUrl ? guncDate : '-'}</SonFotografEklenmeTarihi>
     ${imageBlock}
-    <videos/>
+    ${videoBlock}
   </item>`
     }).join('\n')
 
