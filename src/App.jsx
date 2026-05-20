@@ -591,46 +591,76 @@ export default function App() {
     setNotifs(prev => [{ id: Date.now(), text, type, time: 'az önce' }, ...prev.slice(0, 6)])
   }, [])
 
-  // RSS fetch — /api/rss üzerinden (Cloudflare Pages Function, CORS yok)
+  // Giriş sonrası: KV + RSS birleştir, işlendi durumunu koru
   useEffect(() => {
     if (page !== 'app') return
     ;(async () => {
       try {
-        const res = await fetch('/api/rss')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const xml = await res.text()
+        // 1. KV'deki işlenmiş haberleri çek
+        const kvRes  = await fetch('/api/haberler')
+        const kvListe = kvRes.ok ? await kvRes.json() : []
+        const kvMap  = new Map(kvListe.map(h => [h.source_id, h]))
+
+        // 2. 1ha RSS'i çek
+        const rssRes = await fetch('/api/rss')
+        if (!rssRes.ok) throw new Error(`RSS HTTP ${rssRes.status}`)
+        const xml    = await rssRes.text()
         const parser = new DOMParser()
-        const doc = parser.parseFromString(xml, 'text/xml')
-        const items = doc.querySelectorAll('item')
-        const parsed = Array.from(items).slice(0, 30).map((item, i) => {
-          const enc = item.querySelector('enclosure')
-          const dt  = item.querySelector('pubDate')?.textContent
+        const doc    = parser.parseFromString(xml, 'text/xml')
+        const items  = doc.querySelectorAll('item')
+
+        const rssHaberler = Array.from(items).slice(0, 30).map((item, i) => {
+          const enc    = item.querySelector('enclosure')
+          const dt     = item.querySelector('pubDate')?.textContent
+          const link   = item.querySelector('link')?.textContent?.trim() || ''
+          const enc_type = enc?.getAttribute('type') || ''
+          const enc_url  = enc?.getAttribute('url') || ''
+          const sourceId = link.split('/').pop() || link
+
+          // KV'de bu haber var mı?
+          const kvHaber = kvMap.get(sourceId)
+
           return {
-            id: i + 100,
-            baslik: item.querySelector('title')?.textContent?.trim() || '',
-            icerik: item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
-            gorsel: enc?.getAttribute('url') || '',
+            id:       i + 100,
+            source_id: sourceId,
+            baslik:   item.querySelector('title')?.textContent?.trim() || '',
+            icerik:   item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
+            gorsel:   enc_type.startsWith('video/') ? '' : enc_url,
+            video:    enc_type.startsWith('video/') ? enc_url : '',
             kategori: item.querySelector('category')?.textContent?.trim() || 'Genel',
-            tarih: dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
-            durum: 'bekliyor',
+            tarih:    dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
+            durum:    kvHaber ? 'islendi' : 'bekliyor',
+            // KV'de işlendiyse SEO içeriğini de ekle
+            ...(kvHaber || {}),
           }
         }).filter(h => h.baslik.length > 5)
-        if (parsed.length > 0) {
-          setHaberler(prev => [...parsed, ...prev.filter(h => h.id < 100)])
-          addNotif(`${parsed.length} haber 1ha'dan yüklendi`, 'success')
-        }
+
+        // 3. RSS'te olmayan eski KV haberlerini başa ekle
+        const rssIds  = new Set(rssHaberler.map(h => h.source_id))
+        const eskiler = kvListe
+          .filter(h => h.source_id && !rssIds.has(h.source_id))
+          .slice(0, 20)
+          .map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
+
+        const tumHaberler = [...eskiler, ...rssHaberler]
+        setHaberler(tumHaberler)
+
+        const yeniSayi = rssHaberler.filter(h => h.durum === 'bekliyor').length
+        const islSayi  = rssHaberler.filter(h => h.durum === 'islendi').length
+        addNotif(`${rssHaberler.length} haber yüklendi — ${islSayi} işlendi, ${yeniSayi} bekliyor`, 'success')
+
       } catch (e) {
-        addNotif('1ha bağlanamadı — örnek veriler kullanılıyor', 'warning')
+        addNotif('Yükleme hatası: ' + e.message, 'warning')
       }
 
-      // Arka planda otomatik haber işleme — yeni haberleri Claude ile işleyip RSS'e ekler
+      // Arka planda otomatik işleme
       try {
-        const otoRes = await fetch('/api/oto-isle')
+        const otoRes  = await fetch('/api/oto-isle')
         const otoData = await otoRes.json()
         if (otoData.islendi > 0) {
           addNotif(`${otoData.islendi} haber otomatik işlendi → RSS güncellendi ✓`, 'success')
         }
-      } catch { /* sessiz — arka plan görevi */ }
+      } catch { /* sessiz */ }
     })()
   }, [page])
 
