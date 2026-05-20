@@ -58,3 +58,4 @@ npm run dev
 > ```
 > Sonra: `npx wrangler pages dev dist --compatibility-date=2024-01-01`
  
+updated 
