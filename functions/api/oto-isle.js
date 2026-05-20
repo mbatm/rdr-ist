@@ -22,22 +22,18 @@ function parseRSS(xml) {
 
 export async function onRequestGet({ env }) {
   try {
-    // 1. RSS
     const rssRes = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
-      { headers: { 'User-Agent': 'rdr.ist/1.0' }, signal: AbortSignal.timeout(8000) })
+      { headers: { 'User-Agent': 'rdr.ist/1.0' } })
     if (!rssRes.ok) return Response.json({ hata: `RSS ${rssRes.status}` })
     const xml = await rssRes.text()
     const items = parseRSS(xml)
 
-    // 2. Mevcut KV
     const mevcut = (await env.HABERLER.get('liste', 'json')) || []
     const mevcutIds = new Set(mevcut.map(h => h.source_id))
 
-    // 3. Sadece 1 yeni item al
     const yeni = items.find(i => !mevcutIds.has(i.source_id))
     if (!yeni) return Response.json({ islendi: 0, mesaj: 'Yeni haber yok' })
 
-    // 4. Claude — 15sn timeout
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -48,23 +44,26 @@ export async function onRequestGet({ env }) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
-        system: 'Sen kayserim.net için SEO editörüsün. SADECE geçerli JSON döndür.',
+        system: 'Sen kayserim.net icin SEO editorusun. SADECE gecerli JSON dondur.',
         messages: [{ role: 'user', content:
-`Başlık: ${yeni.baslik}\nİçerik: ${yeni.icerik.slice(0,500)}\nKategori: ${yeni.kategori}
+`Baslik: ${yeni.baslik}
+Icerik: ${yeni.icerik.slice(0,500)}
+Kategori: ${yeni.kategori}
 
-JSON döndür:
+Asagidaki JSON yapisini dondur (baska hicbir sey yazma):
 {"site_basligi":"max 70 kar","h1_basligi":"h1","meta_description":"max 155 kar","url_slug":"slug","optimize_icerik":"min 200 kelime haber","ozet":"2 cumle","instagram":"emoji hashtag 150 kar","facebook":"100 kar","x_twitter":"230 kar","youtube_baslik":"80 kar","youtube_aciklama":"250 kar","hedef_kelimeler":["k1","k2","k3"],"kategori":"${yeni.kategori}","oncelik":"orta","gorsel_prompt":"news photo prompt English 10 words"}`
         }]
-      }),
-      signal: AbortSignal.timeout(20000)
+      })
     })
 
-    if (!claudeRes.ok) return Response.json({ hata: `Claude ${claudeRes.status}` })
+    if (!claudeRes.ok) {
+      const errText = await claudeRes.text()
+      return Response.json({ hata: `Claude ${claudeRes.status}`, detay: errText.slice(0,200) })
+    }
     const claudeData = await claudeRes.json()
     const raw = claudeData.content?.[0]?.text || '{}'
     const seo = JSON.parse(raw.replace(/```json\n?|\n?```/g,'').trim())
 
-    // 5. KV kaydet
     const kayit = {
       ...seo, source_id: yeni.source_id, source_url: yeni.source_url,
       baslik: yeni.baslik, icerik: yeni.icerik,
