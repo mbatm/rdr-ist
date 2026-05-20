@@ -18,34 +18,19 @@ function parseRSS(xml) {
   return items
 }
 
-function extractJSON(text) {
-  // JSON bloğunu bul ve parse et
-  const clean = text.replace(/```json\n?|\n?```/g, '').trim()
-  // İlk { ile son } arasını al
-  const start = clean.indexOf('{')
-  const end   = clean.lastIndexOf('}')
-  if (start === -1 || end === -1) throw new Error('JSON bulunamadi')
-  return JSON.parse(clean.slice(start, end + 1))
-}
-
 export async function onRequestGet({ env }) {
   try {
-    // 1. RSS çek
     const rssRes = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
       { headers: { 'User-Agent': 'rdr.ist/1.0' } })
     if (!rssRes.ok) return Response.json({ hata: `RSS ${rssRes.status}` })
+
     const xml = await rssRes.text()
     const items = parseRSS(xml)
-
-    // 2. Mevcut KV
     const mevcut = (await env.HABERLER.get('liste', 'json')) || []
     const mevcutIds = new Set(mevcut.map(h => h.source_id))
-
-    // 3. İlk yeni item
     const yeni = items.find(i => !mevcutIds.has(i.source_id))
     if (!yeni) return Response.json({ islendi: 0, mesaj: 'Yeni haber yok' })
 
-    // 4. Claude ile SEO paketi (Haiku - hızlı)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -55,30 +40,31 @@ export async function onRequestGet({ env }) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1200,
-        system: 'Bir SEO editöründen sadece JSON formatında yanıt döndürmesini istiyoruz. Yanıtın tamamı tek bir JSON objesi olmalı, başka hiçbir şey içermemeli.',
+        max_tokens: 2000,
+        system: 'Sen kayserim.net SEO editörüsün. Yanıtın SADECE geçerli bir JSON objesi olmalı. Markdown, açıklama veya başka metin kesinlikle yazma.',
         messages: [{ role: 'user', content:
-`Şu haberi işle ve JSON döndür:
-Başlık: ${yeni.baslik.slice(0, 200)}
-Özet: ${yeni.icerik.slice(0, 300)}
+`Haber:
+BAŞLIK: ${yeni.baslik.slice(0,150)}
+ÖZET: ${yeni.icerik.slice(0,250)}
+KATEGORİ: ${yeni.kategori}
 
-Tam olarak şu JSON formatını kullan:
+Tam olarak şu JSON formatını döndür:
 {
-  "site_basligi": "SEO başlık max 70 karakter",
+  "site_basligi": "kısa SEO başlık",
   "h1_basligi": "H1 başlık",
-  "meta_description": "meta açıklama max 155 karakter",
-  "url_slug": "kisa-url-slug",
-  "optimize_icerik": "haber metni min 150 kelime",
-  "ozet": "2 cümle özet",
-  "instagram": "instagram metni",
-  "facebook": "facebook metni",
-  "x_twitter": "twitter metni",
+  "meta_description": "kısa açıklama",
+  "url_slug": "url-slug",
+  "optimize_icerik": "100 kelimelik haber özeti",
+  "ozet": "1 cümle özet",
+  "instagram": "instagram paylaşım metni #hashtag",
+  "facebook": "facebook paylaşım metni",
+  "x_twitter": "twitter metni #hashtag",
   "youtube_baslik": "youtube başlık",
   "youtube_aciklama": "youtube açıklama",
-  "hedef_kelimeler": ["kelime1", "kelime2", "kelime3"],
+  "hedef_kelimeler": ["kelime1","kelime2","kelime3"],
   "kategori": "${yeni.kategori}",
   "oncelik": "orta",
-  "gorsel_prompt": "English photo prompt"
+  "gorsel_prompt": "English photo description"
 }`
         }]
       })
@@ -86,24 +72,29 @@ Tam olarak şu JSON formatını kullan:
 
     if (!claudeRes.ok) {
       const err = await claudeRes.text()
-      return Response.json({ hata: `Claude ${claudeRes.status}`, detay: err.slice(0, 200) })
+      return Response.json({ hata: `Claude ${claudeRes.status}`, detay: err.slice(0,300) })
     }
 
     const claudeData = await claudeRes.json()
-    const rawText = claudeData.content?.[0]?.text || '{}'
+    let rawText = claudeData.content?.[0]?.text || ''
+
+    // Markdown code block varsa temizle
+    rawText = rawText.replace(/^```json\s*/,'').replace(/\s*```\s*$/,'').trim()
+
+    // { ile } arasını çıkar
+    const start = rawText.indexOf('{')
+    const end   = rawText.lastIndexOf('}')
+    if (start === -1 || end === -1 || end <= start) {
+      return Response.json({ hata: 'JSON bulunamadi', yanit_uzunluk: rawText.length, yanit_bas: rawText.slice(0,200) })
+    }
 
     let seo
     try {
-      seo = extractJSON(rawText)
-    } catch (parseErr) {
-      return Response.json({
-        hata: 'JSON parse hatasi',
-        detay: parseErr.message,
-        claude_yanit: rawText.slice(0, 500)
-      })
+      seo = JSON.parse(rawText.slice(start, end + 1))
+    } catch (e) {
+      return Response.json({ hata: 'JSON parse hatasi', detay: e.message, yanit: rawText.slice(0,400) })
     }
 
-    // 5. KV kaydet
     const kayit = {
       ...seo,
       source_id: yeni.source_id, source_url: yeni.source_url,
@@ -112,7 +103,7 @@ Tam olarak şu JSON formatını kullan:
       tarih_iso: yeni.tarih_iso, kaydedildi: new Date().toISOString(),
       kayserim_link: '', durum: 'islendi'
     }
-    await env.HABERLER.put('liste', JSON.stringify([kayit, ...mevcut].slice(0, 200)))
+    await env.HABERLER.put('liste', JSON.stringify([kayit, ...mevcut].slice(0,200)))
 
     return Response.json({ islendi: 1, slug: kayit.url_slug, baslik: yeni.baslik })
   } catch (e) {
