@@ -13,6 +13,7 @@ export async function onRequestGet({ request }) {
   // Güvenlik: sadece bilinen kaynaklara izin ver
   const allowed = [
     'service.1ha.com.tr',
+    'cdn.1ha.com.tr',
     '1ha.com.tr',
   ]
   const hostname = new URL(imageUrl).hostname
