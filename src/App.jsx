@@ -189,7 +189,7 @@ function TopBar({ page, notifications, showN, setShowN }) {
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────────
-function Dashboard({ haberler, setSelected, setActive }) {
+function Dashboard({ haberler, setSelected, setActive, setContent }) {
   const bek = haberler.filter(h => h.durum === 'bekliyor').length
   const isl = haberler.filter(h => h.durum === 'islendi').length
   const yay = haberler.filter(h => h.durum === 'yayinda').length
@@ -227,7 +227,10 @@ function Dashboard({ haberler, setSelected, setActive }) {
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {haberler.slice(0,6).map(h => (
-          <div key={h.id} onClick={() => { setSelected(h); setActive('yeni') }} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+          <div key={h.id} onClick={() => {
+            if (h.durum === 'islendi' && h.site_basligi) { setContent(h); setActive('isleme') }
+            else { setSelected(h); setActive('yeni') }
+          }} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
             <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.baslik}</div>
@@ -242,7 +245,7 @@ function Dashboard({ haberler, setSelected, setActive }) {
 }
 
 // ── HABERLER ───────────────────────────────────────────────────────────────
-function Haberler({ haberler, setSelected, setActive }) {
+function Haberler({ haberler, setSelected, setActive, setContent }) {
   const [filter, setFilter] = useState('hepsi')
   const list = filter === 'hepsi' ? haberler : haberler.filter(h => h.durum === filter)
   return (
@@ -264,7 +267,7 @@ function Haberler({ haberler, setSelected, setActive }) {
           <div key={h.id} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
             <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.baslik}</div>
+              <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.site_basligi || h.baslik}</div>
               <div style={{ display:'flex', gap:8, alignItems:'center' }}><KatBadge k={h.kategori} /><span style={{ fontSize:11, color:'var(--muted)' }}>{h.tarih} · 1ha.com.tr</span></div>
             </div>
             <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
@@ -272,6 +275,11 @@ function Haberler({ haberler, setSelected, setActive }) {
               {h.durum === 'bekliyor' && (
                 <button onClick={() => { setSelected(h); setActive('yeni') }} style={{ background:'rgba(230,57,70,0.15)', color:'#ff7b7b', border:'0.5px solid rgba(230,57,70,0.3)', fontWeight:500, fontSize:12 }}>
                   <Ic n="bolt" size={13} /> İşle
+                </button>
+              )}
+              {h.durum === 'islendi' && h.site_basligi && (
+                <button onClick={() => { setContent(h); setActive('isleme') }} style={{ background:'rgba(0,212,170,0.1)', color:'#00D4AA', border:'0.5px solid rgba(0,212,170,0.3)', fontWeight:500, fontSize:12 }}>
+                  <Ic n="eye" size={13} /> Detay
                 </button>
               )}
             </div>
@@ -736,8 +744,8 @@ export default function App() {
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <TopBar page={active} notifications={notifs} showN={showN} setShowN={setShowN} />
         <div style={{ flex:1, overflow:'auto' }}>
-          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} />}
-          {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} />}
+          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
+          {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
           {active === 'yeni'      && <YeniHaber selected={selected} setSelected={setSelected} onProcess={process} processing={processing} />}
           {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} selectedHaber={selected} />}
           {active === 'ayarlar'   && <Ayarlar />}
