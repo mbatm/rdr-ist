@@ -230,7 +230,7 @@ export default function GorselEditor({ onKapat }) {
     canvas.height = fmt.h * DPR
     const ctx = canvas.getContext('2d')
     ctx.scale(DPR,DPR)
-    const ornek = { sosyal_baslik:'Kayseri OSB'de trafik kazası: 3 yaralı', ozet:'Olay yerine gelen ekipler yaralıları hastaneye kaldırdı.', kategori:'Asayiş', tarih:'21.05.2026' }
+    const ornek = { sosyal_baslik:'Kayseri OSBde trafik kazasi: 3 yarali', ozet:'Olay yerine gelen ekipler yaralilari hastaneye kaldirdi.', kategori:'Asayis', tarih:'21.05.2026' }
     await renderSablon(ctx,{ w:fmt.w, h:fmt.h, bgImg:null, sablon, data:ornek })
     setOnizleme(canvas.toDataURL('image/jpeg',0.85))
   },[sablon,format,fmt])
