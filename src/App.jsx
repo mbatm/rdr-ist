@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import GorselSablon from './GorselSablon.jsx'
+import GorselEditor from './GorselEditor.jsx'
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const MOCK = [
@@ -97,6 +98,7 @@ function Sidebar({ active, setActive, user, onLogout, bekCnt }) {
     { id:'haberler',  ic:'rss',              l:'1ha akışı', badge: bekCnt },
     { id:'yeni',      ic:'pencil',           l:'Yeni haber' },
     { id:'isleme',    ic:'bolt',             l:'İşleme sonucu' },
+    { id:'editor',    ic:'vector-bezier-2',  l:'Şablon Editörü' },
     { id:'ayarlar',   ic:'settings',         l:'Ayarlar' },
   ]
   return (
@@ -372,7 +374,105 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
   )
 }
 
-// ── İŞLEME SONUCU ─────────────────────────────────────────────────────────
+// ── CANVA TASARIM BİLEŞENİ ────────────────────────────────────────────────
+function CanvaTasarim({ content, selectedHaber }) {
+  const [templateId, setTemplateId] = useState('')
+  const [yukleniyor, setYukleniyor] = useState(false)
+  const [sonuc,      setSonuc]      = useState(null)
+  const [hata,       setHata]       = useState(null)
+
+  const olustur = async () => {
+    if (!templateId.trim()) { alert('Template ID girin'); return }
+    setYukleniyor(true); setSonuc(null); setHata(null)
+    try {
+      const res = await fetch('/api/canva-tasarim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateId: templateId.trim(),
+          baslik:       content?.site_basligi || '',
+          sosyal_baslik: content?.sosyal_baslik || content?.site_basligi || '',
+          kategori:     content?.kategori || '',
+          tarih:        selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR'),
+          gorsel_url:   selectedHaber?.gorsel || '',
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data)
+    } catch (e) { setHata(e.message) }
+    setYukleniyor(false)
+  }
+
+  return (
+    <div style={{ marginBottom:'0.875rem' }}>
+      {/* Bağlantı kontrolü */}
+      <div style={{ display:'flex', gap:8, marginBottom:10, alignItems:'center' }}>
+        <a href="/api/canva-auth" target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+          <button style={{ fontSize:12, background:'rgba(120,80,255,0.12)', border:'0.5px solid rgba(120,80,255,0.3)', color:'#a89cff' }}>
+            <Ic n="brand-canva" size={13}/> Canva Bağlantısını Yenile
+          </button>
+        </a>
+        <span style={{ fontSize:11, color:'var(--muted)' }}>— İlk kez veya token süresi dolduysa</span>
+      </div>
+
+      {/* Template ID */}
+      <div style={{ fontSize:11, color:'var(--muted)', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.07em' }}>
+        Canva Brand Template ID
+      </div>
+      <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+        <input
+          value={templateId}
+          onChange={e => setTemplateId(e.target.value)}
+          placeholder="Canva'dan template ID (örn: DAGBxxxxxx)"
+          style={{ flex:1, fontSize:13 }}
+        />
+        <button onClick={olustur} disabled={yukleniyor}
+          style={{ fontWeight:500, background:'rgba(120,80,255,0.15)', border:'0.5px solid rgba(120,80,255,0.35)', color:'#a89cff', whiteSpace:'nowrap' }}>
+          <Ic n={yukleniyor ? 'loader-2' : 'brand-canva'} size={15}/>
+          {yukleniyor ? 'Oluşturuluyor…' : 'Canva\'da Oluştur'}
+        </button>
+      </div>
+
+      {/* Hata */}
+      {hata && (
+        <div style={{ background:'rgba(230,57,70,0.08)', border:'0.5px solid rgba(230,57,70,0.3)', borderRadius:'var(--radius-md)', padding:'9px 12px', fontSize:12, color:'rgba(230,57,70,0.9)', marginBottom:8 }}>
+          <Ic n="alert-circle" size={13}/> {hata}
+        </div>
+      )}
+
+      {/* Sonuç */}
+      {sonuc && (
+        <div style={{ background:'rgba(0,212,170,0.08)', border:'0.5px solid rgba(0,212,170,0.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+          <Ic n="check" size={16} style={{ color:'#00D4AA' }}/>
+          <span style={{ fontSize:13, color:'#00D4AA', fontWeight:500 }}>Tasarım hazır!</span>
+          {sonuc.editUrl && (
+            <a href={sonuc.editUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <button style={{ fontSize:12, background:'rgba(0,212,170,0.12)', border:'0.5px solid rgba(0,212,170,0.3)', color:'#00D4AA' }}>
+                <Ic n="edit" size={12}/> Canva'da Düzenle
+              </button>
+            </a>
+          )}
+          {sonuc.viewUrl && (
+            <a href={sonuc.viewUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <button style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+                <Ic n="eye" size={12}/> Görüntüle
+              </button>
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Yardım */}
+      <div style={{ fontSize:11, color:'var(--muted)', marginTop:8, lineHeight:1.6 }}>
+        Template ID: Canva'da şablonunuzu açın → Paylaş → Brand template → ID kısmından kopyalayın.<br/>
+        Şablondaki metin alanlarını <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>baslik</code>, <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>kategori</code>, <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>tarih</code> olarak adlandırın.
+      </div>
+    </div>
+  )
+}
+
+
 function Isleme({ content, processing, error, selectedHaber }) {
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(null)
@@ -542,7 +642,9 @@ function Isleme({ content, processing, error, selectedHaber }) {
         </>
       )}
 
-      {/* ── SOSYAL MEDYA GÖRSELİ ── */}
+      {/* ── CANVA TASARIM ── */}
+      <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />
+      <CanvaTasarim content={content} selectedHaber={selectedHaber} />
       <Divider label="Sosyal medya görseli" ic="photo" />
       <GorselSablon
         gorselUrl={selectedHaber?.gorsel || ''}
@@ -784,6 +886,7 @@ export default function App() {
           {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
           {active === 'yeni'      && <YeniHaber selected={selected} setSelected={setSelected} onProcess={process} processing={processing} />}
           {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} selectedHaber={selected} />}
+          {active === 'editor'    && <GorselEditor onKapat={() => setActive('isleme')} />}
           {active === 'ayarlar'   && <Ayarlar />}
         </div>
       </div>
