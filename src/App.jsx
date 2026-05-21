@@ -231,7 +231,13 @@ function Dashboard({ haberler, setSelected, setActive, setContent }) {
             if (h.durum === 'islendi' && h.site_basligi) { setContent(h); setActive('isleme') }
             else { setSelected(h); setActive('yeni') }
           }} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-            <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            {h.video && !h.gorsel ? (
+              <div style={{ width:52, height:36, borderRadius:5, flexShrink:0, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Ic n="player-play" size={16} style={{ color:'#ff7b7b' }} />
+              </div>
+            ) : (
+              <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            )}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.baslik}</div>
               <div style={{ display:'flex', gap:8, alignItems:'center' }}><KatBadge k={h.kategori} /><span style={{ fontSize:11, color:'var(--muted)' }}>{h.tarih}</span></div>
@@ -265,7 +271,13 @@ function Haberler({ haberler, setSelected, setActive, setContent }) {
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {list.map(h => (
           <div key={h.id} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
-            <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            {h.video && !h.gorsel ? (
+              <div style={{ width:56, height:38, borderRadius:5, flexShrink:0, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Ic n="player-play" size={18} style={{ color:'#ff7b7b' }} />
+              </div>
+            ) : (
+              <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            )}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.site_basligi || h.baslik}</div>
               <div style={{ display:'flex', gap:8, alignItems:'center' }}><KatBadge k={h.kategori} /><span style={{ fontSize:11, color:'var(--muted)' }}>{h.tarih} · 1ha.com.tr</span></div>
@@ -505,6 +517,30 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Divider label="YouTube" ic="brand-youtube" />
       <Field label="Video başlığı" value={content.youtube_baslik||''} field="yt_t" />
       <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
+
+      {/* ── VİDEO ── */}
+      {selectedHaber?.video && (
+        <>
+          <Divider label="Video" ic="video" />
+          <div style={{ marginBottom:'0.875rem' }}>
+            <video
+              src={`/api/gorsel-proxy?url=${encodeURIComponent(selectedHaber.video)}`}
+              controls
+              style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', maxHeight:300, background:'#000' }}
+            />
+            <div style={{ marginTop:6, display:'flex', gap:6 }}>
+              <a href={selectedHaber.video} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+                <button style={{ fontSize:12, background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA' }}>
+                  <Ic n="external-link" size={12} /> 1ha'da aç
+                </button>
+              </a>
+              <button onClick={() => navigator.clipboard?.writeText(selectedHaber.video)} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+                <Ic n="copy" size={12} /> URL Kopyala
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── SOSYAL MEDYA GÖRSELİ ── */}
       <Divider label="Sosyal medya görseli" ic="photo" />
