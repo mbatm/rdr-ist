@@ -260,10 +260,13 @@ function Dashboard({ haberler, setSelected, setActive, setContent, onYenile }) {
 // ── HABERLER ───────────────────────────────────────────────────────────────
 function Haberler({ haberler, setSelected, setActive, setContent }) {
   const [filter, setFilter] = useState('hepsi')
-  const list = filter === 'hepsi' ? haberler : haberler.filter(h => h.durum === filter)
+  const [arama, setArama]   = useState('')
+  const list = haberler
+    .filter(h => filter === 'hepsi' || h.durum === filter)
+    .filter(h => !arama || h.baslik?.toLowerCase().includes(arama.toLowerCase()) || h.site_basligi?.toLowerCase().includes(arama.toLowerCase()))
   return (
     <div style={{ padding:'1.25rem', overflowY:'auto' }}>
-      <div style={{ display:'flex', gap:6, marginBottom:'1rem', flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:6, marginBottom:'0.75rem', flexWrap:'wrap' }}>
         {['hepsi','bekliyor','islendi','yayinda'].map(f => {
           const cnt = f === 'hepsi' ? haberler.length : haberler.filter(h => h.durum === f).length
           const on = filter === f
@@ -275,6 +278,12 @@ function Haberler({ haberler, setSelected, setActive, setContent }) {
           )
         })}
       </div>
+      <input
+        value={arama}
+        onChange={e => setArama(e.target.value)}
+        placeholder="Haber ara…"
+        style={{ width:'100%', fontSize:13, marginBottom:'0.75rem', boxSizing:'border-box' }}
+      />
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {list.map(h => (
           <div key={h.id} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
