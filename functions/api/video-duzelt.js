@@ -32,10 +32,18 @@ export async function onRequestGet({ env }) {
     let guncellenen = 0
     for (const vh of videoHaberler) {
       const idx = liste.findIndex(h => h.source_id === vh.id)
-      if (idx !== -1 && !liste[idx].video) {
+      if (idx !== -1) {
+      // video alanı boşsa doldur
+      if (!liste[idx].video) {
         liste[idx].video = vh.url
-        liste[idx].gorsel_url = liste[idx].gorsel_url || ''
         guncellenen++
+      }
+      // gorsel alanı mp4 ise temizle
+      if (liste[idx].gorsel?.match(/\.mp4|\.mov|\.webm/i)) {
+        liste[idx].gorsel     = ''
+        liste[idx].gorsel_url = ''
+        if (!liste[idx].video) guncellenen++
+      }
       } else if (idx === -1) {
         // KV'de yok — source_id'yi sil ki oto-isle yeniden işlesin
         // (yeni haber olarak gelecek)
