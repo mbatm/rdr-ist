@@ -230,15 +230,15 @@ function Dashboard({ haberler, setSelected, setActive, setContent }) {
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {haberler.slice(0,6).map(h => (
           <div key={h.id} onClick={() => {
-            if (h.durum === 'islendi' && h.site_basligi) { setContent(h); setActive('isleme') }
+            if (h.durum === 'islendi' && h.site_basligi) { setContent(h); setSelected(h); setActive('isleme') }
             else { setSelected(h); setActive('yeni') }
           }} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-            {h.video && !h.gorsel ? (
+            {h.video && !h.gorsel_url && !h.gorsel ? (
               <div style={{ width:52, height:36, borderRadius:5, flexShrink:0, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <Ic n="player-play" size={16} style={{ color:'#ff7b7b' }} />
               </div>
             ) : (
-              <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+              <img src={h.gorsel_url || h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
             )}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.baslik}</div>
@@ -273,12 +273,12 @@ function Haberler({ haberler, setSelected, setActive, setContent }) {
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {list.map(h => (
           <div key={h.id} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
-            {h.video && !h.gorsel ? (
+            {h.video && !h.gorsel_url && !h.gorsel ? (
               <div style={{ width:56, height:38, borderRadius:5, flexShrink:0, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <Ic n="player-play" size={18} style={{ color:'#ff7b7b' }} />
               </div>
             ) : (
-              <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+              <img src={h.gorsel_url || h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
             )}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.site_basligi || h.baslik}</div>
@@ -292,7 +292,7 @@ function Haberler({ haberler, setSelected, setActive, setContent }) {
                 </button>
               )}
               {h.durum === 'islendi' && h.site_basligi && (
-                <button onClick={() => { setContent(h); setActive('isleme') }} style={{ background:'rgba(0,212,170,0.1)', color:'#00D4AA', border:'0.5px solid rgba(0,212,170,0.3)', fontWeight:500, fontSize:12 }}>
+                <button onClick={() => { setContent(h); setSelected(h); setActive('isleme') }} style={{ background:'rgba(0,212,170,0.1)', color:'#00D4AA', border:'0.5px solid rgba(0,212,170,0.3)', fontWeight:500, fontSize:12 }}>
                   <Ic n="eye" size={13} /> Detay
                 </button>
               )}
@@ -619,12 +619,13 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
 
       {/* ── VİDEO ── */}
-      {selectedHaber?.video && (
+      {(selectedHaber?.video) && (
         <>
           <Divider label="Video" ic="video" />
           <div style={{ marginBottom:'0.875rem' }}>
             <video
-              src={`/api/gorsel-proxy?url=${encodeURIComponent(selectedHaber.video)}`}
+              key={selectedHaber.video}
+              src={selectedHaber.video}
               controls
               style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', maxHeight:300, background:'#000' }}
             />
@@ -647,8 +648,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <CanvaTasarim content={content} selectedHaber={selectedHaber} />
       <Divider label="Sosyal medya görseli" ic="photo" />
       <GorselSablon
-        gorselUrl={selectedHaber?.gorsel || ''}
-        baslik={content.site_basligi || content.baslik || ''}
+        gorselUrl={selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''}
+        baslik={content.sosyal_baslik || content.site_basligi || content.baslik || ''}
         spotBaslik={content.h1_basligi || ''}
         kategori={content.kategori || 'Genel'}
         tarih={selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR')}

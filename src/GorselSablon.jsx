@@ -163,6 +163,9 @@ export default function GorselSablon({ gorselUrl, baslik, spotBaslik, kategori, 
     Promise.all([load(ICON_SRC),load(BEYAZ_SRC)]).then(([icon,logo])=>setLogos({icon,logo}))
   },[])
 
+  // gorselUrl değişince önizlemeyi sıfırla
+  useEffect(()=>{ setPreview(null); setError(null) },[gorselUrl])
+
   const render = useCallback(async (fmt=format)=>{
     if (!gorselUrl) return
     setRend(true); setError(null); setPreview(null)
