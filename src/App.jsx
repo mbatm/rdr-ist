@@ -619,29 +619,33 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
 
       {/* ── VİDEO ── */}
-      {(selectedHaber?.video) && (
-        <>
-          <Divider label="Video" ic="video" />
-          <div style={{ marginBottom:'0.875rem' }}>
-            <video
-              key={selectedHaber.video}
-              src={selectedHaber.video}
-              controls
-              style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', maxHeight:300, background:'#000' }}
-            />
-            <div style={{ marginTop:6, display:'flex', gap:6 }}>
-              <a href={selectedHaber.video} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
-                <button style={{ fontSize:12, background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA' }}>
-                  <Ic n="external-link" size={12} /> 1ha'da aç
+      {(() => {
+        const videoUrl = selectedHaber?.video || content?.video || ''
+        if (!videoUrl) return null
+        return (
+          <>
+            <Divider label="Video" ic="video" />
+            <div style={{ marginBottom:'0.875rem' }}>
+              <video
+                key={videoUrl}
+                src={videoUrl}
+                controls
+                style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', maxHeight:300, background:'#000' }}
+              />
+              <div style={{ marginTop:6, display:'flex', gap:6 }}>
+                <a href={videoUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+                  <button style={{ fontSize:12, background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA' }}>
+                    <Ic n="external-link" size={12} /> 1ha'da aç
+                  </button>
+                </a>
+                <button onClick={() => navigator.clipboard?.writeText(videoUrl)} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+                  <Ic n="copy" size={12} /> URL Kopyala
                 </button>
-              </a>
-              <button onClick={() => navigator.clipboard?.writeText(selectedHaber.video)} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
-                <Ic n="copy" size={12} /> URL Kopyala
-              </button>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )
+      })()}
 
       {/* ── CANVA TASARIM ── */}
       <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />

@@ -202,8 +202,28 @@ export default function GorselSablon({ gorselUrl, baslik, spotBaslik, kategori, 
   }
 
   if (!gorselUrl) return (
-    <div style={{padding:'0.875rem',background:'rgba(255,255,255,.04)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',fontSize:13,color:'var(--muted)',textAlign:'center'}}>
-      Haber görseli bulunamadı
+    <div style={{marginBottom:'0.875rem'}}>
+      <div style={{padding:'10px 12px',background:'rgba(255,255,255,.04)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',fontSize:12,color:'var(--muted)',marginBottom:8}}>
+        <Ic n="photo-off" size={13}/> Haberde görsel bulunamadı — şablon varsayılan gradyan arka planla oluşturulacak
+      </div>
+      <button onClick={()=>render()}  disabled={rendering}
+        style={{fontWeight:500,background:'rgba(230,57,70,.15)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',marginBottom:'1rem'}}>
+        <Ic n={rendering?'loader-2':'photo'} size={15}/>
+        {rendering?'Sablon uygulanıyor…':'Gradyan Arka Planla Oluştur'}
+      </button>
+      {error && <div style={{background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',padding:'9px 12px',fontSize:12,color:'rgba(230,57,70,.9)',marginBottom:'0.875rem'}}>
+        <Ic n="alert-circle" size={13}/> {error}
+      </div>}
+      {preview && <div>
+        <img src={preview} alt="Onizleme" style={{width:'100%',borderRadius:'var(--radius-md)',border:'0.5px solid var(--border)',display:'block',marginBottom:'0.75rem'}}/>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {FORMATS.map(f=>(<button key={f.id} onClick={()=>download(f.id)}
+            style={{fontSize:12,background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+            <Ic n="download" size={13}/>{f.label} PNG
+          </button>))}
+        </div>
+      </div>}
+      <canvas ref={canvasRef} style={{display:'none'}}/>
     </div>
   )
 
