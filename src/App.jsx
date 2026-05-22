@@ -618,6 +618,14 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Field label="Video başlığı" value={content.youtube_baslik||''} field="yt_t" />
       <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
 
+      {/* ── DEBUG ── */}
+      <div style={{ background:'rgba(255,255,0,0.05)', border:'0.5px solid rgba(255,255,0,0.2)', borderRadius:'var(--radius-md)', padding:'8px 12px', marginBottom:'0.875rem', fontSize:11, fontFamily:'var(--mono)', color:'var(--muted)' }}>
+        <div>gorsel: {selectedHaber?.gorsel || '(boş)'}</div>
+        <div>gorsel_url: {selectedHaber?.gorsel_url || '(boş)'}</div>
+        <div>video: {selectedHaber?.video || '(boş)'}</div>
+        <div>content.video: {content?.video || '(boş)'}</div>
+      </div>
+
       {/* ── VİDEO ── */}
       {(() => {
         const videoUrl = selectedHaber?.video || content?.video || ''
