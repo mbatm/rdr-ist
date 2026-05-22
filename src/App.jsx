@@ -191,7 +191,7 @@ function TopBar({ page, notifications, showN, setShowN }) {
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────────
-function Dashboard({ haberler, setSelected, setActive, setContent }) {
+function Dashboard({ haberler, setSelected, setActive, setContent, onYenile }) {
   const bek = haberler.filter(h => h.durum === 'bekliyor').length
   const isl = haberler.filter(h => h.durum === 'islendi').length
   const yay = haberler.filter(h => h.durum === 'yayinda').length
@@ -223,9 +223,14 @@ function Dashboard({ haberler, setSelected, setActive, setContent }) {
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
         <div style={{ fontSize:14, fontWeight:500 }}>Son haberler</div>
-        <button onClick={() => setActive('haberler')} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
-          <Ic n="arrow-right" size={12} /> Tümünü gör
-        </button>
+        <div style={{ display:'flex', gap:6 }}>
+          <button onClick={onYenile} style={{ fontSize:12, color:'#00D4AA', background:'rgba(0,212,170,0.08)', border:'0.5px solid rgba(0,212,170,0.25)' }}>
+            <Ic n="refresh" size={12} /> Yenile & İşle
+          </button>
+          <button onClick={() => setActive('haberler')} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+            <Ic n="arrow-right" size={12} /> Tümünü gör
+          </button>
+        </div>
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {haberler.slice(0,6).map(h => (
@@ -742,6 +747,64 @@ export default function App() {
     setNotifs(prev => [{ id: Date.now(), text, type, time: 'az önce' }, ...prev.slice(0, 6)])
   }, [])
 
+  // ── YENİLE: RSS + oto-isle tetikle ──────────────────────────────────────
+  const yenile = useCallback(async () => {
+    addNotif('Yenileniyor…', 'info')
+    try {
+      // 1. Oto-isle tetikle (cron ile aynı iş)
+      const otoRes  = await fetch('/api/oto-isle')
+      const otoData = await otoRes.json()
+      if (otoData.islendi > 0) addNotif(`${otoData.islendi} yeni haber işlendi ✓`, 'success')
+
+      // 2. KV + RSS yeniden çek
+      const kvRes   = await fetch('/api/haberler')
+      const kvListe = kvRes.ok ? await kvRes.json() : []
+      const kvMap   = new Map(kvListe.map(h => [h.source_id, h]))
+
+      const rssRes  = await fetch('/api/rss')
+      if (!rssRes.ok) throw new Error('RSS alınamadı')
+      const xml     = await rssRes.text()
+      const parser  = new DOMParser()
+      const doc     = parser.parseFromString(xml, 'text/xml')
+      const items   = doc.querySelectorAll('item')
+
+      const rssHaberler = Array.from(items).slice(0, 30).map((item, i) => {
+        const enc      = item.querySelector('enclosure')
+        const dt       = item.querySelector('pubDate')?.textContent
+        const link     = item.querySelector('link')?.textContent?.trim() || ''
+        const enc_type = enc?.getAttribute('type') || ''
+        const enc_url  = enc?.getAttribute('url') || ''
+        const sourceId = link.split('/').pop() || link
+        const kvHaber  = kvMap.get(sourceId)
+        const rssGorsel = enc_type.startsWith('video/') ? '' : enc_url
+        const rssVideo  = enc_type.startsWith('video/') ? enc_url : ''
+        const base = {
+          id: i + 100, source_id: sourceId,
+          baslik: item.querySelector('title')?.textContent?.trim() || '',
+          icerik: item.querySelector('description')?.textContent?.replace(/<[^>]*>/g,'').trim() || '',
+          gorsel: rssGorsel, video: rssVideo,
+          kategori: item.querySelector('category')?.textContent?.trim() || 'Genel',
+          tarih: dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
+          durum: kvHaber ? 'islendi' : 'bekliyor',
+          ...(kvHaber || {}),
+        }
+        if (!base.gorsel)     base.gorsel     = rssGorsel
+        if (!base.gorsel_url) base.gorsel_url = base.gorsel
+        if (!base.video)      base.video      = rssVideo
+        return base
+      }).filter(h => h.baslik.length > 5)
+
+      const rssIds  = new Set(rssHaberler.map(h => h.source_id))
+      const eskiler = kvListe.filter(h => h.source_id && !rssIds.has(h.source_id))
+        .slice(0, 20).map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
+
+      const tumHaberler = [...eskiler, ...rssHaberler]
+      tumHaberler.sort((a, b) => new Date(b.tarih_iso || b.tarih || 0) - new Date(a.tarih_iso || a.tarih || 0))
+      setHaberler(tumHaberler)
+      addNotif(`${tumHaberler.length} haber güncellendi`, 'success')
+    } catch (e) { addNotif('Yenileme hatası: ' + e.message, 'warning') }
+  }, [addNotif])
+
   // Giriş sonrası: KV + RSS birleştir, işlendi durumunu koru
   useEffect(() => {
     if (page !== 'app') return
@@ -896,7 +959,7 @@ export default function App() {
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <TopBar page={active} notifications={notifs} showN={showN} setShowN={setShowN} />
         <div style={{ flex:1, overflow:'auto' }}>
-          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
+          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} onYenile={yenile} />}
           {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
           {active === 'yeni'      && <YeniHaber selected={selected} setSelected={setSelected} onProcess={process} processing={processing} />}
           {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} selectedHaber={selected} />}
