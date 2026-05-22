@@ -104,13 +104,32 @@ function parseRSS(xml) {
     const icerik = node.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
     const kat  = node.match(/<category>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/category>/)?.[1]?.trim() || 'Genel'
     const dt   = node.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() || ''
-    const encUrl  = node.match(/<enclosure[^>]*\burl="([^"]*)"/)?.[1] || ''
-    const encType = node.match(/<enclosure[^>]*\btype="([^"]*)"/)?.[1] || ''
+
+    // Tüm enclosure etiketlerini tara (birden fazla olabilir)
     let gorsel = '', video = ''
-    if (encUrl) {
-      if (encType.startsWith('video/') || /\.mp4|\.mov|\.webm/i.test(encUrl)) video = encUrl
-      else gorsel = encUrl
+    for (const enc of node.matchAll(/<enclosure[^>]*/g)) {
+      const eUrl  = enc[0].match(/\burl="([^"]*)"/)?.[1] || ''
+      const eType = enc[0].match(/\btype="([^"]*)"/)?.[1] || ''
+      if (!eUrl) continue
+      if (eType.startsWith('video/') || /\.mp4|\.mov|\.webm/i.test(eUrl)) {
+        if (!video) video = eUrl
+      } else {
+        if (!gorsel) gorsel = eUrl
+      }
     }
+
+    // media:content'i de tara (bazı RSS'lerde buradan gelir)
+    for (const mc of node.matchAll(/<media:content[^>]*/g)) {
+      const mcUrl    = mc[0].match(/\burl="([^"]*)"/)?.[1] || ''
+      const mcType   = mc[0].match(/\btype="([^"]*)"/)?.[1] || ''
+      const mcMedium = mc[0].match(/\bmedium="([^"]*)"/)?.[1] || ''
+      if (!mcUrl) continue
+      const isVid = mcType.startsWith('video/') || mcMedium === 'video' || /\.mp4|\.mov|\.webm/i.test(mcUrl)
+      if (isVid && !video) video = mcUrl
+      else if (!isVid && !gorsel) gorsel = mcUrl
+    }
+
+    // Son çare: description içindeki img
     if (!gorsel && !video) gorsel = node.match(/<img[^>]*src="([^"]*)"/)?.[ 1] || ''
     if (bas.length > 5) items.push({ source_id:id, source_url:link, baslik:bas, icerik, gorsel, video, kategori:kat, tarih_iso: new Date(dt||Date.now()).toISOString() })
   }

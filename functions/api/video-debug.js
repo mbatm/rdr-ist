@@ -10,21 +10,35 @@ export async function onRequestGet({ env }) {
     const bas     = node.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1]?.replace(/<[^>]*>/g,'').trim().slice(0,60) || ''
     
     const encRaw  = node.match(/<enclosure[^>]*/)?.[0] || 'YOK'
-    const encUrl  = node.match(/<enclosure[^>]*\burl="([^"]*)"/)?.[1] || ''
-    const encType = node.match(/<enclosure[^>]*\btype="([^"]*)"/)?.[1] || ''
-    const mediaContent = [...node.matchAll(/<media:content[^>]*/g)].map(m=>m[0].slice(0,120))
-    const isVideo = encType.startsWith('video/') || /\.mp4|\.mov|\.webm/i.test(encUrl)
+    let gorsel = '', video = ''
+    for (const enc of node.matchAll(/<enclosure[^>]*/g)) {
+      const eUrl  = enc[0].match(/\burl="([^"]*)"/)?.[1] || ''
+      const eType = enc[0].match(/\btype="([^"]*)"/)?.[1] || ''
+      if (!eUrl) continue
+      if (eType.startsWith('video/') || /\.mp4|\.mov|\.webm/i.test(eUrl)) { if (!video) video = eUrl }
+      else { if (!gorsel) gorsel = eUrl }
+    }
+    for (const mc of node.matchAll(/<media:content[^>]*/g)) {
+      const mcUrl = mc[0].match(/\burl="([^"]*)"/)?.[1] || ''
+      const mcType = mc[0].match(/\btype="([^"]*)"/)?.[1] || ''
+      const mcMedium = mc[0].match(/\bmedium="([^"]*)"/)?.[1] || ''
+      if (!mcUrl) continue
+      const isVid = mcType.startsWith('video/') || mcMedium === 'video' || /\.mp4|\.mov|\.webm/i.test(mcUrl)
+      if (isVid && !video) video = mcUrl
+      else if (!isVid && !gorsel) gorsel = mcUrl
+    }
+    const isVideo = !!video
+    const mediaContent = [...node.matchAll(/<media:content[^>]*/g)].map(m=>m[0].slice(0,150))
 
     sonuclar.push({
       baslik: bas,
       source_id: link.split('/').pop(),
       encRaw: encRaw.slice(0, 120),
-      encUrl: encUrl.slice(0, 80),
-      encType,
+      gorsel: gorsel.slice(0, 80),
+      video: video.slice(0, 80),
       isVideo,
       mediaContent,
-      // "deneme" için tam raw node
-      rawNode: bas.toLowerCase().includes('deneme') ? node.slice(0,800) : undefined
+      rawNode: bas.toLowerCase().includes('deneme') ? node.slice(0,1000) : undefined
     })
   }
 
