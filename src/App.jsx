@@ -805,7 +805,7 @@ export default function App() {
 
       const rssIds  = new Set(rssHaberler.map(h => h.source_id))
       const eskiler = kvListe.filter(h => h.source_id && !rssIds.has(h.source_id))
-        .slice(0, 20).map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
+        .slice(0, 100).map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
 
       const tumHaberler = [...eskiler, ...rssHaberler]
       tumHaberler.sort((a, b) => new Date(b.tarih_iso || b.tarih || 0) - new Date(a.tarih_iso || a.tarih || 0))
@@ -871,7 +871,7 @@ export default function App() {
         const rssIds  = new Set(rssHaberler.map(h => h.source_id))
         const eskiler = kvListe
           .filter(h => h.source_id && !rssIds.has(h.source_id))
-          .slice(0, 20)
+          .slice(0, 100)
           .map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
 
         const tumHaberler = [...eskiler, ...rssHaberler]
