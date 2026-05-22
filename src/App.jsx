@@ -585,13 +585,6 @@ function Isleme({ content, processing, error, selectedHaber }) {
       </div>
 
       <Divider label="SEO & web içeriği" ic="world" />
-      {/* ── DEBUG ── */}
-      <div style={{ background:'rgba(255,255,0,0.05)', border:'0.5px solid rgba(255,255,0,0.2)', borderRadius:'var(--radius-md)', padding:'8px 12px', marginBottom:'0.875rem', fontSize:11, fontFamily:'var(--mono)', color:'var(--muted)' }}>
-        <div>gorsel: {selectedHaber?.gorsel || '(boş)'}</div>
-        <div>gorsel_url: {selectedHaber?.gorsel_url || '(boş)'}</div>
-        <div>video: {selectedHaber?.video || '(boş)'}</div>
-        <div>content.video: {content?.video || '(boş)'}</div>
-      </div>
       <Field label="Site başlığı (SEO)" value={content.site_basligi||''} field="site" />
       <Field label="H1 başlığı" value={content.h1_basligi||''} field="h1" />
       <Field label="Meta description" value={content.meta_description||''} field="meta" />
