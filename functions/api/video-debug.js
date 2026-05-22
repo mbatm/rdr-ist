@@ -9,10 +9,10 @@ export async function onRequestGet({ env }) {
     const link    = node.match(/<link>(.*?)<\/link>/)?.[1]?.trim() || ''
     const bas     = node.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1]?.replace(/<[^>]*>/g,'').trim().slice(0,60) || ''
     
-    // Ham enclosure etiketini çek
     const encRaw  = node.match(/<enclosure[^>]*/)?.[0] || 'YOK'
     const encUrl  = node.match(/<enclosure[^>]*\burl="([^"]*)"/)?.[1] || ''
     const encType = node.match(/<enclosure[^>]*\btype="([^"]*)"/)?.[1] || ''
+    const mediaContent = [...node.matchAll(/<media:content[^>]*/g)].map(m=>m[0].slice(0,120))
     const isVideo = encType.startsWith('video/') || /\.mp4|\.mov|\.webm/i.test(encUrl)
 
     sonuclar.push({
@@ -21,7 +21,10 @@ export async function onRequestGet({ env }) {
       encRaw: encRaw.slice(0, 120),
       encUrl: encUrl.slice(0, 80),
       encType,
-      isVideo
+      isVideo,
+      mediaContent,
+      // "deneme" için tam raw node
+      rawNode: bas.toLowerCase().includes('deneme') ? node.slice(0,800) : undefined
     })
   }
 
