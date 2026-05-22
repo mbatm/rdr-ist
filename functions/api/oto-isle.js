@@ -24,8 +24,18 @@ const STRATEJI_FALLBACK = {
 }
 
 function buildPrompt(haber, strateji) {
-  const kat = haber.kategori || 'Güncel'
-  const katKw = (strateji.kategori[kat] || strateji.kategori['default']).join(', ')
+  const kat    = haber.kategori || 'Güncel'
+  const katKw  = (strateji.kategori[kat] || strateji.kategori['default']).join(', ')
+  const isVideo = !!haber.video
+
+  const videoNot = isVideo ? `
+
+## VİDEO HABER NOTU
+Bu haber bir VIDEO içermektedir. İçerik hazırlanırken:
+- "Haberi izlemek için tıklayın", "Videolu haber" gibi ifadeler kullan
+- YouTube içeriğine özellikle önem ver
+- Instagram için "Reels" formatına uygun kısa metin yaz
+- gorsel_prompt: video thumbnail tasarımı için açıklama yaz` : ''
 
   return `Sen kayserim.net için kıdemli SEO editörüsün. Hedef: günlük 60.000 ziyaretçi.
 
@@ -54,6 +64,7 @@ function buildPrompt(haber, strateji) {
 Başlık: ${haber.baslik.slice(0,200)}
 Özet: ${haber.icerik.slice(0,300)}
 Kategori: ${kat}
+${isVideo ? 'İçerik Tipi: VİDEO HABER — sosyal medya metinlerine "izle", "videolu haber" ekle' : ''}
 
 ## SEO STRATEJİSİ (Ahrefs verisi — hedef: günlük 60K ziyaretçi)
 Bu kategori için hedef kelimeler: ${katKw}
