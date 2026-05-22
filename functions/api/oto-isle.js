@@ -93,10 +93,14 @@ function parseRSS(xml) {
     const icerik = node.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
     const kat  = node.match(/<category>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/category>/)?.[1]?.trim() || 'Genel'
     const dt   = node.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() || ''
-    const encM = node.match(/<enclosure[^>]*url="([^"]*)"[^>]*type="([^"]*)"/)
+    const encUrl  = node.match(/<enclosure[^>]*\burl="([^"]*)"/)?.[1] || ''
+    const encType = node.match(/<enclosure[^>]*\btype="([^"]*)"/)?.[1] || ''
     let gorsel = '', video = ''
-    if (encM) { if (encM[2].startsWith('video/')) video = encM[1]; else gorsel = encM[1] }
-    if (!gorsel) gorsel = node.match(/<img[^>]*src="([^"]*)"/)?.[ 1] || ''
+    if (encUrl) {
+      if (encType.startsWith('video/') || /\.mp4|\.mov|\.webm/i.test(encUrl)) video = encUrl
+      else gorsel = encUrl
+    }
+    if (!gorsel && !video) gorsel = node.match(/<img[^>]*src="([^"]*)"/)?.[ 1] || ''
     if (bas.length > 5) items.push({ source_id:id, source_url:link, baslik:bas, icerik, gorsel, video, kategori:kat, tarih_iso: new Date(dt||Date.now()).toISOString() })
   }
   return items
