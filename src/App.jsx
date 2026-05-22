@@ -771,19 +771,28 @@ export default function App() {
           // KV'de bu haber var mı?
           const kvHaber = kvMap.get(sourceId)
 
-          return {
-            id:       i + 100,
+          const rssGorsel = enc_type.startsWith('video/') ? '' : enc_url
+          const rssVideo  = enc_type.startsWith('video/') ? enc_url : ''
+
+          const base = {
+            id:        i + 100,
             source_id: sourceId,
-            baslik:   item.querySelector('title')?.textContent?.trim() || '',
-            icerik:   item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
-            gorsel:   enc_type.startsWith('video/') ? '' : enc_url,
-            video:    enc_type.startsWith('video/') ? enc_url : '',
-            kategori: item.querySelector('category')?.textContent?.trim() || 'Genel',
-            tarih:    dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
-            durum:    kvHaber ? 'islendi' : 'bekliyor',
-            // KV'de işlendiyse SEO içeriğini de ekle
+            baslik:    item.querySelector('title')?.textContent?.trim() || '',
+            icerik:    item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
+            gorsel:    rssGorsel,
+            video:     rssVideo,
+            kategori:  item.querySelector('category')?.textContent?.trim() || 'Genel',
+            tarih:     dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
+            durum:     kvHaber ? 'islendi' : 'bekliyor',
             ...(kvHaber || {}),
           }
+
+          // KV'deki boş değerler RSS değerlerini ezmesin
+          if (!base.gorsel)     base.gorsel     = rssGorsel
+          if (!base.gorsel_url) base.gorsel_url = base.gorsel
+          if (!base.video)      base.video      = rssVideo
+
+          return base
         }).filter(h => h.baslik.length > 5)
 
         // 3. RSS'te olmayan eski KV haberlerini başa ekle
