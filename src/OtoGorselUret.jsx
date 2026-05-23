@@ -226,21 +226,24 @@ async function render(fmt, haber) {
   bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, actualTitleY + i * bLineH))
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
 
-  // Sol kırmızı şerit (başlık bloğunun yanında)
+  // Sol kırmızı şerit — tam başlık yüksekliği kadar
   const strW = Math.max(4, Math.round(w * 0.004))
   ctx.fillStyle = '#ED1C24'
-  ctx.fillRect(bm.x - strW - Math.round(w * 0.01),
-               actualTitleY - bm.fontSize * 0.85,
-               strW, bLines.length * bLineH + bm.fontSize * 0.4)
+  ctx.fillRect(
+    bm.x - strW - Math.round(w * 0.01),
+    actualTitleY - bm.fontSize * 0.82,
+    strW,
+    bLines.length * bLineH
+  )
 
-  // Spot başlık (başlığın hemen altında)
+  // Spot başlık — başlığın hemen altından
   if (spot) {
-    const spotY = actualTitleY + bLines.length * bLineH + spotF * 0.2
+    const spotY = actualTitleY + bLines.length * bLineH
     ctx.font = '400 ' + spotF + 'px "Open Sans",Arial'
     ctx.fillStyle = 'rgba(255,255,255,.88)'
     ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1
     wrapText(ctx, spot, w - sm.x - pad, maxSpotLn)
-      .forEach((ln, i) => ctx.fillText(ln, sm.x, spotY + i * spotLineH + spotF))
+      .forEach((ln, i) => ctx.fillText(ln, sm.x, spotY + spotF + i * spotLineH))
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   }
 
