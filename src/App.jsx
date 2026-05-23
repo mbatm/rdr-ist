@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import GorselSablon from './GorselSablon.jsx'
 import GorselEditor from './GorselEditor.jsx'
+import OtoGorselUret from './OtoGorselUret.jsx'
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const MOCK = [
@@ -660,6 +661,10 @@ function Isleme({ content, processing, error, selectedHaber }) {
           </>
         )
       })()}
+
+      {/* ── OTO SOSYAL MEDYA GÖRSELLERİ ── */}
+      <Divider label="Sosyal medya görselleri (otomatik)" ic="sparkles" />
+      <OtoGorselUret haber={selectedHaber} />
 
       {/* ── CANVA TASARIM ── */}
       <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />
