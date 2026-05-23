@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import GorselSablon from './GorselSablon.jsx'
+import GorselEditor from './GorselEditor.jsx'
+import OtoGorselUret from './OtoGorselUret.jsx'
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const MOCK = [
@@ -96,6 +99,7 @@ function Sidebar({ active, setActive, user, onLogout, bekCnt }) {
     { id:'haberler',  ic:'rss',              l:'1ha akışı', badge: bekCnt },
     { id:'yeni',      ic:'pencil',           l:'Yeni haber' },
     { id:'isleme',    ic:'bolt',             l:'İşleme sonucu' },
+    { id:'editor',    ic:'vector-bezier-2',  l:'Şablon Editörü' },
     { id:'ayarlar',   ic:'settings',         l:'Ayarlar' },
   ]
   return (
@@ -188,7 +192,7 @@ function TopBar({ page, notifications, showN, setShowN }) {
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────────
-function Dashboard({ haberler, setSelected, setActive }) {
+function Dashboard({ haberler, setSelected, setActive, setContent, onYenile }) {
   const bek = haberler.filter(h => h.durum === 'bekliyor').length
   const isl = haberler.filter(h => h.durum === 'islendi').length
   const yay = haberler.filter(h => h.durum === 'yayinda').length
@@ -220,14 +224,28 @@ function Dashboard({ haberler, setSelected, setActive }) {
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
         <div style={{ fontSize:14, fontWeight:500 }}>Son haberler</div>
-        <button onClick={() => setActive('haberler')} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
-          <Ic n="arrow-right" size={12} /> Tümünü gör
-        </button>
+        <div style={{ display:'flex', gap:6 }}>
+          <button onClick={onYenile} style={{ fontSize:12, color:'#00D4AA', background:'rgba(0,212,170,0.08)', border:'0.5px solid rgba(0,212,170,0.25)' }}>
+            <Ic n="refresh" size={12} /> Yenile & İşle
+          </button>
+          <button onClick={() => setActive('haberler')} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+            <Ic n="arrow-right" size={12} /> Tümünü gör
+          </button>
+        </div>
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {haberler.slice(0,6).map(h => (
-          <div key={h.id} onClick={() => { setSelected(h); setActive('yeni') }} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-            <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+          <div key={h.id} onClick={() => {
+            if (h.durum === 'islendi' && h.site_basligi) { setContent(h); setSelected(h); setActive('isleme') }
+            else { setSelected(h); setActive('yeni') }
+          }} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+            {h.video && !h.gorsel_url && !h.gorsel ? (
+              <div style={{ width:52, height:36, borderRadius:5, flexShrink:0, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Ic n="player-play" size={16} style={{ color:'#ff7b7b' }} />
+              </div>
+            ) : (
+              <img src={h.gorsel_url || h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:52, height:36, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            )}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.baslik}</div>
               <div style={{ display:'flex', gap:8, alignItems:'center' }}><KatBadge k={h.kategori} /><span style={{ fontSize:11, color:'var(--muted)' }}>{h.tarih}</span></div>
@@ -241,12 +259,15 @@ function Dashboard({ haberler, setSelected, setActive }) {
 }
 
 // ── HABERLER ───────────────────────────────────────────────────────────────
-function Haberler({ haberler, setSelected, setActive }) {
+function Haberler({ haberler, setSelected, setActive, setContent }) {
   const [filter, setFilter] = useState('hepsi')
-  const list = filter === 'hepsi' ? haberler : haberler.filter(h => h.durum === filter)
+  const [arama, setArama]   = useState('')
+  const list = haberler
+    .filter(h => filter === 'hepsi' || h.durum === filter)
+    .filter(h => !arama || h.baslik?.toLowerCase().includes(arama.toLowerCase()) || h.site_basligi?.toLowerCase().includes(arama.toLowerCase()))
   return (
     <div style={{ padding:'1.25rem', overflowY:'auto' }}>
-      <div style={{ display:'flex', gap:6, marginBottom:'1rem', flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:6, marginBottom:'0.75rem', flexWrap:'wrap' }}>
         {['hepsi','bekliyor','islendi','yayinda'].map(f => {
           const cnt = f === 'hepsi' ? haberler.length : haberler.filter(h => h.durum === f).length
           const on = filter === f
@@ -258,12 +279,24 @@ function Haberler({ haberler, setSelected, setActive }) {
           )
         })}
       </div>
+      <input
+        value={arama}
+        onChange={e => setArama(e.target.value)}
+        placeholder="Haber ara…"
+        style={{ width:'100%', fontSize:13, marginBottom:'0.75rem', boxSizing:'border-box' }}
+      />
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {list.map(h => (
           <div key={h.id} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
-            <img src={h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            {h.video && !h.gorsel_url && !h.gorsel ? (
+              <div style={{ width:56, height:38, borderRadius:5, flexShrink:0, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Ic n="player-play" size={18} style={{ color:'#ff7b7b' }} />
+              </div>
+            ) : (
+              <img src={h.gorsel_url || h.gorsel} alt="" onError={e => e.target.style.display='none'} style={{ width:56, height:38, objectFit:'cover', borderRadius:5, flexShrink:0 }} />
+            )}
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.baslik}</div>
+              <div style={{ fontSize:13, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginBottom:5 }}>{h.site_basligi || h.baslik}</div>
               <div style={{ display:'flex', gap:8, alignItems:'center' }}><KatBadge k={h.kategori} /><span style={{ fontSize:11, color:'var(--muted)' }}>{h.tarih} · 1ha.com.tr</span></div>
             </div>
             <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
@@ -271,6 +304,11 @@ function Haberler({ haberler, setSelected, setActive }) {
               {h.durum === 'bekliyor' && (
                 <button onClick={() => { setSelected(h); setActive('yeni') }} style={{ background:'rgba(230,57,70,0.15)', color:'#ff7b7b', border:'0.5px solid rgba(230,57,70,0.3)', fontWeight:500, fontSize:12 }}>
                   <Ic n="bolt" size={13} /> İşle
+                </button>
+              )}
+              {h.durum === 'islendi' && h.site_basligi && (
+                <button onClick={() => { setContent(h); setSelected(h); setActive('isleme') }} style={{ background:'rgba(0,212,170,0.1)', color:'#00D4AA', border:'0.5px solid rgba(0,212,170,0.3)', fontWeight:500, fontSize:12 }}>
+                  <Ic n="eye" size={13} /> Detay
                 </button>
               )}
             </div>
@@ -351,136 +389,194 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
   )
 }
 
-// ── İŞLEME SONUCU ─────────────────────────────────────────────────────────
-function Isleme({ content, processing, error }) {
+// ── META PAYLAŞIM BİLEŞENİ ────────────────────────────────────────────────
+function MetaPaylas({ content, selectedHaber, gorselItems }) {
+  const [platform, setPlatform] = useState('her_ikisi')
+  const [gonderiyor, setGond]   = useState(false)
+  const [sonuc,      setSonuc]  = useState(null)
+  const [hata,       setHata]   = useState(null)
+
+  const paylas = async () => {
+    const gorselUrl = selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
+    if (!gorselUrl) { setHata('Haber görseli bulunamadı'); return }
+
+    const metin = platform === 'facebook'
+      ? content?.facebook || content?.site_basligi || ''
+      : content?.instagram || content?.site_basligi || ''
+
+    setGond(true); setSonuc(null); setHata(null)
+    try {
+      const res  = await fetch('/api/meta-paylas', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ gorsel_url: gorselUrl, metin, platform }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data)
+    } catch (e) { setHata(e.message) }
+    setGond(false)
+  }
+
+  return (
+    <div style={{ marginBottom: '0.875rem' }}>
+      {/* Bağlantı */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <a href="/api/meta-auth" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+          <button style={{ fontSize: 12, background: 'rgba(24,119,242,.12)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7' }}>
+            <Ic n="brand-facebook" size={13} /> Meta Bağlantısını Yenile
+          </button>
+        </a>
+      </div>
+
+      {/* Platform seçimi */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {[['her_ikisi','FB + Instagram'],['facebook','Sadece Facebook'],['instagram','Sadece Instagram']].map(([val,lbl]) => {
+          const on = platform === val
+          return <button key={val} onClick={() => setPlatform(val)}
+            style={{ fontSize: 12, background: on ? 'rgba(24,119,242,.15)' : 'transparent', border: `0.5px solid ${on ? 'rgba(24,119,242,.4)' : 'var(--border)'}`, color: on ? '#4dabf7' : 'var(--muted)' }}>
+            {lbl}
+          </button>
+        })}
+      </div>
+
+      {/* Paylaş butonu */}
+      <button onClick={paylas} disabled={gonderiyor}
+        style={{ fontWeight: 500, background: 'rgba(24,119,242,.15)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7', marginBottom: 8 }}>
+        <Ic n={gonderiyor ? 'loader-2' : 'send'} size={14} />
+        {gonderiyor ? 'Paylaşılıyor…' : 'Paylaş'}
+      </button>
+
+      {/* Hata */}
+      {hata && <div style={{ background: 'rgba(230,57,70,.08)', border: '0.5px solid rgba(230,57,70,.3)', borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: 'rgba(230,57,70,.9)' }}>
+        <Ic n="alert-circle" size={13} /> {hata}
+      </div>}
+
+      {/* Sonuç */}
+      {sonuc && <div style={{ background: 'rgba(0,212,170,.08)', border: '0.5px solid rgba(0,212,170,.25)', borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: 12 }}>
+        <div style={{ color: '#00D4AA', fontWeight: 500, marginBottom: 6 }}>
+          <Ic n="check" size={14} /> {sonuc.hesap} — Paylaşıldı!
+        </div>
+        {sonuc.sonuclar?.facebook && <div style={{ color: 'var(--muted)' }}>
+          Facebook: {sonuc.sonuclar.facebook.ok ? '✓ ' + sonuc.sonuclar.facebook.post_id : '✗ ' + sonuc.sonuclar.facebook.hata}
+        </div>}
+        {sonuc.sonuclar?.instagram && <div style={{ color: 'var(--muted)' }}>
+          Instagram: {sonuc.sonuclar.instagram.ok ? '✓ ' + sonuc.sonuclar.instagram.media_id : '✗ ' + sonuc.sonuclar.instagram.hata}
+        </div>}
+      </div>}
+    </div>
+  )
+}
+
+
+function CanvaTasarim({ content, selectedHaber }) {
+  const [templateId, setTemplateId] = useState('')
+  const [yukleniyor, setYukleniyor] = useState(false)
+  const [sonuc,      setSonuc]      = useState(null)
+  const [hata,       setHata]       = useState(null)
+
+  const olustur = async () => {
+    if (!templateId.trim()) { alert('Template ID girin'); return }
+    setYukleniyor(true); setSonuc(null); setHata(null)
+    try {
+      const res = await fetch('/api/canva-tasarim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateId: templateId.trim(),
+          baslik:       content?.site_basligi || '',
+          sosyal_baslik: content?.sosyal_baslik || content?.site_basligi || '',
+          kategori:     content?.kategori || '',
+          tarih:        selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR'),
+          gorsel_url:   selectedHaber?.gorsel || '',
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data)
+    } catch (e) { setHata(e.message) }
+    setYukleniyor(false)
+  }
+
+  return (
+    <div style={{ marginBottom:'0.875rem' }}>
+      {/* Bağlantı kontrolü */}
+      <div style={{ display:'flex', gap:8, marginBottom:10, alignItems:'center' }}>
+        <a href="/api/canva-auth" target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+          <button style={{ fontSize:12, background:'rgba(120,80,255,0.12)', border:'0.5px solid rgba(120,80,255,0.3)', color:'#a89cff' }}>
+            <Ic n="brand-canva" size={13}/> Canva Bağlantısını Yenile
+          </button>
+        </a>
+        <span style={{ fontSize:11, color:'var(--muted)' }}>— İlk kez veya token süresi dolduysa</span>
+      </div>
+
+      {/* Template ID */}
+      <div style={{ fontSize:11, color:'var(--muted)', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.07em' }}>
+        Canva Brand Template ID
+      </div>
+      <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+        <input
+          value={templateId}
+          onChange={e => setTemplateId(e.target.value)}
+          placeholder="Canva'dan template ID (örn: DAGBxxxxxx)"
+          style={{ flex:1, fontSize:13 }}
+        />
+        <button onClick={olustur} disabled={yukleniyor}
+          style={{ fontWeight:500, background:'rgba(120,80,255,0.15)', border:'0.5px solid rgba(120,80,255,0.35)', color:'#a89cff', whiteSpace:'nowrap' }}>
+          <Ic n={yukleniyor ? 'loader-2' : 'brand-canva'} size={15}/>
+          {yukleniyor ? 'Oluşturuluyor…' : 'Canva\'da Oluştur'}
+        </button>
+      </div>
+
+      {/* Hata */}
+      {hata && (
+        <div style={{ background:'rgba(230,57,70,0.08)', border:'0.5px solid rgba(230,57,70,0.3)', borderRadius:'var(--radius-md)', padding:'9px 12px', fontSize:12, color:'rgba(230,57,70,0.9)', marginBottom:8 }}>
+          <Ic n="alert-circle" size={13}/> {hata}
+        </div>
+      )}
+
+      {/* Sonuç */}
+      {sonuc && (
+        <div style={{ background:'rgba(0,212,170,0.08)', border:'0.5px solid rgba(0,212,170,0.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+          <Ic n="check" size={16} style={{ color:'#00D4AA' }}/>
+          <span style={{ fontSize:13, color:'#00D4AA', fontWeight:500 }}>Tasarım hazır!</span>
+          {sonuc.editUrl && (
+            <a href={sonuc.editUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <button style={{ fontSize:12, background:'rgba(0,212,170,0.12)', border:'0.5px solid rgba(0,212,170,0.3)', color:'#00D4AA' }}>
+                <Ic n="edit" size={12}/> Canva'da Düzenle
+              </button>
+            </a>
+          )}
+          {sonuc.viewUrl && (
+            <a href={sonuc.viewUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <button style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+                <Ic n="eye" size={12}/> Görüntüle
+              </button>
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Yardım */}
+      <div style={{ fontSize:11, color:'var(--muted)', marginTop:8, lineHeight:1.6 }}>
+        Template ID: Canva'da şablonunuzu açın → Paylaş → Brand template → ID kısmından kopyalayın.<br/>
+        Şablondaki metin alanlarını <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>baslik</code>, <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>kategori</code>, <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>tarih</code> olarak adlandırın.
+      </div>
+    </div>
+  )
+}
+
+
+function Isleme({ content, processing, error, selectedHaber }) {
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(null)
-  const [gorselUrl, setGorselUrl] = useState(null)
-  const [gorselYukleniyor, setGorselYukleniyor] = useState(false)
-  const [videoYukleniyor, setVideoYukleniyor] = useState(false)
   const [rssYukleniyor, setRssYukleniyor] = useState(false)
   const [rssKaydedildi, setRssKaydedildi] = useState(false)
-  const canvasRef = useRef(null)
 
   const copy = (text, field) => {
     navigator.clipboard?.writeText(text).catch(() => {})
     setCopied(field)
     setTimeout(() => setCopied(null), 2000)
-  }
-
-  // ── GÖRSEL ÜRET ──
-  const gorselUret = async () => {
-    if (!content?.gorsel_prompt) return
-    setGorselYukleniyor(true)
-    try {
-      const res = await fetch('/api/gorsel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: content.gorsel_prompt }),
-      })
-      const data = await res.json()
-      if (data.url) {
-        setGorselUrl(data.url)
-      } else if (data.id) {
-        // Polling
-        for (let i = 0; i < 20; i++) {
-          await new Promise(r => setTimeout(r, 3000))
-          const poll = await fetch(`/api/gorsel?id=${data.id}`)
-          const p = await poll.json()
-          if (p.url) { setGorselUrl(p.url); break }
-          if (p.status === 'failed') break
-        }
-      }
-    } catch (e) { console.error(e) }
-    setGorselYukleniyor(false)
-  }
-
-  // ── VİDEO OLUŞTUR ──
-  const videoOlustur = async () => {
-    const canvas = canvasRef.current
-    if (!canvas || !content) return
-    setVideoYukleniyor(true)
-
-    canvas.width = 1280
-    canvas.height = 720
-    const ctx = canvas.getContext('2d')
-
-    const stream = canvas.captureStream(30)
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' })
-    const chunks = []
-    recorder.ondataavailable = e => chunks.push(e.data)
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `${content.url_slug || 'haber'}.webm`; a.click()
-      setVideoYukleniyor(false)
-    }
-
-    // Arka plan görseli yükle
-    let img = null
-    const bgSrc = gorselUrl || null
-    if (bgSrc) {
-      img = new Image(); img.crossOrigin = 'anonymous'; img.src = bgSrc
-      await new Promise(r => { img.onload = r; img.onerror = () => { img = null; r() } })
-    }
-
-    recorder.start()
-    const title = content.site_basligi || content.baslik || ''
-    const kategori = content.kategori || ''
-    const totalFrames = 450 // 15 saniye @ 30fps
-    let frame = 0
-
-    const tick = () => {
-      if (frame >= totalFrames) { recorder.stop(); return }
-      const t = frame / totalFrames
-
-      // Arka plan
-      if (img) { ctx.drawImage(img, 0, 0, 1280, 720) }
-      else { ctx.fillStyle = '#080D15'; ctx.fillRect(0, 0, 1280, 720) }
-
-      // Koyu overlay
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'
-      ctx.fillRect(0, 0, 1280, 720)
-
-      // Alt kırmızı bant (slide up animasyonu)
-      const bandY = 720 - Math.min(100, t * 400)
-      ctx.fillStyle = '#E63946'
-      ctx.fillRect(0, bandY, 1280, 120)
-
-      // kayserim.net
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 22px Arial'
-      ctx.fillText('kayserim.net', 40, bandY + 38)
-
-      // Kategori
-      if (kategori) {
-        ctx.font = '18px Arial'
-        ctx.fillStyle = 'rgba(255,255,255,0.8)'
-        ctx.fillText(kategori.toUpperCase(), 40, bandY + 65)
-      }
-
-      // Başlık (fade in)
-      const alpha = Math.min(1, t * 4)
-      ctx.globalAlpha = alpha
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 56px Arial'
-      // Word wrap
-      const words = title.split(' ')
-      let line = ''; let y = 280; const maxW = 1100
-      for (const w of words) {
-        const test = line + w + ' '
-        if (ctx.measureText(test).width > maxW && line) {
-          ctx.fillText(line.trim(), 80, y); line = w + ' '; y += 72
-        } else { line = test }
-      }
-      ctx.fillText(line.trim(), 80, y)
-      ctx.globalAlpha = 1
-
-      frame++
-      requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
   }
 
   // ── RSS KAYDET ──
@@ -493,7 +589,7 @@ function Isleme({ content, processing, error }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...content,
-          gorsel_url: gorselUrl || '',
+          gorsel_url: selectedHaber?.gorsel || '',
           kayserim_link: link || '',
           tarih_iso: new Date().toISOString(),
         }),
@@ -616,53 +712,52 @@ function Isleme({ content, processing, error }) {
       <Field label="Video başlığı" value={content.youtube_baslik||''} field="yt_t" />
       <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
 
-      {/* ── GÖRSEL ── */}
-      <Divider label="AI Görsel Üretimi (FLUX)" ic="photo-ai" />
-      {content.gorsel_prompt && <Field label="FLUX prompt (ingilizce)" value={content.gorsel_prompt} field="img" />}
-
-      {!gorselUrl && (
-        <button
-          onClick={gorselUret}
-          disabled={gorselYukleniyor}
-          style={{ fontWeight:500, background:'rgba(120,80,255,0.15)', border:'0.5px solid rgba(120,80,255,0.35)', color:'#a89cff', marginBottom:'0.875rem' }}
-        >
-          <Ic n={gorselYukleniyor ? 'loader-2' : 'sparkles'} size={15} />
-          {gorselYukleniyor ? 'FLUX görsel oluşturuluyor… (~10sn)' : 'Görsel Üret (FLUX)'}
-        </button>
-      )}
-
-      {gorselUrl && (
-        <div style={{ marginBottom:'0.875rem' }}>
-          <img src={gorselUrl} alt="AI görsel" style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', marginBottom:8 }} />
-          <div style={{ display:'flex', gap:8 }}>
-            <a href={gorselUrl} download={`${content.url_slug||'gorsel'}.jpg`} target="_blank" rel="noreferrer">
-              <button style={{ fontSize:12, background:'rgba(0,212,170,0.12)', border:'0.5px solid rgba(0,212,170,0.3)', color:'#00D4AA' }}>
-                <Ic n="download" size={13} /> Görseli İndir
-              </button>
-            </a>
-            <button onClick={() => copy(gorselUrl, 'gorsel_url')} style={{ fontSize:12, color: copied==='gorsel_url'?'#00D4AA':'var(--muted)', background: copied==='gorsel_url'?'rgba(0,212,170,0.1)':'transparent', border:`0.5px solid ${copied==='gorsel_url'?'rgba(0,212,170,0.3)':'var(--border)'}` }}>
-              <Ic n={copied==='gorsel_url'?'check':'copy'} size={12} /> URL Kopyala
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── VİDEO ── */}
-      <Divider label="Video Oluştur (Tarayıcıda)" ic="video" />
-      <div style={{ background:'rgba(255,255,255,0.03)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'12px 14px', marginBottom:'0.875rem' }}>
-        <div style={{ fontSize:12, color:'var(--muted)', marginBottom:10 }}>
-          Haber başlığı + görsel kullanarak 15 saniyelik sosyal medya klibi oluşturur. WebM formatında indirilir.
-        </div>
-        <button
-          onClick={videoOlustur}
-          disabled={videoYukleniyor}
-          style={{ fontWeight:500, background:'rgba(230,57,70,0.12)', border:'0.5px solid rgba(230,57,70,0.3)', color:'#ff7b7b' }}
-        >
-          <Ic n={videoYukleniyor ? 'loader-2' : 'player-record'} size={15} />
-          {videoYukleniyor ? 'Video oluşturuluyor…' : 'Video Oluştur ve İndir'}
-        </button>
-        <canvas ref={canvasRef} style={{ display:'none' }} />
-      </div>
+      {(() => {
+        const videoUrl = selectedHaber?.video || content?.video || ''
+        if (!videoUrl) return null
+        return (
+          <>
+            <Divider label="Video" ic="video" />
+            <div style={{ marginBottom:'0.875rem' }}>
+              <video
+                key={videoUrl}
+                src={videoUrl}
+                controls
+                style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', maxHeight:300, background:'#000' }}
+              />
+              <div style={{ marginTop:6, display:'flex', gap:6 }}>
+                <a href={videoUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+                  <button style={{ fontSize:12, background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA' }}>
+                    <Ic n="external-link" size={12} /> 1ha'da aç
+                  </button>
+                </a>
+                <button onClick={() => navigator.clipboard?.writeText(videoUrl)} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+                  <Ic n="copy" size={12} /> URL Kopyala
+                </button>
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
+      {/* ── OTO SOSYAL MEDYA GÖRSELLERİ ── */}
+      <Divider label="Sosyal medya görselleri (otomatik)" ic="sparkles" />
+      <OtoGorselUret haber={selectedHaber} />
+
+      {/* ── META PAYLAŞIM ── */}
+      <Divider label="Sosyal medya paylaşımı" ic="share" />
+      <MetaPaylas content={content} selectedHaber={selectedHaber} gorselItems={gorselItems} />
+      <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />
+      <CanvaTasarim content={content} selectedHaber={selectedHaber} />
+      <Divider label="Sosyal medya görseli" ic="photo" />
+      <GorselSablon
+        gorselUrl={selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''}
+        baslik={content.sosyal_baslik || content.site_basligi || content.baslik || ''}
+        spotBaslik={content.h1_basligi || ''}
+        kategori={content.kategori || 'Genel'}
+        tarih={selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR')}
+      />
 
       {/* ── RSS KAYDET ── */}
       <Divider label="RSS Feed'e Kaydet" ic="rss" />
@@ -747,37 +842,151 @@ export default function App() {
     setNotifs(prev => [{ id: Date.now(), text, type, time: 'az önce' }, ...prev.slice(0, 6)])
   }, [])
 
-  // RSS fetch — /api/rss üzerinden (Cloudflare Pages Function, CORS yok)
+  // ── YENİLE: RSS + oto-isle tetikle ──────────────────────────────────────
+  const yenile = useCallback(async () => {
+    addNotif('Yenileniyor…', 'info')
+    try {
+      // 1. Oto-isle tetikle (cron ile aynı iş)
+      const otoRes  = await fetch('/api/oto-isle')
+      const otoData = await otoRes.json()
+      if (otoData.islendi > 0) addNotif(`${otoData.islendi} yeni haber işlendi ✓`, 'success')
+
+      // 2. KV + RSS yeniden çek
+      const kvRes   = await fetch('/api/haberler')
+      const kvListe = kvRes.ok ? await kvRes.json() : []
+      const kvMap   = new Map(kvListe.map(h => [h.source_id, h]))
+
+      const rssRes  = await fetch('/api/rss')
+      if (!rssRes.ok) throw new Error('RSS alınamadı')
+      const xml     = await rssRes.text()
+      const parser  = new DOMParser()
+      const doc     = parser.parseFromString(xml, 'text/xml')
+      const items   = doc.querySelectorAll('item')
+
+      const rssHaberler = Array.from(items).slice(0, 30).map((item, i) => {
+        const enc      = item.querySelector('enclosure')
+        const dt       = item.querySelector('pubDate')?.textContent
+        const link     = item.querySelector('link')?.textContent?.trim() || ''
+        const enc_type = enc?.getAttribute('type') || ''
+        const enc_url  = enc?.getAttribute('url') || ''
+        const sourceId = link.split('/').pop() || link
+        const kvHaber  = kvMap.get(sourceId)
+        const rssGorsel = enc_type.startsWith('video/') ? '' : enc_url
+        const rssVideo  = enc_type.startsWith('video/') ? enc_url : ''
+        const base = {
+          id: i + 100, source_id: sourceId,
+          baslik: item.querySelector('title')?.textContent?.trim() || '',
+          icerik: item.querySelector('description')?.textContent?.replace(/<[^>]*>/g,'').trim() || '',
+          gorsel: rssGorsel, video: rssVideo,
+          kategori: item.querySelector('category')?.textContent?.trim() || 'Genel',
+          tarih: dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
+          durum: kvHaber ? 'islendi' : 'bekliyor',
+          ...(kvHaber || {}),
+        }
+        if (!base.gorsel)     base.gorsel     = rssGorsel
+        if (!base.gorsel_url) base.gorsel_url = base.gorsel
+        if (!base.video)      base.video      = rssVideo
+        return base
+      }).filter(h => h.baslik.length > 5)
+
+      const rssIds  = new Set(rssHaberler.map(h => h.source_id))
+      const eskiler = kvListe.filter(h => h.source_id && !rssIds.has(h.source_id))
+        .slice(0, 100).map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
+
+      const tumHaberler = [...eskiler, ...rssHaberler]
+      tumHaberler.sort((a, b) => new Date(b.tarih_iso || b.tarih || 0) - new Date(a.tarih_iso || a.tarih || 0))
+      setHaberler(tumHaberler)
+      addNotif(`${tumHaberler.length} haber güncellendi`, 'success')
+    } catch (e) { addNotif('Yenileme hatası: ' + e.message, 'warning') }
+  }, [addNotif])
+
+  // Giriş sonrası: KV + RSS birleştir, işlendi durumunu koru
   useEffect(() => {
     if (page !== 'app') return
     ;(async () => {
       try {
-        const res = await fetch('/api/rss')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const xml = await res.text()
+        // 1. KV'deki işlenmiş haberleri çek
+        const kvRes  = await fetch('/api/haberler')
+        const kvListe = kvRes.ok ? await kvRes.json() : []
+        const kvMap  = new Map(kvListe.map(h => [h.source_id, h]))
+
+        // 2. 1ha RSS'i çek
+        const rssRes = await fetch('/api/rss')
+        if (!rssRes.ok) throw new Error(`RSS HTTP ${rssRes.status}`)
+        const xml    = await rssRes.text()
         const parser = new DOMParser()
-        const doc = parser.parseFromString(xml, 'text/xml')
-        const items = doc.querySelectorAll('item')
-        const parsed = Array.from(items).slice(0, 30).map((item, i) => {
-          const enc = item.querySelector('enclosure')
-          const dt  = item.querySelector('pubDate')?.textContent
-          return {
-            id: i + 100,
-            baslik: item.querySelector('title')?.textContent?.trim() || '',
-            icerik: item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
-            gorsel: enc?.getAttribute('url') || '',
-            kategori: item.querySelector('category')?.textContent?.trim() || 'Genel',
-            tarih: dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
-            durum: 'bekliyor',
+        const doc    = parser.parseFromString(xml, 'text/xml')
+        const items  = doc.querySelectorAll('item')
+
+        const rssHaberler = Array.from(items).slice(0, 30).map((item, i) => {
+          const enc    = item.querySelector('enclosure')
+          const dt     = item.querySelector('pubDate')?.textContent
+          const link   = item.querySelector('link')?.textContent?.trim() || ''
+          const enc_type = enc?.getAttribute('type') || ''
+          const enc_url  = enc?.getAttribute('url') || ''
+          const sourceId = link.split('/').pop() || link
+
+          // KV'de bu haber var mı?
+          const kvHaber = kvMap.get(sourceId)
+
+          const rssGorsel = enc_type.startsWith('video/') ? '' : enc_url
+          const rssVideo  = enc_type.startsWith('video/') ? enc_url : ''
+
+          const base = {
+            id:        i + 100,
+            source_id: sourceId,
+            baslik:    item.querySelector('title')?.textContent?.trim() || '',
+            icerik:    item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
+            gorsel:    rssGorsel,
+            video:     rssVideo,
+            kategori:  item.querySelector('category')?.textContent?.trim() || 'Genel',
+            tarih:     dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
+            durum:     kvHaber ? 'islendi' : 'bekliyor',
+            ...(kvHaber || {}),
           }
+
+          // KV'deki boş değerler RSS değerlerini ezmesin
+          if (!base.gorsel)     base.gorsel     = rssGorsel
+          if (!base.gorsel_url) base.gorsel_url = base.gorsel
+          if (!base.video)      base.video      = rssVideo
+
+          return base
         }).filter(h => h.baslik.length > 5)
-        if (parsed.length > 0) {
-          setHaberler(prev => [...parsed, ...prev.filter(h => h.id < 100)])
-          addNotif(`${parsed.length} haber 1ha'dan yüklendi`, 'success')
-        }
+
+        // 3. RSS'te olmayan eski KV haberlerini başa ekle
+        const rssIds  = new Set(rssHaberler.map(h => h.source_id))
+        const eskiler = kvListe
+          .filter(h => h.source_id && !rssIds.has(h.source_id))
+          .slice(0, 100)
+          .map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
+
+        const tumHaberler = [...eskiler, ...rssHaberler]
+
+        // Tarih sıralaması — en yeni en üstte
+        tumHaberler.sort((a, b) => {
+          const dateA = new Date(a.tarih_iso || a.tarih || 0)
+          const dateB = new Date(b.tarih_iso || b.tarih || 0)
+          return dateB - dateA
+        })
+
+        setHaberler(tumHaberler)
+
+        const yeniSayi = rssHaberler.filter(h => h.durum === 'bekliyor').length
+        const islSayi  = rssHaberler.filter(h => h.durum === 'islendi').length
+        addNotif(`${rssHaberler.length} haber yüklendi — ${islSayi} işlendi, ${yeniSayi} bekliyor`, 'success')
+
       } catch (e) {
-        addNotif('1ha bağlanamadı — örnek veriler kullanılıyor', 'warning')
+        addNotif('Yükleme hatası: ' + e.message, 'warning')
       }
+
+      // Arka planda otomatik işleme
+      try {
+        const otoRes  = await fetch('/api/oto-isle')
+        const otoData = await otoRes.json()
+        if (otoData.islendi > 0) {
+          addNotif(`${otoData.islendi} haber otomatik işlendi → RSS güncellendi ✓`, 'success')
+        }
+      } catch { /* sessiz */ }
     })()
   }, [page])
 
@@ -792,7 +1001,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 2000,
           system: 'Sen radar.ist editör sistemi üzerinden çalışan, kayserim.net için kıdemli SEO editörüsün. Kayseri odaklı yerel haber sitesi için içerik üretiyorsun. SADECE geçerli JSON döndür, başka hiçbir şey yazma.',
           messages: [{ role: 'user', content:
@@ -845,10 +1054,11 @@ export default function App() {
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <TopBar page={active} notifications={notifs} showN={showN} setShowN={setShowN} />
         <div style={{ flex:1, overflow:'auto' }}>
-          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} />}
-          {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} />}
+          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} onYenile={yenile} />}
+          {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
           {active === 'yeni'      && <YeniHaber selected={selected} setSelected={setSelected} onProcess={process} processing={processing} />}
-          {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} />}
+          {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} selectedHaber={selected} />}
+          {active === 'editor'    && <GorselEditor onKapat={() => setActive('isleme')} />}
           {active === 'ayarlar'   && <Ayarlar />}
         </div>
       </div>
