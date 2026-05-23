@@ -6,19 +6,28 @@
       "x": 64.668,
       "y": 481.1357,
       "fontSize": 54.638,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 66.0957,
       "y": 580.1035,
       "fontSize": 25.5276,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 1074.2568,
       "y": 611.5059,
       "fontSize": 19.08,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 1168.0,
+      "y": 580,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   },
   "instagram": {
@@ -28,19 +37,28 @@
       "x": 72.3062,
       "y": 795.374,
       "fontSize": 72.4759,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 74.4922,
       "y": 940.4033,
       "fontSize": 39.0543,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 928.0,
       "y": 1027.5273,
       "fontSize": 22.477,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 226.0,
+      "y": 1030,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   },
   "twitter": {
@@ -50,19 +68,28 @@
       "x": 88.376,
       "y": 684.3184,
       "fontSize": 60.0,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 90.2754,
       "y": 822.2051,
       "fontSize": 33.9666,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 1431.7168,
       "y": 813.9883,
       "fontSize": 25.3875,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 1556.5,
+      "y": 850,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   },
   "youtube": {
@@ -72,19 +99,28 @@
       "x": 70.9229,
       "y": 553.6553,
       "fontSize": 60.0,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 72.4424,
       "y": 669.5928,
       "fontSize": 27.1817,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 1145.9297,
       "y": 653.0176,
       "fontSize": 20.3163,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 1245.7,
+      "y": 670,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   }
 }

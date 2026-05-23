@@ -1,8 +1,5 @@
-// ── SVG TABANLI OTOMATİK GÖRSEL ÜRETME SİSTEMİ ──────────────────────────
-// Haber düştüğünde otomatik olarak 4 format PNG üretir
-// Kaynaklar: /public/templates/{format}.svg + manifest.json
-
-import { useState, useEffect, useCallback } from 'react'
+// ── OTO GÖRSEL ÜRET — SVG overlay + Canvas metin/görsel ─────────────────
+import { useState, useEffect } from 'react'
 
 const MANIFEST = {
   "facebook": {
@@ -12,19 +9,28 @@ const MANIFEST = {
       "x": 64.668,
       "y": 481.1357,
       "fontSize": 54.638,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 66.0957,
       "y": 580.1035,
       "fontSize": 25.5276,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 1074.2568,
       "y": 611.5059,
       "fontSize": 19.08,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 1168,
+      "y": 580,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   },
   "instagram": {
@@ -34,19 +40,28 @@ const MANIFEST = {
       "x": 72.3062,
       "y": 795.374,
       "fontSize": 72.4759,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 74.4922,
       "y": 940.4033,
       "fontSize": 39.0543,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 928,
       "y": 1027.5273,
       "fontSize": 22.477,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 226,
+      "y": 1030,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   },
   "twitter": {
@@ -56,19 +71,28 @@ const MANIFEST = {
       "x": 88.376,
       "y": 684.3184,
       "fontSize": 60,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 90.2754,
       "y": 822.2051,
       "fontSize": 33.9666,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 1431.7168,
       "y": 813.9883,
       "fontSize": 25.3875,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 1556.5,
+      "y": 850,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   },
   "youtube": {
@@ -78,37 +102,47 @@ const MANIFEST = {
       "x": 70.9229,
       "y": 553.6553,
       "fontSize": 60,
-      "fontFamily": "Poppins"
+      "fontFamily": "Poppins-SemiBold",
+      "fill": "#FFFFFF"
     },
     "spot_baslik": {
       "x": 72.4424,
       "y": 669.5928,
       "fontSize": 27.1817,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
     },
     "tarih": {
       "x": 1145.9297,
       "y": 653.0176,
       "fontSize": 20.3163,
-      "fontFamily": "Open Sans"
+      "fontFamily": "MyriadPro-Regular",
+      "fill": "#FFFFFF"
+    },
+    "kategori": {
+      "x": 1245.7,
+      "y": 670,
+      "fontSize": 20,
+      "fill": "#ED1C24"
     }
   }
 }
-
 const FORMATLAR = ['instagram','facebook','twitter','youtube']
 
-// Google Fonts yükle (Canvas için)
-async function fontYukle() {
-  const fonts = [
-    new FontFace('Poppins', "url(https://fonts.gstatic.com/s/poppins/v21/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2)", { weight: '600' }),
-    new FontFace('Open Sans', "url(https://fonts.gstatic.com/s/opensans/v35/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiH0C4n.woff2)", { weight: '400' }),
-  ]
-  await Promise.all(fonts.map(async f => { try { await f.load(); document.fonts.add(f) } catch {} }))
+// Görsel yükle (crossOrigin destekli)
+function loadImg(src, cross = false) {
+  return new Promise((res) => {
+    const img = new Image()
+    if (cross) img.crossOrigin = 'anonymous'
+    img.onload  = () => res(img)
+    img.onerror = () => res(null)
+    img.src = src
+  })
 }
 
-// Metin satır sarmala
-function wrapText(ctx, text, maxW, fontSize) {
-  const words = text.split(' ')
+// Metin satır sarmala (canvas measureText ile)
+function wrapText(ctx, text, maxW, maxLines = 3) {
+  const words = (text || '').split(' ')
   const lines = []; let cur = ''
   for (const w of words) {
     const test = cur ? cur + ' ' + w : w
@@ -116,133 +150,144 @@ function wrapText(ctx, text, maxW, fontSize) {
     else cur = test
   }
   if (cur) lines.push(cur)
-  return lines.slice(0, 3)
+  return lines.slice(0, maxLines)
 }
 
-// SVG şablonunu canvas'a render et
-async function renderFormat(format, { gorselUrl, baslik, spotBaslik, kategori, tarih }) {
+// Tek format render
+async function renderFormat(format, haber) {
   const meta = MANIFEST[format]
   if (!meta) return null
+  const { w, h } = meta
 
-  // SVG şablonunu çek
-  const svgRes = await fetch(`/templates/${format}.svg`)
-  let svgText  = await svgRes.text()
+  const canvas = document.createElement('canvas')
+  canvas.width = w; canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
 
-  // Arka plan görseli: base64 olarak al (CORS için proxy)
-  let gorselB64 = ''
+  // 1. Arka plan görseli (proxy üzerinden)
+  const gorselUrl = haber.gorsel_url || haber.gorsel || ''
   if (gorselUrl) {
-    try {
-      const r = await fetch(`/api/gorsel-proxy?url=${encodeURIComponent(gorselUrl)}`)
-      const buf = await r.arrayBuffer()
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
-      const mime = gorselUrl.includes('.png') ? 'image/png' : 'image/jpeg'
-      gorselB64 = `data:${mime};base64,${b64}`
-    } catch {}
+    const proxyUrl = `/api/gorsel-proxy?url=${encodeURIComponent(gorselUrl)}`
+    const bg = await loadImg(proxyUrl, true)
+    if (bg) {
+      const s = Math.max(w / bg.width, h / bg.height)
+      ctx.drawImage(bg, (w - bg.width * s) / 2, (h - bg.height * s) / 2, bg.width * s, bg.height * s)
+    }
+  } else {
+    ctx.fillStyle = '#1a2535'; ctx.fillRect(0, 0, w, h)
   }
 
-  // SVG'ye görseli yerleştir
-  svgText = svgText.replace(/xlink:href="{{GORSEL_URL}}"/g,
-    gorselB64 ? `xlink:href="${gorselB64}"` : 'xlink:href=""')
+  // 2. SVG overlay — arka_plan katmanını boşalt, metinleri kaldır
+  const svgRes = await fetch(`/templates/${format}.svg`)
+  let svg = await svgRes.text()
 
-  // Metin içeriklerini SVG'de değiştir
-  const kaynakBaslik = 'Haber Başlığı Bu Kısma'
-  const kaynakSpot   = 'Spot Başlık İçin Gerekli Alan'
+  // Arka plan layer içeriğini temizle (sadece boş rect bırak)
+  svg = svg.replace(/<g id="arka_x5F_plan">[sS]*?<\/g>/,
+    `<g id="arka_x5F_plan"><rect width="${w}" height="${h}" fill="none"/></g>`)
 
-  // Baslik metni değiştir (tspan içinde)
-  svgText = svgText.replace(
-    new RegExp(`(<tspan[^>]*>)${kaynakBaslik}</tspan>([\\s\\S]*?<tspan[^>]*>)Gelecek</tspan>`, 'g'),
-    (_, open, mid) => {
-      const maxW = meta.w - meta.baslik.x - 60
-      const lines = wrapLines(baslik || '', maxW, meta.baslik.fontSize)
-      return lines.map((l, i) => `${open}${l}</tspan>`).join('')
-    }
-  )
+  // Metin layerlarını boşalt (canvas'ta çizeceğiz)
+  ;['baslik','spot_x5F_baslik','tarih','kategori_x5F_badge'].forEach(id => {
+    svg = svg.replace(new RegExp(`<g id="${id}">[\\s\\S]*?<\/g>`), `<g id="${id}"></g>`)
+  })
 
-  // Baslik single tspan fallback
-  svgText = svgText.replace(new RegExp(kaynakBaslik, 'g'), baslik || kaynakBaslik)
-  svgText = svgText.replace(/Gelecek/g, '')
-  svgText = svgText.replace(new RegExp(kaynakSpot, 'g'), spotBaslik || '')
+  // Görsel placeholder'ı temizle
+  svg = svg.replace(/xlink:href="{{GORSEL_URL}}"/g, 'xlink:href=""')
+  svg = svg.replace(/xlink:href="HABER_GORSELI_PLACEHOLDER"/g, 'xlink:href=""')
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' })
+  const bUrl = URL.createObjectURL(blob)
+  const svgImg = await loadImg(bUrl)
+  if (svgImg) ctx.drawImage(svgImg, 0, 0, w, h)
+  URL.revokeObjectURL(bUrl)
+
+  // 3. Metin — Canvas API ile
+  const baslik   = haber.sosyal_baslik || haber.site_basligi || haber.baslik || ''
+  const spot     = haber.ozet || ''
+  const tarih    = haber.tarih || new Date().toLocaleDateString('tr-TR')
+  const kategori = (haber.kategori || 'GÜNCEL').toUpperCase()
+
+  // Başlık
+  const bm = meta.baslik
+  const maxW = w - bm.x - 60
+  ctx.font = `600 ${bm.fontSize}px Poppins, Arial`
+  ctx.fillStyle = '#ffffff'
+  ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 1
+
+  const bLines = wrapText(ctx, baslik, maxW, 3)
+  const bLineH = bm.fontSize * 1.3
+  bLines.forEach((line, i) => ctx.fillText(line, bm.x, bm.y + i * bLineH))
+
+  // Spot başlık
+  const sm = meta.spot_baslik
+  // Spot başlangıç Y'sini dinamik hesapla (başlık bitişinden)
+  const spotY = bm.y + bLines.length * bLineH + sm.fontSize * 0.8
+  ctx.font = `400 ${sm.fontSize}px 'Open Sans', Arial`
+  ctx.fillStyle = 'rgba(255,255,255,0.88)'
+  ctx.shadowBlur = 8
+  const sLines = wrapText(ctx, spot, w - sm.x - 60, 2)
+  sLines.forEach((line, i) => ctx.fillText(line, sm.x, spotY + i * sm.fontSize * 1.4))
+
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
 
   // Tarih
-  svgText = svgText.replace(/23\.05\.2026/g, tarih || new Date().toLocaleDateString('tr-TR'))
+  const tm = meta.tarih
+  ctx.font = `400 ${tm.fontSize}px 'Open Sans', Arial`
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'
+  const tw = ctx.measureText(tarih).width
+  ctx.fillText(tarih, tm.x - tw, tm.y)
 
-  // Kategori badge metni
-  svgText = svgText.replace(/GÜN[CK]EL|GÜNCEL|GENEL|SPOR|EKONOMİ/g, (kategori || 'GÜNCEL').toUpperCase())
+  // Kategori badge — pozisyonu SVG'deki kırmızı badge'e göre
+  const km = meta.kategori
+  const kText = kategori
+  ctx.font = `700 ${km.fontSize}px Poppins, Arial`
+  const kw = ctx.measureText(kText).width
+  const kPad = km.fontSize * 0.55
+  const kH   = km.fontSize * 1.5
+  const kX   = bm.x  // Sol hizalı (başlıkla aynı x)
+  const kY   = tm.y - kH * 0.2
+  const kR   = kH * 0.45
 
-  // Canvas'a render et
-  const DPR    = 1
-  const canvas = document.createElement('canvas')
-  canvas.width  = meta.w * DPR
-  canvas.height = meta.h * DPR
-  const ctx = canvas.getContext('2d')
-
-  const blob   = new Blob([svgText], { type: 'image/svg+xml' })
-  const url    = URL.createObjectURL(blob)
-  await new Promise((res, rej) => {
-    const img = new Image()
-    img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); res() }
-    img.onerror = rej
-    img.src = url
-  })
-  URL.revokeObjectURL(url)
+  ctx.fillStyle = '#ED1C24'
+  ctx.beginPath()
+  ctx.roundRect(kX, kY - kH * 0.75, kw + kPad * 2, kH, kR)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(kText, kX + kPad, kY)
 
   return canvas.toDataURL('image/jpeg', 0.93)
 }
 
-function wrapLines(text, maxPx, fontSize) {
-  // Yaklaşık karakter başına piksel
-  const chPx = fontSize * 0.55
-  const maxCh = Math.floor(maxPx / chPx)
-  const words = text.split(' ')
-  const lines = []; let cur = ''
-  for (const w of words) {
-    const test = cur ? cur + ' ' + w : w
-    if (test.length > maxCh && cur) { lines.push(cur); cur = w }
-    else cur = test
-  }
-  if (cur) lines.push(cur)
-  return lines.slice(0, 3)
-}
+const Ic = ({ n, size = 14 }) =>
+  <i className={`ti ti-${n}`} aria-hidden="true" style={{ fontSize: size }} />
 
-// ── OTO RENDER BİLEŞENİ ──────────────────────────────────────────────────
-// Haber detayı açılınca otomatik tüm formatları render eder
-export default function OtoGorselUret({ haber, onHazir }) {
-  const [yukleniyor, setYukleniyor] = useState(false)
-  const [gorseller, setGorseller]   = useState({})
+export default function OtoGorselUret({ haber }) {
+  const [gorseller, setGorseller] = useState({})
+  const [yukleniyor, setYukl]     = useState(false)
 
   useEffect(() => {
-    if (!haber) return
+    if (!haber?.source_id) return
     let iptal = false
+    setGorseller({})
+    setYukl(true)
 
     ;(async () => {
-      setYukleniyor(true)
-      await fontYukle()
       const sonuc = {}
       for (const fmt of FORMATLAR) {
         if (iptal) break
-        try {
-          sonuc[fmt] = await renderFormat(fmt, {
-            gorselUrl:  haber.gorsel_url || haber.gorsel || '',
-            baslik:     haber.sosyal_baslik || haber.site_basligi || haber.baslik || '',
-            spotBaslik: haber.ozet || '',
-            kategori:   haber.kategori || 'Güncel',
-            tarih:      haber.tarih || new Date().toLocaleDateString('tr-TR'),
-          })
-        } catch (e) { console.warn(fmt, e) }
+        try { sonuc[fmt] = await renderFormat(fmt, haber) }
+        catch (e) { console.warn(fmt, e.message) }
+        if (!iptal) setGorseller({ ...sonuc })
       }
-      if (!iptal) {
-        setGorseller(sonuc)
-        setYukleniyor(false)
-        onHazir?.(sonuc)
-      }
+      if (!iptal) setYukl(false)
     })()
 
     return () => { iptal = true }
   }, [haber?.source_id])
 
-  if (yukleniyor) return (
-    <div style={{padding:'10px',fontSize:12,color:'var(--muted)',display:'flex',alignItems:'center',gap:8}}>
-      <i className="ti ti-loader-2" style={{fontSize:14}}/> Sosyal medya görselleri oluşturuluyor…
+  if (yukleniyor && !Object.keys(gorseller).length) return (
+    <div style={{ padding: '10px 0', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <Ic n="loader-2" size={14} /> Sosyal medya görselleri hazırlanıyor…
     </div>
   )
 
@@ -250,20 +295,27 @@ export default function OtoGorselUret({ haber, onHazir }) {
 
   return (
     <div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
-        {FORMATLAR.map(fmt => gorseller[fmt] && (
-          <div key={fmt}>
-            <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase'}}>{fmt}</div>
-            <img src={gorseller[fmt]} alt={fmt}
-              style={{width:'100%',borderRadius:6,border:'0.5px solid var(--border)',display:'block'}}/>
-            <a href={gorseller[fmt]} download={`kayserim-${fmt}.jpg`}>
-              <button style={{marginTop:4,width:'100%',fontSize:11,background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',color:'#00D4AA'}}>
-                <i className="ti ti-download" style={{fontSize:11}}/> İndir
-              </button>
-            </a>
-          </div>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {FORMATLAR.map(fmt => {
+          const src = gorseller[fmt]
+          if (!src) return null
+          const meta = MANIFEST[fmt]
+          return (
+            <div key={fmt}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {fmt} · {meta.w}×{meta.h}
+              </div>
+              <img src={src} alt={fmt} style={{ width: '100%', borderRadius: 6, border: '0.5px solid var(--border)', display: 'block', marginBottom: 4 }} />
+              <a href={src} download={`kayserim-${fmt}-${Date.now()}.jpg`}>
+                <button style={{ width: '100%', fontSize: 11, background: 'rgba(0,212,170,.08)', border: '0.5px solid rgba(0,212,170,.25)', color: '#00D4AA' }}>
+                  <Ic n="download" size={11} /> İndir
+                </button>
+              </a>
+            </div>
+          )
+        })}
       </div>
+      {yukleniyor && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}><Ic n="loader-2" size={11}/> Diğer formatlar hazırlanıyor…</div>}
     </div>
   )
 }
