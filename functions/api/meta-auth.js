@@ -10,7 +10,7 @@ export async function onRequestGet({ env }) {
   const params = new URLSearchParams({
     client_id:     appId,
     redirect_uri:  'https://rdr.ist/api/meta-callback',
-    scope:         'pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish',
+    scope:         'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments',
     response_type: 'code',
     state:         'kayserim_cms',
   })

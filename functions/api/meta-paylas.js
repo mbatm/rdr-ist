@@ -38,7 +38,7 @@ export async function onRequestPost({ request, env }) {
 
     // ── INSTAGRAM PAYLAŞIMI ─────────────────────────────────────────────────
     if ((platform === 'instagram' || platform === 'her_ikisi') && hesap.ig_id) {
-      // Adım 1: Container oluştur
+      // Adım 1: Container oluştur (yeni API: instagram_business_content_publish)
       const containerRes = await fetch(`https://graph.facebook.com/v19.0/${hesap.ig_id}/media`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,11 +54,12 @@ export async function onRequestPost({ request, env }) {
         sonuclar.instagram = { hata: container.error.message }
       } else {
         // Adım 2: Publish
+        await new Promise(r => setTimeout(r, 2000)) // Container hazırlanmasını bekle
         const publishRes = await fetch(`https://graph.facebook.com/v19.0/${hesap.ig_id}/media_publish`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            creation_id: container.id,
+            creation_id:  container.id,
             access_token: hesap.page_token,
           }),
         })
