@@ -148,7 +148,8 @@ function pill(ctx,x,y,w,h,r,fill){
 const svgCache={}
 async function getSvg(fmt) {
   if (svgCache[fmt]) return svgCache[fmt]
-  const txt = await fetch('/templates/'+fmt+'.svg').then(r=>r.text())
+  const v = Math.floor(Date.now()/3600000) // saatlik cache bust
+  const txt = await fetch('/templates/'+fmt+'.svg?v='+v).then(r=>r.text())
   const blob = new Blob([txt],{type:'image/svg+xml'})
   const url  = URL.createObjectURL(blob)
   const img  = await loadImg(url)
