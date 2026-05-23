@@ -210,23 +210,19 @@ async function render(fmt, haber) {
   ctx.fillRect(bm.x-strW-Math.round(w*0.01), bm.y-bm.fontSize*0.85,
                strW, bLines.length*bLineH+bm.fontSize*0.5)
 
-  // Spot başlık — başlığın hemen altında, alana sığacak font boyutuyla
+  // Spot başlık — başlığın hemen altında, her zaman göster
   if (spot) {
-    const spotStartY = bm.y + bLines.length*bLineH + 6
-    const availSpot  = bottomY - kH - 8 - spotStartY
-    // Sığacak font boyutunu bul (minimum 11px)
-    let sFontSize = sm.fontSize
-    while (sFontSize > 11 && sFontSize*1.35 > availSpot) sFontSize *= 0.88
-    if (sFontSize >= 11 && availSpot > 10) {
-      const sLineH = sFontSize*1.38
-      const maxSpotLn = Math.max(1, Math.floor(availSpot / sLineH))
-      ctx.font='400 '+sFontSize+'px "Open Sans",Arial'
-      ctx.fillStyle='rgba(255,255,255,.88)'
-      ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
-      wrapText(ctx,spot,w-sm.x-pad,maxSpotLn)
-        .forEach((ln,i)=>ctx.fillText(ln,sm.x,spotStartY+i*sLineH+sFontSize))
-      ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
-    }
+    const isLandscape = w > h
+    // Yatay formatlarda badge yüksekliğine orantılı küçük font
+    const spotF = isLandscape ? Math.min(sm.fontSize, kH * 0.75) : sm.fontSize
+    const spotStartY = bm.y + bLines.length * bLineH + spotF * 0.3
+    const maxSpotLn  = isLandscape ? 1 : 2
+    ctx.font = '400 ' + spotF + 'px "Open Sans",Arial'
+    ctx.fillStyle = 'rgba(255,255,255,.88)'
+    ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1
+    wrapText(ctx, spot, w - sm.x - pad, maxSpotLn)
+      .forEach((ln, i) => ctx.fillText(ln, sm.x, spotStartY + i * spotF * 1.38 + spotF))
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   }
 
   // Kategori badge — sol alt sabit
