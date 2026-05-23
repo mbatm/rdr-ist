@@ -216,13 +216,14 @@ async function render(fmt, haber) {
     ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
   }
 
-  // Kategori badge (sol alt)
+  // Kategori badge (sol alt — tarih ile aynı satır)
   ctx.font='700 '+km.fontSize+'px Poppins,Arial'
   const kw=ctx.measureText(kategori).width
   const kPad=km.fontSize*0.55, kH=km.fontSize*1.55, kR=kH*0.42
-  const kX=km.x, kY=km.y-kH*0.72
-  pill(ctx,kX,kY,kw+kPad*2,kH,kR,'#ED1C24')
-  ctx.fillStyle='#fff'; ctx.fillText(kategori,kX+kPad,km.y)
+  const kX=km.x
+  const kY=tm.y  // tarih ile aynı Y
+  pill(ctx,kX,kY-kH*0.72,kw+kPad*2,kH,kR,'#ED1C24')
+  ctx.fillStyle='#fff'; ctx.fillText(kategori,kX+kPad,kY)
 
   // Tarih (sağa hizalı)
   ctx.font='400 '+tm.fontSize+'px "Open Sans",Arial'
