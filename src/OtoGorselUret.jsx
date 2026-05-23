@@ -188,42 +188,40 @@ async function render(fmt, haber) {
   const kategori = (haber.kategori||'GÜNCEL').toUpperCase()
   const {baslik:bm, spot_baslik:sm, tarih:tm, kategori:km} = m
 
-  // Başlık
+  // Başlık — mevcut alana göre max satır hesapla
   const bLineH = bm.fontSize*1.32
   const bMaxW  = w - bm.x - pad
+  const availH = sm.y - bm.y - sm.fontSize*1.5  // spot'a kadar alan
+  const maxLines = Math.max(1, Math.floor(availH / bLineH))
   ctx.font='600 '+bm.fontSize+'px Poppins,Arial'
   ctx.fillStyle='#fff'
   ctx.shadowColor='rgba(0,0,0,.95)'; ctx.shadowBlur=14; ctx.shadowOffsetY=1
-  const bLines = wrapText(ctx,baslik,bMaxW,3)
+  const bLines = wrapText(ctx,baslik,bMaxW,maxLines)
   bLines.forEach((ln,i)=>ctx.fillText(ln,bm.x,bm.y+i*bLineH))
   ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
 
-  // Sol kırmızı şerit (başlık sol kenarına)
+  // Sol kırmızı şerit
   const strW=Math.max(4,Math.round(w*0.004))
   const strX=bm.x-strW-Math.round(w*0.01)
-  const strY=bm.y-bm.fontSize*0.85
-  const strH=bLines.length*bLineH+bm.fontSize*0.5
-  ctx.fillStyle='#ED1C24'; ctx.fillRect(strX,strY,strW,strH)
+  ctx.fillStyle='#ED1C24'
+  ctx.fillRect(strX,bm.y-bm.fontSize*0.85,strW,bLines.length*bLineH+bm.fontSize*0.5)
 
-  // Spot başlık (dinamik Y — başlık bitişinin altında)
+  // Spot başlık — manifest pozisyonunda sabit
   if (spot) {
-    const spotY = bm.y + bLines.length*bLineH + sm.fontSize*0.7
     ctx.font='400 '+sm.fontSize+'px "Open Sans",Arial'
     ctx.fillStyle='rgba(255,255,255,.88)'
     ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
     wrapText(ctx,spot,w-sm.x-pad,2)
-      .forEach((ln,i)=>ctx.fillText(ln,sm.x,spotY+i*sm.fontSize*1.4))
+      .forEach((ln,i)=>ctx.fillText(ln,sm.x,sm.y+i*sm.fontSize*1.4))
     ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
   }
 
-  // Kategori badge (sol alt — tarih ile aynı satır)
+  // Kategori badge — tarih ile aynı Y (sol alt)
   ctx.font='700 '+km.fontSize+'px Poppins,Arial'
   const kw=ctx.measureText(kategori).width
   const kPad=km.fontSize*0.55, kH=km.fontSize*1.55, kR=kH*0.42
-  const kX=km.x
-  const kY=tm.y  // tarih ile aynı Y
-  pill(ctx,kX,kY-kH*0.72,kw+kPad*2,kH,kR,'#ED1C24')
-  ctx.fillStyle='#fff'; ctx.fillText(kategori,kX+kPad,kY)
+  pill(ctx,km.x,tm.y-kH*0.72,kw+kPad*2,kH,kR,'#ED1C24')
+  ctx.fillStyle='#fff'; ctx.fillText(kategori,km.x+kPad,tm.y)
 
   // Tarih (sağa hizalı)
   ctx.font='400 '+tm.fontSize+'px "Open Sans",Arial'
