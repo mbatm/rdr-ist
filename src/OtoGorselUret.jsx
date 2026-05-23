@@ -210,17 +210,21 @@ async function render(fmt, haber) {
   ctx.fillRect(bm.x-strW-Math.round(w*0.01), bm.y-bm.fontSize*0.85,
                strW, bLines.length*bLineH+bm.fontSize*0.5)
 
-  // Spot başlık — başlığın hemen altında, badge'e kadar olan alana sığarsa göster
+  // Spot başlık — başlığın hemen altında, alana sığacak font boyutuyla
   if (spot) {
-    const spotStartY = bm.y + bLines.length*bLineH + sm.fontSize*0.4
-    const spotMaxY   = bottomY - kH - sm.fontSize*0.5
-    const maxSpotLn  = Math.max(0, Math.floor((spotMaxY - spotStartY)/(sm.fontSize*1.4)))
-    if (maxSpotLn > 0) {
-      ctx.font='400 '+sm.fontSize+'px "Open Sans",Arial'
+    const spotStartY = bm.y + bLines.length*bLineH + 6
+    const availSpot  = bottomY - kH - 8 - spotStartY
+    // Sığacak font boyutunu bul (minimum 11px)
+    let sFontSize = sm.fontSize
+    while (sFontSize > 11 && sFontSize*1.35 > availSpot) sFontSize *= 0.88
+    if (sFontSize >= 11 && availSpot > 10) {
+      const sLineH = sFontSize*1.38
+      const maxSpotLn = Math.max(1, Math.floor(availSpot / sLineH))
+      ctx.font='400 '+sFontSize+'px "Open Sans",Arial'
       ctx.fillStyle='rgba(255,255,255,.88)'
       ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
       wrapText(ctx,spot,w-sm.x-pad,maxSpotLn)
-        .forEach((ln,i)=>ctx.fillText(ln,sm.x,spotStartY+i*sm.fontSize*1.4))
+        .forEach((ln,i)=>ctx.fillText(ln,sm.x,spotStartY+i*sLineH+sFontSize))
       ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
     }
   }
