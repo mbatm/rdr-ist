@@ -236,10 +236,10 @@ async function render(fmt, haber) {
     bLines.length * bLineH
   )
 
-  // Spot başlık — başlığın son satırının hemen altından
+  // Spot başlık — başlığın son satırının hemen altından + 4px boşluk
   if (spot) {
     const lastTitleBaseline = actualTitleY + (bLines.length - 1) * bLineH
-    const spotStartBaseline = lastTitleBaseline + spotF * 1.25
+    const spotStartBaseline = lastTitleBaseline + spotF * 1.25 + 4
     ctx.font = '400 ' + spotF + 'px "Open Sans",Arial'
     ctx.fillStyle = 'rgba(255,255,255,.88)'
     ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1
@@ -248,19 +248,24 @@ async function render(fmt, haber) {
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   }
 
-  // Kategori badge — sol alt
+  // Kategori badge — sol alt, yazı dikey ortalı
   ctx.font = '700 ' + km.fontSize + 'px Poppins,Arial'
   const kw = ctx.measureText(kategori).width
   const kPad = km.fontSize * 0.55, kR = kH * 0.42
   pill(ctx, km.x, badgeTopY, kw + kPad * 2, kH, kR, '#ED1C24')
-  ctx.fillStyle = '#fff'; ctx.fillText(kategori, km.x + kPad, badgeBaseY)
+  ctx.fillStyle = '#fff'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(kategori, km.x + kPad, badgeTopY + kH * 0.5)
+  ctx.textBaseline = 'alphabetic'
 
-  // Tarih — sağ alt
+  // Tarih — sağ alt, badge ile aynı orta
   ctx.font = '400 ' + tm.fontSize + 'px "Open Sans",Arial'
   ctx.fillStyle = 'rgba(255,255,255,.82)'
   ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 5
   const tw = ctx.measureText(tarih).width
-  ctx.fillText(tarih, w - pad - tw, badgeBaseY)
+  ctx.textBaseline = 'middle'
+  ctx.fillText(tarih, w - pad - tw, badgeTopY + kH * 0.5)
+  ctx.textBaseline = 'alphabetic'
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
 
   return cv.toDataURL('image/jpeg',.93)
