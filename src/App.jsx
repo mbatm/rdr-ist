@@ -389,7 +389,86 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
   )
 }
 
-// ── CANVA TASARIM BİLEŞENİ ────────────────────────────────────────────────
+// ── META PAYLAŞIM BİLEŞENİ ────────────────────────────────────────────────
+function MetaPaylas({ content, selectedHaber }) {
+  const [platform, setPlatform] = useState('her_ikisi')
+  const [gonderiyor, setGond]   = useState(false)
+  const [sonuc,      setSonuc]  = useState(null)
+  const [hata,       setHata]   = useState(null)
+
+  const paylas = async () => {
+    const gorselUrl = selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
+    if (!gorselUrl) { setHata('Haber görseli bulunamadı'); return }
+
+    const metin = platform === 'facebook'
+      ? content?.facebook || content?.site_basligi || ''
+      : content?.instagram || content?.site_basligi || ''
+
+    setGond(true); setSonuc(null); setHata(null)
+    try {
+      const res  = await fetch('/api/meta-paylas', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ gorsel_url: gorselUrl, metin, platform }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data)
+    } catch (e) { setHata(e.message) }
+    setGond(false)
+  }
+
+  return (
+    <div style={{ marginBottom: '0.875rem' }}>
+      {/* Bağlantı */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <a href="/api/meta-auth" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+          <button style={{ fontSize: 12, background: 'rgba(24,119,242,.12)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7' }}>
+            <Ic n="brand-facebook" size={13} /> Meta Bağlantısını Yenile
+          </button>
+        </a>
+      </div>
+
+      {/* Platform seçimi */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {[['her_ikisi','FB + Instagram'],['facebook','Sadece Facebook'],['instagram','Sadece Instagram']].map(([val,lbl]) => {
+          const on = platform === val
+          return <button key={val} onClick={() => setPlatform(val)}
+            style={{ fontSize: 12, background: on ? 'rgba(24,119,242,.15)' : 'transparent', border: `0.5px solid ${on ? 'rgba(24,119,242,.4)' : 'var(--border)'}`, color: on ? '#4dabf7' : 'var(--muted)' }}>
+            {lbl}
+          </button>
+        })}
+      </div>
+
+      {/* Paylaş butonu */}
+      <button onClick={paylas} disabled={gonderiyor}
+        style={{ fontWeight: 500, background: 'rgba(24,119,242,.15)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7', marginBottom: 8 }}>
+        <Ic n={gonderiyor ? 'loader-2' : 'send'} size={14} />
+        {gonderiyor ? 'Paylaşılıyor…' : 'Paylaş'}
+      </button>
+
+      {/* Hata */}
+      {hata && <div style={{ background: 'rgba(230,57,70,.08)', border: '0.5px solid rgba(230,57,70,.3)', borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: 'rgba(230,57,70,.9)' }}>
+        <Ic n="alert-circle" size={13} /> {hata}
+      </div>}
+
+      {/* Sonuç */}
+      {sonuc && <div style={{ background: 'rgba(0,212,170,.08)', border: '0.5px solid rgba(0,212,170,.25)', borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: 12 }}>
+        <div style={{ color: '#00D4AA', fontWeight: 500, marginBottom: 6 }}>
+          <Ic n="check" size={14} /> {sonuc.hesap} — Paylaşıldı!
+        </div>
+        {sonuc.sonuclar?.facebook && <div style={{ color: 'var(--muted)' }}>
+          Facebook: {sonuc.sonuclar.facebook.ok ? '✓ ' + sonuc.sonuclar.facebook.post_id : '✗ ' + sonuc.sonuclar.facebook.hata}
+        </div>}
+        {sonuc.sonuclar?.instagram && <div style={{ color: 'var(--muted)' }}>
+          Instagram: {sonuc.sonuclar.instagram.ok ? '✓ ' + sonuc.sonuclar.instagram.media_id : '✗ ' + sonuc.sonuclar.instagram.hata}
+        </div>}
+      </div>}
+    </div>
+  )
+}
+
+
 function CanvaTasarim({ content, selectedHaber }) {
   const [templateId, setTemplateId] = useState('')
   const [yukleniyor, setYukleniyor] = useState(false)
@@ -666,7 +745,9 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Divider label="Sosyal medya görselleri (otomatik)" ic="sparkles" />
       <OtoGorselUret haber={selectedHaber} />
 
-      {/* ── CANVA TASARIM ── */}
+      {/* ── META PAYLAŞIM ── */}
+      <Divider label="Sosyal medya paylaşımı" ic="share" />
+      <MetaPaylas content={content} selectedHaber={selectedHaber} />
       <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />
       <CanvaTasarim content={content} selectedHaber={selectedHaber} />
       <Divider label="Sosyal medya görseli" ic="photo" />
