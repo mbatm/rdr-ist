@@ -190,6 +190,7 @@ async function render(fmt, haber) {
 
   // Alt çizgi — badge ve tarih buraya yaslanır
   const bottomY = h - pad * 0.55
+  const kH = km.fontSize*1.55  // badge yüksekliği — erken tanımla
 
   // Başlık — spot başlangıcına kadar alan
   const bLineH  = bm.fontSize*1.32
@@ -227,7 +228,7 @@ async function render(fmt, haber) {
   // Kategori badge — sol alt sabit
   ctx.font='700 '+km.fontSize+'px Poppins,Arial'
   const kw=ctx.measureText(kategori).width
-  const kPad=km.fontSize*0.55, kH=km.fontSize*1.55, kR=kH*0.42
+  const kPad=km.fontSize*0.55, kR=kH*0.42
   pill(ctx,km.x,bottomY-kH,kw+kPad*2,kH,kR,'#ED1C24')
   ctx.fillStyle='#fff'; ctx.fillText(kategori,km.x+kPad,bottomY-kH*0.25)
 
