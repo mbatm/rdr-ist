@@ -188,57 +188,76 @@ async function render(fmt, haber) {
   const kategori = (haber.kategori||'GÜNCEL').toUpperCase()
   const {baslik:bm, spot_baslik:sm, tarih:tm, kategori:km} = m
 
-  // Alt çizgi — badge ve tarih buraya yaslanır
-  const bottomY = h - pad * 0.55
-  const kH = km.fontSize*1.55  // badge yüksekliği — erken tanımla
+  // ── ALTTAN YUKARI LAYOUT ────────────────────────────────────────────────
+  const kH      = km.fontSize * 1.55
+  const bottomY = h - pad * 0.45          // badge/tarih referans çizgisi
 
-  // Başlık — spot başlangıcına kadar alan
-  const bLineH  = bm.fontSize*1.32
-  const bMaxW   = w - bm.x - pad
-  const availH  = sm.y - bm.y - sm.fontSize*1.5
-  const maxTitleLines = Math.max(1, Math.floor(availH/bLineH))
-  ctx.font='600 '+bm.fontSize+'px Poppins,Arial'
-  ctx.fillStyle='#fff'
-  ctx.shadowColor='rgba(0,0,0,.95)'; ctx.shadowBlur=14; ctx.shadowOffsetY=1
-  const bLines = wrapText(ctx,baslik,bMaxW,maxTitleLines)
-  bLines.forEach((ln,i)=>ctx.fillText(ln,bm.x,bm.y+i*bLineH))
-  ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
+  // 1. Badge + tarih pozisyonu (en altta)
+  const badgeBaseY = bottomY              // metin baseline'ı
+  const badgeTopY  = badgeBaseY - kH      // badge üst kenarı
 
-  // Sol kırmızı şerit
-  const strW=Math.max(4,Math.round(w*0.004))
-  ctx.fillStyle='#ED1C24'
-  ctx.fillRect(bm.x-strW-Math.round(w*0.01), bm.y-bm.fontSize*0.85,
-               strW, bLines.length*bLineH+bm.fontSize*0.5)
+  // 2. Spot başlık — badge'in hemen üstünde
+  const spotF     = sm.fontSize
+  const spotLineH = spotF * 1.38
+  const maxSpotLn = w > h ? 1 : 2
+  const spotBlockH = maxSpotLn * spotLineH + spotF * 0.2
+  const spotBaseY  = badgeTopY - 8        // spot'un son satırı buraya bitişik
 
-  // Spot başlık — başlığın hemen altında, her zaman göster
+  // 3. Başlık — spot'un hemen üstünde
+  const bLineH     = bm.fontSize * 1.32
+  const maxTitleLn = w > h ? 2 : 3
+  const bMaxW      = w - bm.x - pad
+
+  // Başlık için gerçek Y — alttan hesaplanır
+  ctx.font = '600 ' + bm.fontSize + 'px Poppins,Arial'
+  const bLines = wrapText(ctx, baslik, bMaxW, maxTitleLn)
+  const titleBlockH = bLines.length * bLineH
+  const titleBaseY  = spotBaseY - spotBlockH - 6   // başlık son satırı buraya
+  const titleStartY = titleBaseY - titleBlockH + bLineH
+
+  // Eğer hesaplanan pozisyon manifest'in üstüne çıkıyorsa manifest'i kullan
+  const actualTitleY = Math.min(bm.y, titleStartY)
+
+  // ── ÇİZİM ──────────────────────────────────────────────────────────────
+
+  // Başlık
+  ctx.fillStyle = '#fff'
+  ctx.shadowColor = 'rgba(0,0,0,.95)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 1
+  bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, actualTitleY + i * bLineH))
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+
+  // Sol kırmızı şerit (başlık bloğunun yanında)
+  const strW = Math.max(4, Math.round(w * 0.004))
+  ctx.fillStyle = '#ED1C24'
+  ctx.fillRect(bm.x - strW - Math.round(w * 0.01),
+               actualTitleY - bm.fontSize * 0.85,
+               strW, bLines.length * bLineH + bm.fontSize * 0.4)
+
+  // Spot başlık (başlığın hemen altında)
   if (spot) {
-    const isLandscape = w > h
-    // Yatay formatlarda badge yüksekliğine orantılı küçük font
-    const spotF = isLandscape ? Math.min(sm.fontSize, kH * 0.75) : sm.fontSize
-    const spotStartY = bm.y + bLines.length * bLineH + spotF * 0.3
-    const maxSpotLn  = isLandscape ? 1 : 2
+    const spotY = actualTitleY + bLines.length * bLineH + spotF * 0.2
     ctx.font = '400 ' + spotF + 'px "Open Sans",Arial'
     ctx.fillStyle = 'rgba(255,255,255,.88)'
     ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1
     wrapText(ctx, spot, w - sm.x - pad, maxSpotLn)
-      .forEach((ln, i) => ctx.fillText(ln, sm.x, spotStartY + i * spotF * 1.38 + spotF))
+      .forEach((ln, i) => ctx.fillText(ln, sm.x, spotY + i * spotLineH + spotF))
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   }
 
-  // Kategori badge — sol alt sabit
-  ctx.font='700 '+km.fontSize+'px Poppins,Arial'
-  const kw=ctx.measureText(kategori).width
-  const kPad=km.fontSize*0.55, kR=kH*0.42
-  pill(ctx,km.x,bottomY-kH,kw+kPad*2,kH,kR,'#ED1C24')
-  ctx.fillStyle='#fff'; ctx.fillText(kategori,km.x+kPad,bottomY-kH*0.25)
+  // Kategori badge — sol alt
+  ctx.font = '700 ' + km.fontSize + 'px Poppins,Arial'
+  const kw = ctx.measureText(kategori).width
+  const kPad = km.fontSize * 0.55, kR = kH * 0.42
+  pill(ctx, km.x, badgeTopY, kw + kPad * 2, kH, kR, '#ED1C24')
+  ctx.fillStyle = '#fff'; ctx.fillText(kategori, km.x + kPad, badgeBaseY)
 
-  // Tarih — sağ alt sabit
-  ctx.font='400 '+tm.fontSize+'px "Open Sans",Arial'
-  ctx.fillStyle='rgba(255,255,255,.82)'
-  ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=5
-  const tw=ctx.measureText(tarih).width
-  ctx.fillText(tarih,w-pad-tw,bottomY-kH*0.25)
-  ctx.shadowColor='transparent'; ctx.shadowBlur=0
+  // Tarih — sağ alt
+  ctx.font = '400 ' + tm.fontSize + 'px "Open Sans",Arial'
+  ctx.fillStyle = 'rgba(255,255,255,.82)'
+  ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 5
+  const tw = ctx.measureText(tarih).width
+  ctx.fillText(tarih, w - pad - tw, badgeBaseY)
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
 
   return cv.toDataURL('image/jpeg',.93)
 }
