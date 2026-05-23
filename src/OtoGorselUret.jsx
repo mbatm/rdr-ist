@@ -209,16 +209,19 @@ async function render(fmt, haber) {
   ctx.fillRect(bm.x-strW-Math.round(w*0.01), bm.y-bm.fontSize*0.85,
                strW, bLines.length*bLineH+bm.fontSize*0.5)
 
-  // Spot başlık — badge'e kadar sığacak kadar satır
+  // Spot başlık — başlığın hemen altında, badge'e kadar olan alana sığarsa göster
   if (spot) {
-    const spotMaxY  = bottomY - km.fontSize*2.2
-    const maxSpotLn = Math.max(1, Math.floor((spotMaxY-sm.y)/(sm.fontSize*1.4)))
-    ctx.font='400 '+sm.fontSize+'px "Open Sans",Arial'
-    ctx.fillStyle='rgba(255,255,255,.88)'
-    ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
-    wrapText(ctx,spot,w-sm.x-pad,maxSpotLn)
-      .forEach((ln,i)=>ctx.fillText(ln,sm.x,sm.y+i*sm.fontSize*1.4))
-    ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
+    const spotStartY = bm.y + bLines.length*bLineH + sm.fontSize*0.4
+    const spotMaxY   = bottomY - kH - sm.fontSize*0.5
+    const maxSpotLn  = Math.max(0, Math.floor((spotMaxY - spotStartY)/(sm.fontSize*1.4)))
+    if (maxSpotLn > 0) {
+      ctx.font='400 '+sm.fontSize+'px "Open Sans",Arial'
+      ctx.fillStyle='rgba(255,255,255,.88)'
+      ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
+      wrapText(ctx,spot,w-sm.x-pad,maxSpotLn)
+        .forEach((ln,i)=>ctx.fillText(ln,sm.x,spotStartY+i*sm.fontSize*1.4))
+      ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
+    }
   }
 
   // Kategori badge — sol alt sabit
