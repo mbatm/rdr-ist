@@ -242,20 +242,29 @@ async function render(fmt, haber) {
     const spotStartBaseline = lastTitleBaseline + spotF * 1.25 + 8
     const spotLines = wrapText(ctx, spot, w - sm.x - pad, maxSpotLn)
     ctx.font = '400 ' + spotF + 'px "Open Sans",Arial'
-    ctx.fillStyle = 'rgba(255,255,255,.88)'
-    ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1
+
+    // Fosforlu highlight — her satır için yazı arkasına bant
+    const highlightPadX = spotF * 0.3
+    const highlightPadY = spotF * 0.18
+    ctx.globalAlpha = 0.38
+    ctx.fillStyle = '#ED1C24'
+    spotLines.forEach((ln, i) => {
+      const lineW = ctx.measureText(ln).width
+      const lineY = spotStartBaseline + i * spotLineH
+      ctx.fillRect(
+        sm.x - highlightPadX,
+        lineY - spotF * 0.82 - highlightPadY,
+        lineW + highlightPadX * 2,
+        spotF + highlightPadY * 2
+      )
+    })
+    ctx.globalAlpha = 1
+
+    // Yazı
+    ctx.fillStyle = 'rgba(255,255,255,.95)'
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 1
     spotLines.forEach((ln, i) => ctx.fillText(ln, sm.x, spotStartBaseline + i * spotLineH))
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
-
-    // Highlight bant — spot başlığın altına
-    const lastSpotBaseline = spotStartBaseline + (spotLines.length - 1) * spotLineH
-    const bandY   = lastSpotBaseline + spotF * 0.28
-    const bandH   = Math.max(2, Math.round(spotF * 0.18))
-    const bandW   = w - sm.x - pad
-    ctx.globalAlpha = 0.55
-    ctx.fillStyle = '#ED1C24'
-    ctx.fillRect(sm.x, bandY, bandW, bandH)
-    ctx.globalAlpha = 1
   }
 
   // Kategori badge — sol alt, yazı dikey ortalı
