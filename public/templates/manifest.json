@@ -3,84 +3,104 @@
     "w": 1200,
     "h": 630,
     "bandH": 64.0,
+    "pad": 46,
     "baslik": {
-      "x": 64.668,
-      "y": 481.1357,
-      "fontSize": 54.638
+      "x": 64.7,
+      "y": 481.1,
+      "fontSize": 54.6
     },
     "spot_baslik": {
-      "x": 66.0957,
-      "y": 580.1035,
-      "fontSize": 25.5276
+      "x": 66.1,
+      "y": 580.1,
+      "fontSize": 25.5
     },
     "tarih": {
-      "x": 1074.2568,
-      "y": 611.5059,
-      "fontSize": 19.08
+      "x": 1154,
+      "y": 611.5,
+      "fontSize": 19.1
     },
-    "kategori": null
+    "kategori": {
+      "x": 66.0,
+      "y": 611.5,
+      "fontSize": 19.1
+    }
   },
   "instagram": {
     "w": 1080,
     "h": 1080,
     "bandH": 91.2,
+    "pad": 41,
     "baslik": {
-      "x": 72.3062,
-      "y": 795.374,
-      "fontSize": 72.4759
+      "x": 72.3,
+      "y": 795.4,
+      "fontSize": 72.5
     },
     "spot_baslik": {
-      "x": 74.4922,
-      "y": 940.4033,
-      "fontSize": 39.0543
+      "x": 74.5,
+      "y": 940.4,
+      "fontSize": 39.1
     },
     "tarih": {
-      "x": 928.0,
-      "y": 1027.5273,
-      "fontSize": 22.477
+      "x": 1039,
+      "y": 1027.5,
+      "fontSize": 22.5
     },
-    "kategori": null
+    "kategori": {
+      "x": 74.5,
+      "y": 1027.5,
+      "fontSize": 22.5
+    }
   },
   "twitter": {
     "w": 1600,
     "h": 900,
     "bandH": 85.2,
+    "pad": 61,
     "baslik": {
-      "x": 88.376,
-      "y": 684.3184,
+      "x": 88.4,
+      "y": 684.3,
       "fontSize": 60.0
     },
     "spot_baslik": {
-      "x": 90.2754,
-      "y": 822.2051,
-      "fontSize": 33.9666
+      "x": 90.3,
+      "y": 822.2,
+      "fontSize": 34.0
     },
     "tarih": {
-      "x": 1431.7168,
-      "y": 813.9883,
-      "fontSize": 25.3875
+      "x": 1539,
+      "y": 859.0,
+      "fontSize": 25.4
     },
-    "kategori": null
+    "kategori": {
+      "x": 90.3,
+      "y": 859.0,
+      "fontSize": 25.4
+    }
   },
   "youtube": {
     "w": 1280,
     "h": 720,
     "bandH": 68.1,
+    "pad": 49,
     "baslik": {
-      "x": 70.9229,
-      "y": 553.6553,
+      "x": 70.9,
+      "y": 553.7,
       "fontSize": 60.0
     },
     "spot_baslik": {
-      "x": 72.4424,
-      "y": 669.5928,
-      "fontSize": 27.1817
+      "x": 72.4,
+      "y": 669.6,
+      "fontSize": 27.2
     },
     "tarih": {
-      "x": 1145.9297,
-      "y": 653.0176,
-      "fontSize": 20.3163
+      "x": 1231,
+      "y": 690.0,
+      "fontSize": 20.3
     },
-    "kategori": null
+    "kategori": {
+      "x": 72.4,
+      "y": 690.0,
+      "fontSize": 20.3
+    }
   }
 }

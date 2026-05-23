@@ -1,6 +1,8 @@
-// ── OTO GÖRSEL ÜRET — SVG tasarım + Canvas görsel/metin ─────────────────
-// SVG: sizin tasarımınız (bantlar, logolar, gradient, badge şekli)
-// Canvas: haber görseli (arka plan) + metin
+// ── OTO GÖRSEL ÜRET ────────────────────────────────────────────────────
+// Katmanlar:
+//   1. Canvas  → haber görseli (arka plan, proxy)
+//   2. SVG     → tasarım chrome (bant, logo, gradient overlay)
+//   3. Canvas  → sol şerit, başlık, spot, tarih, kategori badge
 import { useState, useEffect } from 'react'
 
 const MANIFEST = {
@@ -8,85 +10,105 @@ const MANIFEST = {
     "w": 1200,
     "h": 630,
     "bandH": 64.0,
+    "pad": 46,
     "baslik": {
-      "x": 64.668,
-      "y": 481.1357,
-      "fontSize": 54.638
+      "x": 64.7,
+      "y": 481.1,
+      "fontSize": 54.6
     },
     "spot_baslik": {
-      "x": 66.0957,
-      "y": 580.1035,
-      "fontSize": 25.5276
+      "x": 66.1,
+      "y": 580.1,
+      "fontSize": 25.5
     },
     "tarih": {
-      "x": 1074.2568,
-      "y": 611.5059,
-      "fontSize": 19.08
+      "x": 1154,
+      "y": 611.5,
+      "fontSize": 19.1
     },
-    "kategori": null
+    "kategori": {
+      "x": 66.0,
+      "y": 611.5,
+      "fontSize": 19.1
+    }
   },
   "instagram": {
     "w": 1080,
     "h": 1080,
     "bandH": 91.2,
+    "pad": 41,
     "baslik": {
-      "x": 72.3062,
-      "y": 795.374,
-      "fontSize": 72.4759
+      "x": 72.3,
+      "y": 795.4,
+      "fontSize": 72.5
     },
     "spot_baslik": {
-      "x": 74.4922,
-      "y": 940.4033,
-      "fontSize": 39.0543
+      "x": 74.5,
+      "y": 940.4,
+      "fontSize": 39.1
     },
     "tarih": {
-      "x": 928.0,
-      "y": 1027.5273,
-      "fontSize": 22.477
+      "x": 1039,
+      "y": 1027.5,
+      "fontSize": 22.5
     },
-    "kategori": null
+    "kategori": {
+      "x": 74.5,
+      "y": 1027.5,
+      "fontSize": 22.5
+    }
   },
   "twitter": {
     "w": 1600,
     "h": 900,
     "bandH": 85.2,
+    "pad": 61,
     "baslik": {
-      "x": 88.376,
-      "y": 684.3184,
+      "x": 88.4,
+      "y": 684.3,
       "fontSize": 60.0
     },
     "spot_baslik": {
-      "x": 90.2754,
-      "y": 822.2051,
-      "fontSize": 33.9666
+      "x": 90.3,
+      "y": 822.2,
+      "fontSize": 34.0
     },
     "tarih": {
-      "x": 1431.7168,
-      "y": 813.9883,
-      "fontSize": 25.3875
+      "x": 1539,
+      "y": 859.0,
+      "fontSize": 25.4
     },
-    "kategori": null
+    "kategori": {
+      "x": 90.3,
+      "y": 859.0,
+      "fontSize": 25.4
+    }
   },
   "youtube": {
     "w": 1280,
     "h": 720,
     "bandH": 68.1,
+    "pad": 49,
     "baslik": {
-      "x": 70.9229,
-      "y": 553.6553,
+      "x": 70.9,
+      "y": 553.7,
       "fontSize": 60.0
     },
     "spot_baslik": {
-      "x": 72.4424,
-      "y": 669.5928,
-      "fontSize": 27.1817
+      "x": 72.4,
+      "y": 669.6,
+      "fontSize": 27.2
     },
     "tarih": {
-      "x": 1145.9297,
-      "y": 653.0176,
-      "fontSize": 20.3163
+      "x": 1231,
+      "y": 690.0,
+      "fontSize": 20.3
     },
-    "kategori": null
+    "kategori": {
+      "x": 72.4,
+      "y": 690.0,
+      "fontSize": 20.3
+    }
   }
 }
 const FORMATLAR = ['instagram','facebook','twitter','youtube']
@@ -110,164 +132,152 @@ function wrapText(ctx, text, maxW, maxLines=3) {
     else cur=test
   }
   if (cur) lines.push(cur)
-  return lines.slice(0, maxLines)
+  return lines.slice(0,maxLines)
 }
 
-function roundRect(ctx,x,y,w,h,r){
+function pill(ctx,x,y,w,h,r,fill){
   ctx.beginPath()
   ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y)
   ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r)
   ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h)
   ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r)
   ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath()
+  ctx.fillStyle=fill; ctx.fill()
 }
 
-// SVG chrome cache
-const svgCache = {}
-async function getSvgChrome(format) {
-  if (svgCache[format]) return svgCache[format]
-  const res = await fetch('/templates/' + format + '.svg')
-  const txt = await res.text()
-  const blob = new Blob([txt], { type: 'image/svg+xml' })
+const svgCache={}
+async function getSvg(fmt) {
+  if (svgCache[fmt]) return svgCache[fmt]
+  const txt = await fetch('/templates/'+fmt+'.svg').then(r=>r.text())
+  const blob = new Blob([txt],{type:'image/svg+xml'})
   const url  = URL.createObjectURL(blob)
   const img  = await loadImg(url)
   URL.revokeObjectURL(url)
-  if (img) svgCache[format] = img
+  svgCache[fmt] = img
   return img
 }
 
-async function renderFormat(format, haber) {
-  const meta = MANIFEST[format]
-  if (!meta) return null
-  const { w, h } = meta
-  const pad = Math.round(w*0.038)
+async function render(fmt, haber) {
+  const m = MANIFEST[fmt]; if (!m) return null
+  const {w,h,bandH,pad} = m
 
-  const canvas = document.createElement('canvas')
-  canvas.width=w; canvas.height=h
-  const ctx = canvas.getContext('2d')
+  const cv = document.createElement('canvas')
+  cv.width=w; cv.height=h
+  const ctx = cv.getContext('2d')
   ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'
 
-  // 1. Arka plan görseli (Canvas — proxy ile CORS yok)
-  const gorselUrl = haber.gorsel_url || haber.gorsel || ''
-  if (gorselUrl) {
-    const bg = await loadImg('/api/gorsel-proxy?url=' + encodeURIComponent(gorselUrl), true)
+  // 1. Arka plan görseli
+  const gUrl = haber.gorsel_url||haber.gorsel||''
+  if (gUrl) {
+    const bg = await loadImg('/api/gorsel-proxy?url='+encodeURIComponent(gUrl), true)
     if (bg) {
       const s=Math.max(w/bg.width,h/bg.height)
       ctx.drawImage(bg,(w-bg.width*s)/2,(h-bg.height*s)/2,bg.width*s,bg.height*s)
     }
-  } else {
-    ctx.fillStyle='#1a2535'; ctx.fillRect(0,0,w,h)
-  }
+  } else { ctx.fillStyle='#1a2535'; ctx.fillRect(0,0,w,h) }
 
-  // 2. SVG chrome overlay — SİZİN TASARIMINIZ
-  const chrome = await getSvgChrome(format)
-  if (chrome) ctx.drawImage(chrome, 0, 0, w, h)
+  // 2. SVG tasarım (bant+logo+gradient)
+  const chrome = await getSvg(fmt)
+  if (chrome) ctx.drawImage(chrome,0,0,w,h)
 
-  // 3. Metin (Canvas — manifest pozisyonları)
+  // 3. Metin ve ek öğeler
   const baslik   = haber.sosyal_baslik||haber.site_basligi||haber.baslik||''
   const spot     = haber.ozet||''
   const tarih    = haber.tarih||new Date().toLocaleDateString('tr-TR')
   const kategori = (haber.kategori||'GÜNCEL').toUpperCase()
+  const {baslik:bm, spot_baslik:sm, tarih:tm, kategori:km} = m
 
-  const bm=meta.baslik, sm=meta.spot_baslik, tm=meta.tarih, km=meta.kategori
+  // Başlık
+  const bLineH = bm.fontSize*1.32
+  const bMaxW  = w - bm.x - pad
+  ctx.font='600 '+bm.fontSize+'px Poppins,Arial'
+  ctx.fillStyle='#fff'
+  ctx.shadowColor='rgba(0,0,0,.95)'; ctx.shadowBlur=14; ctx.shadowOffsetY=1
+  const bLines = wrapText(ctx,baslik,bMaxW,3)
+  bLines.forEach((ln,i)=>ctx.fillText(ln,bm.x,bm.y+i*bLineH))
+  ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
 
-  if (bm) {
-    const maxW = w - bm.x - pad
-    ctx.font = '600 ' + bm.fontSize + 'px Poppins, Arial'
-    ctx.fillStyle='#ffffff'
-    ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=14; ctx.shadowOffsetY=1
-    const lines = wrapText(ctx, baslik, maxW, 3)
-    const lineH = bm.fontSize*1.32
-    lines.forEach((ln,i) => ctx.fillText(ln, bm.x, bm.y + i*lineH))
+  // Sol kırmızı şerit (başlık sol kenarına)
+  const strW=Math.max(4,Math.round(w*0.004))
+  const strX=bm.x-strW-Math.round(w*0.01)
+  const strY=bm.y-bm.fontSize*0.85
+  const strH=bLines.length*bLineH+bm.fontSize*0.5
+  ctx.fillStyle='#ED1C24'; ctx.fillRect(strX,strY,strW,strH)
+
+  // Spot başlık (dinamik Y — başlık bitişinin altında)
+  if (spot) {
+    const spotY = bm.y + bLines.length*bLineH + sm.fontSize*0.7
+    ctx.font='400 '+sm.fontSize+'px "Open Sans",Arial'
+    ctx.fillStyle='rgba(255,255,255,.88)'
+    ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
+    wrapText(ctx,spot,w-sm.x-pad,2)
+      .forEach((ln,i)=>ctx.fillText(ln,sm.x,spotY+i*sm.fontSize*1.4))
     ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
-
-    // Spot başlık
-    if (sm && spot) {
-      const spotY = bm.y + lines.length*lineH + sm.fontSize*0.6
-      ctx.font = '400 ' + sm.fontSize + 'px "Open Sans", Arial'
-      ctx.fillStyle='rgba(255,255,255,0.88)'
-      ctx.shadowColor='rgba(0,0,0,0.9)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1
-      wrapText(ctx,spot,w-sm.x-pad,2).forEach((ln,i)=>
-        ctx.fillText(ln, sm.x, spotY+i*sm.fontSize*1.38))
-      ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
-    }
   }
 
-  // Tarih
-  if (tm) {
-    ctx.font = '400 ' + tm.fontSize + 'px "Open Sans", Arial'
-    ctx.fillStyle='rgba(255,255,255,0.85)'
-    ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=6
-    const tw=ctx.measureText(tarih).width
-    ctx.fillText(tarih, tm.x-tw, tm.y)
-    ctx.shadowColor='transparent'; ctx.shadowBlur=0
-  }
+  // Kategori badge (sol alt)
+  ctx.font='700 '+km.fontSize+'px Poppins,Arial'
+  const kw=ctx.measureText(kategori).width
+  const kPad=km.fontSize*0.55, kH=km.fontSize*1.55, kR=kH*0.42
+  const kX=km.x, kY=km.y-kH*0.72
+  pill(ctx,kX,kY,kw+kPad*2,kH,kR,'#ED1C24')
+  ctx.fillStyle='#fff'; ctx.fillText(kategori,kX+kPad,km.y)
 
-  // Kategori badge
-  if (km) {
-    const fs=km.fontSize||20, kPad=fs*0.6, kH=fs*1.6, kR=kH*0.4
-    ctx.font = '700 ' + fs + 'px Poppins, Arial'
-    const kw=ctx.measureText(kategori).width
-    ctx.fillStyle='#ED1C24'
-    roundRect(ctx, km.x, km.y-kH*0.8, kw+kPad*2, kH, kR); ctx.fill()
-    ctx.fillStyle='#ffffff'
-    ctx.fillText(kategori, km.x+kPad, km.y)
-  }
+  // Tarih (sağa hizalı)
+  ctx.font='400 '+tm.fontSize+'px "Open Sans",Arial'
+  ctx.fillStyle='rgba(255,255,255,.82)'
+  ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=5
+  const tw=ctx.measureText(tarih).width
+  ctx.fillText(tarih,tm.x-tw,tm.y)
+  ctx.shadowColor='transparent'; ctx.shadowBlur=0
 
-  return canvas.toDataURL('image/jpeg',0.93)
+  return cv.toDataURL('image/jpeg',.93)
 }
 
-const Ic=({n,size=14})=><i className={`ti ti-${n}`} aria-hidden="true" style={{fontSize:size}}/>
+const Ic=({n,sz=14})=><i className={`ti ti-${n}`} aria-hidden style={{fontSize:sz}}/>
 
-export default function OtoGorselUret({ haber }) {
-  const [gorseller, setGorseller] = useState({})
-  const [yukleniyor, setYukl]     = useState(false)
+export default function OtoGorselUret({haber}) {
+  const [items,setItems]=useState({})
+  const [busy,setBusy]=useState(false)
 
   useEffect(()=>{
     if (!haber?.source_id) return
-    let iptal=false
-    setGorseller({}); setYukl(true)
+    let stop=false; setItems({}); setBusy(true)
     ;(async()=>{
-      const sonuc={}
+      const acc={}
       for (const fmt of FORMATLAR) {
-        if (iptal) break
-        try { sonuc[fmt]=await renderFormat(fmt,haber) } catch(e){console.warn(fmt,e.message)}
-        if (!iptal) setGorseller({...sonuc})
+        if (stop) break
+        try { acc[fmt]=await render(fmt,haber) } catch(e){console.warn(fmt,e.message)}
+        if (!stop) setItems({...acc})
       }
-      if (!iptal) setYukl(false)
+      if (!stop) setBusy(false)
     })()
-    return ()=>{iptal=true}
+    return ()=>{stop=true}
   },[haber?.source_id])
 
-  if (yukleniyor && !Object.keys(gorseller).length) return (
-    <div style={{padding:'10px 0',fontSize:12,color:'var(--muted)',display:'flex',alignItems:'center',gap:8}}>
-      <Ic n="loader-2" size={14}/> Görseller hazırlanıyor…
-    </div>
-  )
-  if (!Object.keys(gorseller).length) return null
+  if (busy && !Object.keys(items).length)
+    return <div style={{padding:'10px 0',fontSize:12,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}><Ic n="loader-2" sz={14}/> Görseller hazırlanıyor…</div>
+
+  if (!Object.keys(items).length) return null
 
   return (
     <div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         {FORMATLAR.map(fmt=>{
-          const src=gorseller[fmt]; if (!src) return null
-          const meta=MANIFEST[fmt]
-          return (
-            <div key={fmt}>
-              <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase'}}>
-                {fmt} · {meta.w}×{meta.h}
-              </div>
-              <img src={src} alt={fmt} style={{width:'100%',borderRadius:6,border:'0.5px solid var(--border)',display:'block',marginBottom:4}}/>
-              <a href={src} download={`kayserim-${fmt}-${Date.now()}.jpg`}>
-                <button style={{width:'100%',fontSize:11,background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',color:'#00D4AA'}}>
-                  <Ic n="download" size={11}/> İndir
-                </button>
-              </a>
-            </div>
-          )
+          const src=items[fmt]; if (!src) return null
+          const mm=MANIFEST[fmt]
+          return <div key={fmt}>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase'}}>{fmt} · {mm.w}×{mm.h}</div>
+            <img src={src} alt={fmt} style={{width:'100%',borderRadius:6,border:'0.5px solid var(--border)',display:'block',marginBottom:4}}/>
+            <a href={src} download={`kayserim-${fmt}.jpg`}>
+              <button style={{width:'100%',fontSize:11,background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',color:'#00D4AA'}}>
+                <Ic n="download" sz={11}/> İndir
+              </button>
+            </a>
+          </div>
         })}
       </div>
-      {yukleniyor&&<div style={{fontSize:11,color:'var(--muted)',marginTop:8}}><Ic n="loader-2" size={11}/> Devam ediyor…</div>}
+      {busy && <div style={{fontSize:11,color:'var(--muted)',marginTop:8,display:'flex',gap:6,alignItems:'center'}}><Ic n="loader-2" sz={11}/>Devam ediyor…</div>}
     </div>
   )
 }
