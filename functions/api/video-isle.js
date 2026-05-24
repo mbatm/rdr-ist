@@ -141,11 +141,12 @@ export async function onRequestPost({ request, env }) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        source: JSON.stringify(template),
+        source: template,
         metadata: source_id || '',
       }),
     })
     const data = await res.json()
+    console.log('Creatomate response:', JSON.stringify(data))
 
     if (!res.ok) return Response.json({ hata: JSON.stringify(data) }, { status: 500 })
 
