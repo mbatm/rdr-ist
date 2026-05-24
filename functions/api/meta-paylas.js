@@ -7,13 +7,18 @@ export async function onRequestPost({ request, env }) {
     const { gorsel_url, metin, platform = 'her_ikisi' } = await request.json()
     if (!gorsel_url) return Response.json({ hata: 'gorsel_url gerekli' }, { status: 400 })
 
-    const pageToken = env.META_PAGE_TOKEN
+    const userToken = env.META_PAGE_TOKEN
     const pageId    = env.META_PAGE_ID
     const igId      = env.META_IG_ID
 
-    if (!pageToken || !pageId) {
+    if (!userToken || !pageId) {
       return Response.json({ hata: 'META_PAGE_TOKEN veya META_PAGE_ID eksik' }, { status: 401 })
     }
+
+    // Önce Page Access Token al
+    const pageRes  = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=access_token&access_token=${userToken}`)
+    const pageData = await pageRes.json()
+    const pageToken = pageData.access_token || userToken
 
     const sonuclar = {}
 
