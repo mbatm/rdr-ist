@@ -143,9 +143,9 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify({
         template_id: 'c742faa5-485f-4102-9b20-a24839a4f693',
         modifications: {
-          'Video.source': video_url,
-          'Text-1.text':  (baslik || '').slice(0, 120),
-          'Text-2.text':  `${katStr}\n${tarihStr}`,
+          'Image-JPB.source': video_url,
+          'Text-W4Q.text':    (baslik || '').slice(0, 120),
+          'Text-STR.text':    `${katStr}  |  ${tarihStr}`,
         },
       }),
     })
