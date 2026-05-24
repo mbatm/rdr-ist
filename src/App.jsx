@@ -391,15 +391,16 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
 
 // ── VIDEO İŞLE BİLEŞENİ (Creatomate) ─────────────────────────────────────
 function VideoIsle({ haber, baslik, kategori }) {
-  const [durum,     setDurum]   = useState(null) // null | 'rendering' | 'done' | 'error'
-  const [renderId,  setRenderId] = useState(null)
-  const [videoUrl,  setVideoUrl] = useState(null)
-  const [progress,  setProgress] = useState(0)
+  const [durum,    setDurum]  = useState(null)
+  const [renderId, setRender] = useState(null)
+  const [videoUrl, setVUrl]   = useState(null)
+  const [progress, setProgress] = useState(0)
+  const [hataMsg,  setHataMsg]  = useState('')
 
   const isle = async () => {
-    setDurum('rendering'); setProgress(0); setVideoUrl(null)
+    setDurum('rendering'); setProgress(0); setVUrl(null); setHataMsg('')
     try {
-      const res = await fetch('/api/video-isle', {
+      const res  = await fetch('/api/video-isle', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -412,8 +413,8 @@ function VideoIsle({ haber, baslik, kategori }) {
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setRenderId(data.render_id)
-    } catch (e) { setDurum('error') }
+      setRender(data.render_id)
+    } catch (e) { setDurum('error'); setHataMsg(e.message) }
   }
 
   // Render durumunu poll et
@@ -425,7 +426,7 @@ function VideoIsle({ haber, baslik, kategori }) {
         const data = await res.json()
         setProgress(data.progress || 0)
         if (data.status === 'succeeded') {
-          setVideoUrl(data.render_url); setDurum('done'); clearInterval(timer)
+          setVUrl(data.render_url); setDurum('done'); clearInterval(timer)
         } else if (data.status === 'failed') {
           setDurum('error'); clearInterval(timer)
         }
@@ -469,9 +470,12 @@ function VideoIsle({ haber, baslik, kategori }) {
       )}
 
       {durum === 'error' && (
-        <div style={{ fontSize:12, color:'#ff7b7b', display:'flex', gap:8, alignItems:'center' }}>
-          <Ic n="alert-circle" size={13}/> İşleme hatası
-          <button onClick={isle} style={{ fontSize:11 }}>Tekrar dene</button>
+        <div style={{ fontSize:12, color:'#ff7b7b' }}>
+          <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
+            <Ic n="alert-circle" size={13}/> İşleme hatası
+            <button onClick={isle} style={{ fontSize:11 }}>Tekrar dene</button>
+          </div>
+          {hataMsg && <div style={{ fontSize:11, color:'rgba(255,123,123,.7)', fontFamily:'var(--mono)', lineHeight:1.5, wordBreak:'break-all' }}>{hataMsg}</div>}
         </div>
       )}
     </div>
