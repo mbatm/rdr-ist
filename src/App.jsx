@@ -390,26 +390,44 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
 }
 
 // ── META PAYLAŞIM BİLEŞENİ ────────────────────────────────────────────────
-function MetaPaylas({ content, selectedHaber }) {
+function MetaPaylas({ content, selectedHaber, gorselUrls }) {
   const [platform, setPlatform] = useState('her_ikisi')
   const [gonderiyor, setGond]   = useState(false)
   const [sonuc,      setSonuc]  = useState(null)
   const [hata,       setHata]   = useState(null)
+  const [metin,      setMetin]  = useState('')
 
-  const paylas = async () => {
-    const gorselUrl = selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-    if (!gorselUrl) { setHata('Haber görseli bulunamadı'); return }
-
-    const metin = platform === 'facebook'
+  // İçerik değişince metni güncelle
+  useEffect(() => {
+    const yeniMetin = platform === 'facebook'
       ? content?.facebook || content?.site_basligi || ''
       : content?.instagram || content?.site_basligi || ''
+    setMetin(yeniMetin)
+  }, [platform, content])
+
+  const paylas = async () => {
+    // Görsel URL: template > orijinal > video
+    const videoUrl  = selectedHaber?.video || ''
+    const isVideo   = !!videoUrl
+    const gorselUrl = gorselUrls?.instagram || gorselUrls?.facebook ||
+                      selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
+
+    if (!gorselUrl && !videoUrl) { setHata('Paylaşılacak görsel bulunamadı'); return }
 
     setGond(true); setSonuc(null); setHata(null)
     try {
       const res  = await fetch('/api/meta-paylas', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ gorsel_url: gorselUrl, metin, platform }),
+        body:    JSON.stringify({
+          gorsel_url: platform === 'facebook'
+            ? gorselUrls?.facebook || gorselUrl
+            : gorselUrls?.instagram || gorselUrl,
+          video_url:  videoUrl,
+          metin,
+          platform,
+          is_video: isVideo,
+        }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
@@ -418,20 +436,25 @@ function MetaPaylas({ content, selectedHaber }) {
     setGond(false)
   }
 
+  const isVideo = !!selectedHaber?.video
+  const templateHazir = Object.keys(gorselUrls || {}).length > 0
+
   return (
     <div style={{ marginBottom: '0.875rem' }}>
-      {/* Bağlantı */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <a href="/api/meta-auth" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-          <button style={{ fontSize: 12, background: 'rgba(24,119,242,.12)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7' }}>
-            <Ic n="brand-facebook" size={13} /> Meta Bağlantısını Yenile
-          </button>
-        </a>
+      {/* Template durum */}
+      <div style={{ fontSize: 11, color: templateHazir ? '#00D4AA' : 'var(--muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Ic n={templateHazir ? 'circle-check' : 'loader-2'} size={12} />
+        {templateHazir ? 'Template görseller hazır — paylaşımda kullanılacak' : 'Template görseller yükleniyor…'}
       </div>
 
-      {/* Platform seçimi */}
+      {/* Video uyarısı */}
+      {isVideo && <div style={{ background: 'rgba(255,180,0,.08)', border: '0.5px solid rgba(255,180,0,.3)', borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: 'rgba(255,180,0,.9)', marginBottom: 8 }}>
+        <Ic n="video" size={12} /> Video haber — Facebook ve Instagram'a video olarak paylaşılacak
+      </div>}
+
+      {/* Platform */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {[['her_ikisi','FB + Instagram'],['facebook','Sadece Facebook'],['instagram','Sadece Instagram']].map(([val,lbl]) => {
+        {[['her_ikisi','FB + IG'],['facebook','Facebook'],['instagram','Instagram']].map(([val,lbl]) => {
           const on = platform === val
           return <button key={val} onClick={() => setPlatform(val)}
             style={{ fontSize: 12, background: on ? 'rgba(24,119,242,.15)' : 'transparent', border: `0.5px solid ${on ? 'rgba(24,119,242,.4)' : 'var(--border)'}`, color: on ? '#4dabf7' : 'var(--muted)' }}>
@@ -440,28 +463,28 @@ function MetaPaylas({ content, selectedHaber }) {
         })}
       </div>
 
-      {/* Paylaş butonu */}
+      {/* Metin düzenleme */}
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Paylaşım metni (düzenlenebilir)</div>
+      <textarea value={metin} onChange={e => setMetin(e.target.value)} rows={3}
+        style={{ width: '100%', fontSize: 12, marginBottom: 10, resize: 'vertical', boxSizing: 'border-box' }} />
+
       <button onClick={paylas} disabled={gonderiyor}
         style={{ fontWeight: 500, background: 'rgba(24,119,242,.15)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7', marginBottom: 8 }}>
         <Ic n={gonderiyor ? 'loader-2' : 'send'} size={14} />
         {gonderiyor ? 'Paylaşılıyor…' : 'Paylaş'}
       </button>
 
-      {/* Hata */}
       {hata && <div style={{ background: 'rgba(230,57,70,.08)', border: '0.5px solid rgba(230,57,70,.3)', borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: 'rgba(230,57,70,.9)' }}>
         <Ic n="alert-circle" size={13} /> {hata}
       </div>}
 
-      {/* Sonuç */}
       {sonuc && <div style={{ background: 'rgba(0,212,170,.08)', border: '0.5px solid rgba(0,212,170,.25)', borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: 12 }}>
-        <div style={{ color: '#00D4AA', fontWeight: 500, marginBottom: 6 }}>
-          <Ic n="check" size={14} /> {sonuc.hesap} — Paylaşıldı!
-        </div>
+        <div style={{ color: '#00D4AA', fontWeight: 500, marginBottom: 6 }}><Ic n="check" size={14} /> Paylaşıldı!</div>
         {sonuc.sonuclar?.facebook && <div style={{ color: 'var(--muted)' }}>
-          Facebook: {sonuc.sonuclar.facebook.ok ? '✓ ' + sonuc.sonuclar.facebook.post_id : '✗ ' + sonuc.sonuclar.facebook.hata}
+          Facebook: {sonuc.sonuclar.facebook.ok ? '✓ ' + (sonuc.sonuclar.facebook.post_id || '') : '✗ ' + sonuc.sonuclar.facebook.hata}
         </div>}
         {sonuc.sonuclar?.instagram && <div style={{ color: 'var(--muted)' }}>
-          Instagram: {sonuc.sonuclar.instagram.ok ? '✓ ' + sonuc.sonuclar.instagram.media_id : '✗ ' + sonuc.sonuclar.instagram.hata}
+          Instagram: {sonuc.sonuclar.instagram.ok ? '✓ ' + (sonuc.sonuclar.instagram.media_id || '') : '✗ ' + sonuc.sonuclar.instagram.hata}
         </div>}
       </div>}
     </div>
@@ -568,6 +591,7 @@ function CanvaTasarim({ content, selectedHaber }) {
 
 
 function Isleme({ content, processing, error, selectedHaber }) {
+  const [gorselUrls, setGorselUrls] = useState({})
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(null)
   const [rssYukleniyor, setRssYukleniyor] = useState(false)
@@ -743,11 +767,11 @@ function Isleme({ content, processing, error, selectedHaber }) {
 
       {/* ── OTO SOSYAL MEDYA GÖRSELLERİ ── */}
       <Divider label="Sosyal medya görselleri (otomatik)" ic="sparkles" />
-      <OtoGorselUret haber={selectedHaber} />
+      <OtoGorselUret haber={selectedHaber} onGorsellerHazir={(g)=>setGorselUrls(g.urls)} />
 
       {/* ── META PAYLAŞIM ── */}
       <Divider label="Sosyal medya paylaşımı" ic="share" />
-      <MetaPaylas content={content} selectedHaber={selectedHaber} />
+      <MetaPaylas content={content} selectedHaber={selectedHaber} gorselUrls={gorselUrls} />
       <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />
       <CanvaTasarim content={content} selectedHaber={selectedHaber} />
       <Divider label="Sosyal medya görseli" ic="photo" />
