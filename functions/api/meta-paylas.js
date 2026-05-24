@@ -1,76 +1,63 @@
 /**
  * POST /api/meta-paylas
- * Body: { gorsel_url, metin, platform: 'facebook'|'instagram'|'her_ikisi', page_id? }
- * Görsel + metin → Facebook Page + Instagram
+ * Body: { gorsel_url, metin, platform: 'facebook'|'instagram'|'her_ikisi' }
  */
 export async function onRequestPost({ request, env }) {
   try {
-    const { gorsel_url, metin, platform = 'her_ikisi', page_id } = await request.json()
+    const { gorsel_url, metin, platform = 'her_ikisi' } = await request.json()
     if (!gorsel_url) return Response.json({ hata: 'gorsel_url gerekli' }, { status: 400 })
 
-    const meta = await env.HABERLER.get('meta_tokens', 'json')
-    if (!meta) return Response.json({ hata: 'Meta bağlantısı yok — /api/meta-auth ile bağlanın' }, { status: 401 })
+    const pageToken = env.META_PAGE_TOKEN
+    const pageId    = env.META_PAGE_ID
+    const igId      = env.META_IG_ID
 
-    const hesap = page_id
-      ? meta.hesaplar.find(h => h.page_id === page_id)
-      : meta.hesaplar[0]
-
-    if (!hesap) return Response.json({ hata: 'Sayfa bulunamadı' }, { status: 404 })
+    if (!pageToken || !pageId) {
+      return Response.json({ hata: 'META_PAGE_TOKEN veya META_PAGE_ID eksik' }, { status: 401 })
+    }
 
     const sonuclar = {}
 
-    // ── FACEBOOK PAYLAŞIMI ──────────────────────────────────────────────────
+    // ── FACEBOOK ──────────────────────────────────────────────────────────
     if (platform === 'facebook' || platform === 'her_ikisi') {
-      const fbRes = await fetch(`https://graph.facebook.com/v19.0/${hesap.page_id}/photos`, {
-        method: 'POST',
+      const res  = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url:          gorsel_url,
-          caption:      metin,
-          access_token: hesap.page_token,
-        }),
+        body:    JSON.stringify({ url: gorsel_url, caption: metin, access_token: pageToken }),
       })
-      const fbData = await fbRes.json()
-      sonuclar.facebook = fbData.error
-        ? { hata: fbData.error.message }
-        : { ok: true, post_id: fbData.post_id || fbData.id }
+      const data = await res.json()
+      sonuclar.facebook = data.error
+        ? { hata: data.error.message }
+        : { ok: true, post_id: data.post_id || data.id }
     }
 
-    // ── INSTAGRAM PAYLAŞIMI ─────────────────────────────────────────────────
-    if ((platform === 'instagram' || platform === 'her_ikisi') && hesap.ig_id) {
-      // Adım 1: Container oluştur (yeni API: instagram_business_content_publish)
-      const containerRes = await fetch(`https://graph.facebook.com/v19.0/${hesap.ig_id}/media`, {
-        method: 'POST',
+    // ── INSTAGRAM ─────────────────────────────────────────────────────────
+    if ((platform === 'instagram' || platform === 'her_ikisi') && igId) {
+      // 1. Container
+      const cRes  = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_url:    gorsel_url,
-          caption:      metin,
-          access_token: hesap.page_token,
-        }),
+        body:    JSON.stringify({ image_url: gorsel_url, caption: metin, access_token: pageToken }),
       })
-      const container = await containerRes.json()
+      const cData = await cRes.json()
 
-      if (container.error) {
-        sonuclar.instagram = { hata: container.error.message }
+      if (cData.error) {
+        sonuclar.instagram = { hata: cData.error.message }
       } else {
-        // Adım 2: Publish
-        await new Promise(r => setTimeout(r, 2000)) // Container hazırlanmasını bekle
-        const publishRes = await fetch(`https://graph.facebook.com/v19.0/${hesap.ig_id}/media_publish`, {
-          method: 'POST',
+        await new Promise(r => setTimeout(r, 2000))
+        // 2. Publish
+        const pRes  = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            creation_id:  container.id,
-            access_token: hesap.page_token,
-          }),
+          body:    JSON.stringify({ creation_id: cData.id, access_token: pageToken }),
         })
-        const publish = await publishRes.json()
-        sonuclar.instagram = publish.error
-          ? { hata: publish.error.message }
-          : { ok: true, media_id: publish.id }
+        const pData = await pRes.json()
+        sonuclar.instagram = pData.error
+          ? { hata: pData.error.message }
+          : { ok: true, media_id: pData.id }
       }
     }
 
-    return Response.json({ basarili: true, hesap: hesap.page_name, sonuclar })
+    return Response.json({ basarili: true, sonuclar })
   } catch (e) {
     return Response.json({ hata: e.message }, { status: 500 })
   }
