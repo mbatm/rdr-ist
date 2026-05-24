@@ -390,25 +390,21 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
 }
 
 // ── META PAYLAŞIM BİLEŞENİ ────────────────────────────────────────────────
-function MetaPaylas({ content, selectedHaber, gorselUrls }) {
+function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '' }) {
   const [platform, setPlatform] = useState('her_ikisi')
   const [gonderiyor, setGond]   = useState(false)
   const [sonuc,      setSonuc]  = useState(null)
   const [hata,       setHata]   = useState(null)
   const [metin,      setMetin]  = useState('')
 
-  // İçerik değişince metni güncelle
+  // Platform veya içerik değişince metni güncelle
   useEffect(() => {
-    const link = selectedHaber?.kayserim_link ||
-      (content?.url_slug ? `https://kayserim.net/haber/${content.url_slug}` : '')
-
     const ham = platform === 'facebook'
       ? content?.facebook || content?.site_basligi || ''
       : content?.instagram || content?.site_basligi || ''
-
-    const yeniMetin = link ? `${ham}\n\n🔗 ${link}` : ham
-    setMetin(yeniMetin)
-  }, [platform, content, selectedHaber])
+    const finalMetin = kayserimLink ? `${ham}\n\n🔗 ${kayserimLink}` : ham
+    setMetin(finalMetin)
+  }, [platform, content, kayserimLink])
 
   const paylas = async () => {
     // Görsel URL: template > orijinal > video
@@ -468,6 +464,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls }) {
         })}
       </div>
 
+      {/* kayserim.net linki — Isleme'den prop olarak geliyor */}
+      {kayserimLink && <div style={{ fontSize:11, color:'#00D4AA', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
+        <Ic n="link" size={11}/> Link eklenecek: {kayserimLink.slice(0,50)}…
+      </div>}
+
       {/* Metin düzenleme */}
       <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Paylaşım metni (düzenlenebilir)</div>
       <textarea value={metin} onChange={e => setMetin(e.target.value)} rows={3}
@@ -497,329 +498,180 @@ function MetaPaylas({ content, selectedHaber, gorselUrls }) {
 }
 
 
-function CanvaTasarim({ content, selectedHaber }) {
-  const [templateId, setTemplateId] = useState('')
-  const [yukleniyor, setYukleniyor] = useState(false)
-  const [sonuc,      setSonuc]      = useState(null)
-  const [hata,       setHata]       = useState(null)
-
-  const olustur = async () => {
-    if (!templateId.trim()) { alert('Template ID girin'); return }
-    setYukleniyor(true); setSonuc(null); setHata(null)
-    try {
-      const res = await fetch('/api/canva-tasarim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          templateId: templateId.trim(),
-          baslik:       content?.site_basligi || '',
-          sosyal_baslik: content?.sosyal_baslik || content?.site_basligi || '',
-          kategori:     content?.kategori || '',
-          tarih:        selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR'),
-          gorsel_url:   selectedHaber?.gorsel || '',
-        }),
-      })
-      const data = await res.json()
-      if (data.hata) throw new Error(data.hata)
-      setSonuc(data)
-    } catch (e) { setHata(e.message) }
-    setYukleniyor(false)
-  }
-
-  return (
-    <div style={{ marginBottom:'0.875rem' }}>
-      {/* Bağlantı kontrolü */}
-      <div style={{ display:'flex', gap:8, marginBottom:10, alignItems:'center' }}>
-        <a href="/api/canva-auth" target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
-          <button style={{ fontSize:12, background:'rgba(120,80,255,0.12)', border:'0.5px solid rgba(120,80,255,0.3)', color:'#a89cff' }}>
-            <Ic n="brand-canva" size={13}/> Canva Bağlantısını Yenile
-          </button>
-        </a>
-        <span style={{ fontSize:11, color:'var(--muted)' }}>— İlk kez veya token süresi dolduysa</span>
-      </div>
-
-      {/* Template ID */}
-      <div style={{ fontSize:11, color:'var(--muted)', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.07em' }}>
-        Canva Brand Template ID
-      </div>
-      <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-        <input
-          value={templateId}
-          onChange={e => setTemplateId(e.target.value)}
-          placeholder="Canva'dan template ID (örn: DAGBxxxxxx)"
-          style={{ flex:1, fontSize:13 }}
-        />
-        <button onClick={olustur} disabled={yukleniyor}
-          style={{ fontWeight:500, background:'rgba(120,80,255,0.15)', border:'0.5px solid rgba(120,80,255,0.35)', color:'#a89cff', whiteSpace:'nowrap' }}>
-          <Ic n={yukleniyor ? 'loader-2' : 'brand-canva'} size={15}/>
-          {yukleniyor ? 'Oluşturuluyor…' : 'Canva\'da Oluştur'}
-        </button>
-      </div>
-
-      {/* Hata */}
-      {hata && (
-        <div style={{ background:'rgba(230,57,70,0.08)', border:'0.5px solid rgba(230,57,70,0.3)', borderRadius:'var(--radius-md)', padding:'9px 12px', fontSize:12, color:'rgba(230,57,70,0.9)', marginBottom:8 }}>
-          <Ic n="alert-circle" size={13}/> {hata}
-        </div>
-      )}
-
-      {/* Sonuç */}
-      {sonuc && (
-        <div style={{ background:'rgba(0,212,170,0.08)', border:'0.5px solid rgba(0,212,170,0.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-          <Ic n="check" size={16} style={{ color:'#00D4AA' }}/>
-          <span style={{ fontSize:13, color:'#00D4AA', fontWeight:500 }}>Tasarım hazır!</span>
-          {sonuc.editUrl && (
-            <a href={sonuc.editUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
-              <button style={{ fontSize:12, background:'rgba(0,212,170,0.12)', border:'0.5px solid rgba(0,212,170,0.3)', color:'#00D4AA' }}>
-                <Ic n="edit" size={12}/> Canva'da Düzenle
-              </button>
-            </a>
-          )}
-          {sonuc.viewUrl && (
-            <a href={sonuc.viewUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
-              <button style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
-                <Ic n="eye" size={12}/> Görüntüle
-              </button>
-            </a>
-          )}
-        </div>
-      )}
-
-      {/* Yardım */}
-      <div style={{ fontSize:11, color:'var(--muted)', marginTop:8, lineHeight:1.6 }}>
-        Template ID: Canva'da şablonunuzu açın → Paylaş → Brand template → ID kısmından kopyalayın.<br/>
-        Şablondaki metin alanlarını <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>baslik</code>, <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>kategori</code>, <code style={{ background:'rgba(255,255,255,0.06)', padding:'0 4px', borderRadius:3 }}>tarih</code> olarak adlandırın.
-      </div>
-    </div>
-  )
-}
-
 
 function Isleme({ content, processing, error, selectedHaber }) {
-  const [gorselUrls, setGorselUrls] = useState({})
-  const [link, setLink] = useState('')
-  const [copied, setCopied] = useState(null)
-  const [rssYukleniyor, setRssYukleniyor] = useState(false)
-  const [rssKaydedildi, setRssKaydedildi] = useState(false)
+  const [ec,       setEc]     = useState({})   // editable content
+  const [link,     setLink]   = useState('')
+  const [mode,     setMode]   = useState('edit') // 'edit' | 'paylas'
+  const [gorselUrls,setGUrls] = useState({})
+  const [kaydediliyor,setKyd] = useState(false)
+  const [kaydedildi, setKd]   = useState(false)
 
-  const copy = (text, field) => {
-    navigator.clipboard?.writeText(text).catch(() => {})
-    setCopied(field)
-    setTimeout(() => setCopied(null), 2000)
-  }
+  // content değişince editör state'ini güncelle
+  useEffect(() => {
+    if (content) { setEc({...content}); setMode('edit'); setLink(''); setGUrls({}) }
+  }, [content?.url_slug])
 
-  // ── RSS KAYDET ──
-  const rssKaydet = async () => {
-    if (!content) return
-    setRssYukleniyor(true)
+  const set = (field, val) => setEc(p => ({...p, [field]: val}))
+
+  // Düzenlenmiş haberi OtoGorselUret için hazırla
+  const editedHaber = selectedHaber ? {
+    ...selectedHaber,
+    sosyal_baslik: ec.sosyal_baslik || ec.site_basligi || selectedHaber.baslik,
+    site_basligi:  ec.site_basligi  || selectedHaber.baslik,
+    ozet:          ec.ozet          || selectedHaber.icerik?.slice(0,120),
+    kategori:      ec.kategori      || selectedHaber.kategori,
+    tarih:         selectedHaber.tarih,
+  } : null
+
+  const kaydet = async () => {
+    setKyd(true)
     try {
+      const kayit = {
+        ...ec,
+        source_id:  selectedHaber?.source_id,
+        source_url: selectedHaber?.source_url,
+        baslik:     selectedHaber?.baslik,
+        gorsel:     selectedHaber?.gorsel,
+        gorsel_url: selectedHaber?.gorsel_url || selectedHaber?.gorsel,
+        video:      selectedHaber?.video || '',
+        tarih_iso:  selectedHaber?.tarih_iso || new Date().toISOString(),
+        kayserim_link: link,
+        kaydedildi: new Date().toISOString(),
+        durum: 'islendi',
+      }
+      const liste = await fetch('/api/haberler').then(r => r.json()).catch(() => [])
+      const updated = [kayit, ...liste.filter(h => h.source_id !== kayit.source_id)].slice(0, 200)
       await fetch('/api/haber-kaydet', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...content,
-          gorsel_url: selectedHaber?.gorsel || '',
-          kayserim_link: link || '',
-          tarih_iso: new Date().toISOString(),
-        }),
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(kayit),
       })
-      setRssKaydedildi(true)
+      setKd(true); setMode('paylas')
     } catch (e) { console.error(e) }
-    setRssYukleniyor(false)
+    setKyd(false)
   }
 
+  const Divider = ({ label, ic }) => (
+    <div style={{ display:'flex', alignItems:'center', gap:8, borderTop:'0.5px solid var(--border)', paddingTop:'0.875rem', marginTop:'1rem', marginBottom:'0.75rem' }}>
+      <Ic n={ic} size={14} style={{ color:'var(--muted)' }} />
+      <span style={{ fontSize:11, fontWeight:500, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</span>
+    </div>
+  )
+
+  const EField = ({ label, field, multi=false, rows=3 }) => (
+    <div style={{ marginBottom:'0.75rem' }}>
+      <div style={{ fontSize:11, color:'var(--muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</div>
+      {multi
+        ? <textarea value={ec[field]||''} onChange={e=>set(field,e.target.value)} rows={rows}
+            style={{ width:'100%', fontSize:13, resize:'vertical', boxSizing:'border-box', lineHeight:1.6 }} />
+        : <input value={ec[field]||''} onChange={e=>set(field,e.target.value)}
+            style={{ width:'100%', fontSize:13 }} />}
+    </div>
+  )
+
   if (processing) return (
-    <div style={{ padding:'1.25rem', maxWidth:520 }}>
-      <div style={{ background:'rgba(68,136,255,0.08)', border:'0.5px solid rgba(68,136,255,0.2)', borderRadius:'var(--radius-lg)', padding:'1.5rem' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:'1.25rem' }}>
-          <Ic n="loader-2" size={20} style={{ color:'#4488FF' }} />
-          <div>
-            <div style={{ fontSize:15, fontWeight:500, color:'#4488FF' }}>Claude işliyor…</div>
-            <div style={{ fontSize:12, color:'rgba(68,136,255,0.7)', marginTop:2 }}>SEO paketi hazırlanıyor</div>
-          </div>
-        </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {['SEO başlığı ve meta description','URL slug oluşturuluyor','Optimize haber içeriği yazılıyor','Sosyal medya paketleri hazırlanıyor','Görsel prompt üretiliyor'].map((s, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'rgba(255,255,255,0.03)', borderRadius:'var(--radius-md)' }}>
-              <Ic n="point" size={8} style={{ color:'rgba(68,136,255,0.5)', flexShrink:0 }} />
-              <span style={{ fontSize:13, color:'rgba(68,136,255,0.8)' }}>{s}</span>
-            </div>
-          ))}
-        </div>
+    <div style={{ padding:'1.25rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, color:'#4488FF' }}>
+        <Ic n="loader-2" size={18}/> <span style={{ fontSize:14 }}>Claude işliyor…</span>
       </div>
     </div>
   )
 
   if (error) return (
-    <div style={{ padding:'1.25rem', maxWidth:520 }}>
-      <div style={{ background:'rgba(230,57,70,0.08)', border:'0.5px solid rgba(230,57,70,0.3)', borderRadius:'var(--radius-lg)', padding:'1.5rem' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
-          <Ic n="alert-circle" size={20} style={{ color:'#E63946' }} />
-          <div style={{ fontSize:15, fontWeight:500, color:'#E63946' }}>API hatası</div>
-        </div>
-        <div style={{ fontSize:13, color:'rgba(230,57,70,0.8)', background:'rgba(255,255,255,0.03)', padding:'8px 12px', borderRadius:'var(--radius-md)', fontFamily:'var(--mono)', lineHeight:1.5, marginBottom:12 }}>{error}</div>
-        <div style={{ fontSize:12, color:'var(--muted)' }}>Yeni haber sekmesine dönüp tekrar deneyin.</div>
-      </div>
+    <div style={{ padding:'1.25rem' }}>
+      <div style={{ color:'#E63946', fontSize:13 }}><Ic n="alert-circle" size={14}/> {error}</div>
     </div>
   )
 
-  if (!content) return (
+  if (!content || !ec.site_basligi) return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320, gap:12 }}>
       <Ic n="bolt" size={36} style={{ color:'rgba(255,255,255,0.1)' }} />
-      <p style={{ fontSize:14, color:'var(--muted)' }}>Henüz işlenmiş haber yok. "Yeni haber" bölümünden bir haber işleyin.</p>
+      <p style={{ fontSize:14, color:'var(--muted)' }}>Henüz işlenmiş haber yok.</p>
     </div>
   )
 
-  const Field = ({ label, value, field, multi = false }) => (
-    <div style={{ marginBottom:'0.875rem' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
-        <div style={{ fontSize:11, fontWeight:500, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.07em' }}>{label}</div>
-        <button onClick={() => copy(value, field)} style={{ fontSize:11, color: copied===field ? '#00D4AA' : 'var(--muted)', background: copied===field ? 'rgba(0,212,170,0.1)' : 'transparent', border:`0.5px solid ${copied===field ? 'rgba(0,212,170,0.3)' : 'var(--border)'}` }}>
-          <Ic n={copied===field ? 'check' : 'copy'} size={11} />
-          {copied===field ? ' Kopyalandı' : ' Kopyala'}
+  // ── PAYLAŞ MODU ────────────────────────────────────────────────────────────
+  if (mode === 'paylas') return (
+    <div style={{ padding:'1.25rem', overflowY:'auto' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:'1.25rem' }}>
+        <div style={{ background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', flex:1 }}>
+          <div style={{ fontSize:14, fontWeight:500, color:'#00D4AA' }}>✓ Kaydedildi — paylaşıma hazır</div>
+          <div style={{ fontSize:12, color:'rgba(0,212,170,.7)', marginTop:2 }}>{ec.site_basligi}</div>
+        </div>
+        <button onClick={() => setMode('edit')} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+          <Ic n="edit" size={13}/> Düzenle
         </button>
       </div>
-      <div style={{ background:'var(--surface)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'9px 12px', fontSize:13, color:'var(--text)', lineHeight: multi ? 1.7 : 1.4, maxHeight: multi ? 150 : 'none', overflow: multi ? 'auto' : 'visible', whiteSpace: multi ? 'pre-wrap' : 'normal' }}>
-        {value || <span style={{ color:'var(--muted)' }}>—</span>}
-      </div>
+
+      <Divider label="Sosyal medya görselleri" ic="photo" />
+      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g => setGUrls(g.urls)} />
+
+      <Divider label="Paylaş" ic="send" />
+      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} />
     </div>
   )
 
-  const Divider = ({ label, ic }) => (
-    <div style={{ display:'flex', alignItems:'center', gap:8, borderTop:'0.5px solid var(--border)', paddingTop:'1rem', marginTop:'1.25rem', marginBottom:'0.875rem' }}>
-      <Ic n={ic} size={15} style={{ color:'var(--muted)' }} />
-      <span style={{ fontSize:11, fontWeight:500, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</span>
-    </div>
-  )
-
+  // ── DÜZENLEME MODU ─────────────────────────────────────────────────────────
   return (
-    <div style={{ padding:'1.25rem', maxWidth:780, overflowY:'auto' }}>
-      <div style={{ background:'rgba(0,212,170,0.08)', border:'0.5px solid rgba(0,212,170,0.2)', borderRadius:'var(--radius-md)', padding:'10px 14px', display:'flex', alignItems:'center', gap:10, marginBottom:'1.25rem' }}>
-        <Ic n="check" size={18} style={{ color:'#00D4AA' }} />
-        <div>
-          <div style={{ fontSize:14, fontWeight:500, color:'#00D4AA' }}>Haber paketi hazır</div>
-          <div style={{ fontSize:12, color:'rgba(0,212,170,0.7)' }}>Alanları kopyalayıp kayserim.net'e yapıştırın</div>
+    <div style={{ padding:'1.25rem', overflowY:'auto' }}>
+
+      {/* Üst toolbar */}
+      <div style={{ display:'flex', gap:8, marginBottom:'1.25rem', alignItems:'center' }}>
+        <div style={{ flex:1, fontSize:13, fontWeight:500, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {ec.site_basligi || 'Haber düzenleniyor…'}
         </div>
-        {content.oncelik && (
-          <span style={{ marginLeft:'auto', fontSize:11, fontWeight:500, background: content.oncelik==='yuksek' ? 'rgba(230,57,70,0.15)' : 'rgba(255,183,0,0.15)', color: content.oncelik==='yuksek' ? '#ff7b7b' : '#FFB700', border:`0.5px solid ${content.oncelik==='yuksek' ? 'rgba(230,57,70,0.3)' : 'rgba(255,183,0,0.3)'}`, padding:'3px 10px', borderRadius:20 }}>
-            {content.oncelik === 'yuksek' ? 'Yüksek öncelik' : 'Orta öncelik'}
-          </span>
-        )}
+        <button onClick={kaydet} disabled={kaydediliyor}
+          style={{ fontWeight:600, background:'rgba(0,212,170,.15)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA', whiteSpace:'nowrap', flexShrink:0 }}>
+          <Ic n={kaydediliyor?'loader-2':'device-floppy'} size={14}/>
+          {kaydediliyor ? 'Kaydediliyor…' : 'Kaydet & Paylaşıma Geç →'}
+        </button>
       </div>
 
+      {/* SEO */}
       <Divider label="SEO & web içeriği" ic="world" />
-      <Field label="Site başlığı (SEO)" value={content.site_basligi||''} field="site" />
-      <Field label="H1 başlığı" value={content.h1_basligi||''} field="h1" />
-      <Field label="Meta description" value={content.meta_description||''} field="meta" />
-      <Field label="URL slug" value={content.url_slug||''} field="slug" />
+      <EField label="Site başlığı (SEO)" field="site_basligi" />
+      <EField label="H1 başlığı" field="h1_basligi" />
+      <EField label="Sosyal medya başlığı (görsel için)" field="sosyal_baslik" />
+      <EField label="Meta description" field="meta_description" />
+      <EField label="URL slug" field="url_slug" />
+      <EField label="Özet" field="ozet" />
+      <EField label="Optimize haber içeriği" field="optimize_icerik" multi rows={6} />
 
-      <div style={{ marginBottom:'0.875rem' }}>
-        <div style={{ fontSize:11, fontWeight:500, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:5 }}>
-          kayserim.net haber linki{' '}<span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, color:'rgba(255,255,255,0.25)' }}>— yayınladıktan sonra girin</span>
+      {/* kayserim.net linki */}
+      <div style={{ marginBottom:'0.75rem' }}>
+        <div style={{ fontSize:11, color:'var(--muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+          kayserim.net linki <span style={{ color:'rgba(255,255,255,.2)', textTransform:'none', letterSpacing:0 }}>— yayınladıktan sonra girin</span>
         </div>
-        <input type="url" value={link} onChange={e => setLink(e.target.value)} placeholder="https://kayserim.net/haber/..." />
-        {link && <div style={{ fontSize:12, color:'#00D4AA', marginTop:5 }}><Ic n="check" size={12} /> Link eklendi — sosyal medya paketleri güncellendi</div>}
+        <input type="url" value={link} onChange={e=>setLink(e.target.value)}
+          placeholder="https://www.kayserim.net/haber/28040684/..." style={{ width:'100%', fontSize:13, boxSizing:'border-box' }} />
       </div>
 
-      <Field label="Optimize haber içeriği" value={content.optimize_icerik||''} field="icerik" multi />
+      {/* Sosyal medya metinleri */}
+      <Divider label="Sosyal medya metinleri" ic="share" />
+      <EField label="Instagram" field="instagram" multi rows={3} />
+      <EField label="Facebook" field="facebook" multi rows={3} />
+      <EField label="X / Twitter" field="x_twitter" multi rows={2} />
+      <EField label="YouTube başlık" field="youtube_baslik" />
+      <EField label="YouTube açıklama" field="youtube_aciklama" multi rows={3} />
 
-      {content.hedef_kelimeler?.length > 0 && (
-        <div style={{ marginBottom:'0.875rem' }}>
-          <div style={{ fontSize:11, fontWeight:500, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Hedef anahtar kelimeler</div>
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-            {content.hedef_kelimeler.map((k, i) => <span key={i} style={{ fontSize:12, background:'rgba(68,136,255,0.12)', color:'#4488FF', border:'0.5px solid rgba(68,136,255,0.3)', padding:'4px 11px', borderRadius:20 }}>{k}</span>)}
-          </div>
-        </div>
+      {/* Video */}
+      {(selectedHaber?.video) && (
+        <>
+          <Divider label="Video" ic="video" />
+          <video key={selectedHaber.video} src={selectedHaber.video} controls
+            style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', maxHeight:240, background:'#000' }}/>
+        </>
       )}
 
-      <Divider label="Sosyal medya paketleri" ic="share" />
-      <Field label="Instagram" value={(content.instagram||'')+(link?'\n\n🔗 Link bio\'da':'\n\n[Haber linki bio\'ya eklenecek]')} field="ig" multi />
-      <Field label="Facebook" value={(content.facebook||'')+(link?`\n\n${link}`:'\n\n[kayserim.net linki eklenecek]')} field="fb" multi />
-      <Field label="X (Twitter)" value={(content.x_twitter||'')+(link?` ${link}`:" [link]")} field="x" multi />
+      {/* Sosyal görsel önizleme */}
+      <Divider label="Sosyal medya görseli önizleme" ic="photo" />
+      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g => setGUrls(g.urls)} />
 
-      <Divider label="YouTube" ic="brand-youtube" />
-      <Field label="Video başlığı" value={content.youtube_baslik||''} field="yt_t" />
-      <Field label="Video açıklaması" value={(content.youtube_aciklama||'')+(link?`\n\n${link}`:'')} field="yt_d" multi />
-
-      {/* ── VİDEO ── */}
-      {(() => {
-        const videoUrl = selectedHaber?.video || content?.video || ''
-        if (!videoUrl) return null
-        return (
-          <>
-            <Divider label="Video" ic="video" />
-            <div style={{ marginBottom:'0.875rem' }}>
-              <video
-                key={videoUrl}
-                src={videoUrl}
-                controls
-                style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', display:'block', maxHeight:300, background:'#000' }}
-              />
-              <div style={{ marginTop:6, display:'flex', gap:6 }}>
-                <a href={videoUrl} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
-                  <button style={{ fontSize:12, background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA' }}>
-                    <Ic n="external-link" size={12} /> 1ha'da aç
-                  </button>
-                </a>
-                <button onClick={() => navigator.clipboard?.writeText(videoUrl)} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
-                  <Ic n="copy" size={12} /> URL Kopyala
-                </button>
-              </div>
-            </div>
-          </>
-        )
-      })()}
-
-      {/* ── OTO SOSYAL MEDYA GÖRSELLERİ ── */}
-      <Divider label="Sosyal medya görselleri (otomatik)" ic="sparkles" />
-      <OtoGorselUret haber={selectedHaber} onGorsellerHazir={(g)=>setGorselUrls(g.urls)} />
-
-      {/* ── META PAYLAŞIM ── */}
-      <Divider label="Sosyal medya paylaşımı" ic="share" />
-      <MetaPaylas content={content} selectedHaber={selectedHaber} gorselUrls={gorselUrls} />
-      <Divider label="Canva ile tasarım oluştur" ic="brand-canva" />
-      <CanvaTasarim content={content} selectedHaber={selectedHaber} />
-      <Divider label="Sosyal medya görseli" ic="photo" />
-      <GorselSablon
-        gorselUrl={selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''}
-        baslik={content.sosyal_baslik || content.site_basligi || content.baslik || ''}
-        spotBaslik={content.h1_basligi || ''}
-        kategori={content.kategori || 'Genel'}
-        tarih={selectedHaber?.tarih || new Date().toLocaleDateString('tr-TR')}
-      />
-
-      {/* ── RSS KAYDET ── */}
-      <Divider label="RSS Feed'e Kaydet" ic="rss" />
-      <div style={{ background:'rgba(0,212,170,0.05)', border:'0.5px solid rgba(0,212,170,0.15)', borderRadius:'var(--radius-md)', padding:'14px', marginBottom:'0.875rem' }}>
-        <div style={{ fontSize:13, color:'var(--text)', marginBottom:10 }}>
-          Haberi kaydedin → <code style={{ fontFamily:'var(--mono)', fontSize:12, color:'#00D4AA' }}>rdr.ist/api/feed</code> adresinden kayserim.net otomatik çeker.
-        </div>
-        {!rssKaydedildi ? (
-          <button
-            onClick={rssKaydet}
-            disabled={rssYukleniyor}
-            style={{ fontWeight:500, background:'rgba(0,212,170,0.15)', border:'0.5px solid rgba(0,212,170,0.35)', color:'#00D4AA' }}
-          >
-            <Ic n={rssYukleniyor ? 'loader-2' : 'database'} size={15} />
-            {rssYukleniyor ? 'Kaydediliyor…' : "RSS Feed'e Kaydet"}
-          </button>
-        ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ fontSize:13, color:'#00D4AA', display:'flex', alignItems:'center', gap:6 }}>
-              <Ic n="check" size={14} /> Haber RSS feed'e eklendi
-            </div>
-            <div style={{ fontSize:12, color:'var(--muted)' }}>
-              Feed URL: <code style={{ fontFamily:'var(--mono)', color:'#00D4AA' }}>https://rdr.ist/api/feed</code>
-            </div>
-            <div style={{ fontSize:11, color:'var(--muted)', background:'rgba(255,255,255,0.03)', padding:'8px 10px', borderRadius:'var(--radius-sm)' }}>
-              kayserim.net → Ayarlar → RSS İçe Aktarma → Bu URL'yi ekleyin
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
+
 
 // ── AYARLAR ────────────────────────────────────────────────────────────────
 function Ayarlar() {
