@@ -389,7 +389,96 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
   )
 }
 
-// ── META PAYLAŞIM BİLEŞENİ ────────────────────────────────────────────────
+// ── VIDEO İŞLE BİLEŞENİ (Creatomate) ─────────────────────────────────────
+function VideoIsle({ haber, baslik, kategori }) {
+  const [durum,     setDurum]   = useState(null) // null | 'rendering' | 'done' | 'error'
+  const [renderId,  setRenderId] = useState(null)
+  const [videoUrl,  setVideoUrl] = useState(null)
+  const [progress,  setProgress] = useState(0)
+
+  const isle = async () => {
+    setDurum('rendering'); setProgress(0); setVideoUrl(null)
+    try {
+      const res = await fetch('/api/video-isle', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_url: haber.video,
+          baslik:    baslik || haber.baslik,
+          kategori:  kategori || haber.kategori,
+          tarih:     haber.tarih,
+          source_id: haber.source_id,
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setRenderId(data.render_id)
+    } catch (e) { setDurum('error') }
+  }
+
+  // Render durumunu poll et
+  useEffect(() => {
+    if (!renderId || durum === 'done' || durum === 'error') return
+    const timer = setInterval(async () => {
+      try {
+        const res  = await fetch(`/api/video-durum?render_id=${renderId}`)
+        const data = await res.json()
+        setProgress(data.progress || 0)
+        if (data.status === 'succeeded') {
+          setVideoUrl(data.render_url); setDurum('done'); clearInterval(timer)
+        } else if (data.status === 'failed') {
+          setDurum('error'); clearInterval(timer)
+        }
+      } catch {}
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [renderId, durum])
+
+  return (
+    <div style={{ marginBottom:8 }}>
+      {!durum && (
+        <button onClick={isle}
+          style={{ fontSize:12, background:'rgba(230,57,70,.12)', border:'0.5px solid rgba(230,57,70,.3)', color:'#ff7b7b' }}>
+          <Ic n="wand" size={13}/> Creatomate ile Branding Ekle
+        </button>
+      )}
+
+      {durum === 'rendering' && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--muted)' }}>
+          <Ic n="loader-2" size={13}/>
+          Video işleniyor… {progress > 0 && `${Math.round(progress * 100)}%`}
+        </div>
+      )}
+
+      {durum === 'done' && videoUrl && (
+        <div>
+          <div style={{ fontSize:11, color:'#00D4AA', marginBottom:6 }}>✓ Video hazır</div>
+          <video src={videoUrl} controls
+            style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid rgba(0,212,170,.3)', maxHeight:240, background:'#000' }}/>
+          <div style={{ display:'flex', gap:6, marginTop:6 }}>
+            <a href={videoUrl} download="kayserim-video.mp4">
+              <button style={{ fontSize:11, background:'rgba(0,212,170,.08)', border:'0.5px solid rgba(0,212,170,.25)', color:'#00D4AA' }}>
+                <Ic n="download" size={11}/> İndir
+              </button>
+            </a>
+            <button onClick={isle} style={{ fontSize:11, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+              Yeniden İşle
+            </button>
+          </div>
+        </div>
+      )}
+
+      {durum === 'error' && (
+        <div style={{ fontSize:12, color:'#ff7b7b', display:'flex', gap:8, alignItems:'center' }}>
+          <Ic n="alert-circle" size={13}/> İşleme hatası
+          <button onClick={isle} style={{ fontSize:11 }}>Tekrar dene</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '' }) {
   const [platform, setPlatform] = useState('her_ikisi')
   const [gonderiyor, setGond]   = useState(false)
@@ -660,7 +749,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
         <>
           <Divider label="Video" ic="video" />
           <video key={selectedHaber.video} src={selectedHaber.video} controls
-            style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', maxHeight:240, background:'#000' }}/>
+            style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', maxHeight:240, background:'#000', marginBottom:8 }}/>
+          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi} kategori={ec.kategori} />
         </>
       )}
 
