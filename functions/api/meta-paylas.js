@@ -19,15 +19,37 @@ export async function onRequestPost({ request, env }) {
 
     // ── FACEBOOK ──────────────────────────────────────────────────────────
     if (platform === 'facebook' || platform === 'her_ikisi') {
-      const res  = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+      // Önce görseli yükle
+      const photoRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ url: gorsel_url, caption: metin, access_token: pageToken }),
+        body:    JSON.stringify({
+          url:           gorsel_url,
+          caption:       metin,
+          access_token:  pageToken,
+          published:     true,
+        }),
       })
-      const data = await res.json()
-      sonuclar.facebook = data.error
-        ? { hata: data.error.message }
-        : { ok: true, post_id: data.post_id || data.id }
+      const photoData = await photoRes.json()
+
+      if (photoData.error) {
+        // Fallback: feed endpoint ile link post
+        const feedRes  = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            message:      metin,
+            link:         gorsel_url,
+            access_token: pageToken,
+          }),
+        })
+        const feedData = await feedRes.json()
+        sonuclar.facebook = feedData.error
+          ? { hata: feedData.error.message }
+          : { ok: true, post_id: feedData.id }
+      } else {
+        sonuclar.facebook = { ok: true, post_id: photoData.post_id || photoData.id }
+      }
     }
 
     // ── INSTAGRAM ─────────────────────────────────────────────────────────
