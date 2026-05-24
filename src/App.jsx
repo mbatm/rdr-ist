@@ -399,11 +399,16 @@ function MetaPaylas({ content, selectedHaber, gorselUrls }) {
 
   // İçerik değişince metni güncelle
   useEffect(() => {
-    const yeniMetin = platform === 'facebook'
+    const link = selectedHaber?.kayserim_link ||
+      (content?.url_slug ? `https://kayserim.net/haber/${content.url_slug}` : '')
+
+    const ham = platform === 'facebook'
       ? content?.facebook || content?.site_basligi || ''
       : content?.instagram || content?.site_basligi || ''
+
+    const yeniMetin = link ? `${ham}\n\n🔗 ${link}` : ham
     setMetin(yeniMetin)
-  }, [platform, content])
+  }, [platform, content, selectedHaber])
 
   const paylas = async () => {
     // Görsel URL: template > orijinal > video
