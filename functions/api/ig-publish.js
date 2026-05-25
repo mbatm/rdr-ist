@@ -41,7 +41,7 @@ export async function onRequestPost({ request, env }) {
         body:    JSON.stringify({ creation_id: container_id, access_token: pageToken }),
       })
       const pData = await pRes.json()
-      if (pData.error) return Response.json({ hata: pData.error.message }, { status: 500 })
+      if (pData.error) return Response.json({ hata: `Publish: ${pData.error.message} (kod: ${pData.error.code})` }, { status: 500 })
       return Response.json({ ok: true, media_id: pData.id })
     }
 

@@ -75,7 +75,7 @@ export async function onRequestPost({ request, env }) {
         })
         const cData = await cRes.json()
         if (cData.error) {
-          sonuclar.instagram = { hata: cData.error.message }
+          sonuclar.instagram = { hata: `Container(${cData.error.code}): ${cData.error.message}` }
         } else {
           // Container ID'yi döndür — client poll edecek
           sonuclar.instagram = {
