@@ -594,11 +594,25 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         const containerId = data.sonuclar.instagram.container_id
         let attempts = 0
         const poll = async () => {
-          if (attempts++ > 24) { setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{hata:'Zaman aşımı'}}})); return }
-          const r = await fetch('/api/ig-publish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({container_id:containerId}) })
-          const d = await r.json()
-          if (d.bekliyor) setTimeout(poll, 5000)
-          else setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram: d}}))
+          if (attempts++ > 24) {
+            setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{hata:'Zaman aşımı — token iznini kontrol edin'}}}))
+            return
+          }
+          try {
+            const r = await fetch('/api/ig-publish', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({container_id: containerId})
+            })
+            const d = await r.json()
+            if (d.bekliyor) {
+              setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{bekliyor:true, mesaj:`Video işleniyor… (${attempts}/24)`}}}))
+              setTimeout(poll, 5000)
+            } else {
+              setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram: d}}))
+            }
+          } catch(e) {
+            setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{hata: e.message}}}))
+          }
         }
         setTimeout(poll, 5000)
       } else {

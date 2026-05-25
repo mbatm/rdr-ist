@@ -17,9 +17,14 @@ export async function onRequestPost({ request, env }) {
     const pageToken = pageData.access_token || userToken
 
     // Container durumunu kontrol et
-    const sRes   = await fetch(`https://graph.facebook.com/v19.0/${container_id}?fields=status_code&access_token=${pageToken}`)
+    const sRes   = await fetch(`https://graph.facebook.com/v19.0/${container_id}?fields=status_code,status&access_token=${pageToken}`)
     const sData  = await sRes.json()
     const status = sData.status_code || 'IN_PROGRESS'
+
+    // Hata varsa detayı döndür
+    if (sData.error) {
+      return Response.json({ hata: sData.error.message }, { status: 500 })
+    }
 
     if (status === 'IN_PROGRESS') {
       return Response.json({ bekliyor: true, status })
