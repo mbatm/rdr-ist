@@ -102,12 +102,14 @@ export async function onRequestPost({ request, env }) {
       },
       body: JSON.stringify({
         template_id: 'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
+        output_format: 'mp4',
+        frame_rate: 30,
         modifications: {
-          'video.source':      video_url,
-          'baslik.text':       baslikStr,
-          'spot-baslik.text':  spotStr,
-          'kategori.text':     katStr,
-          'tarih.text':        tarihStr,
+          'video.source':     video_url,
+          'baslik.text':      baslikStr,
+          'spot-baslik.text': spotStr,
+          'kategori.text':    katStr,
+          'tarih.text':       tarihStr,
         },
       }),
     })
