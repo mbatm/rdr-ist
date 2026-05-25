@@ -100,7 +100,14 @@ export async function onRequestPost({ request, env }) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ source }),
+      body: JSON.stringify({
+        template_id: 'c742faa5-485f-4102-9b20-a24839a4f693',
+        modifications: {
+          'Video-M6R.source': video_url,
+          'Text-W4Q.text':    baslikStr,
+          'Text-STR.text':    `${katStr}  ·  ${tarihStr}`,
+        },
+      }),
     })
 
     const data = await res.json()

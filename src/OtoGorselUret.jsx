@@ -224,17 +224,16 @@ async function renderFormat(fmt, haber) {
   const badgeColor = sett.badgeColor||'#ED1C24'
 
   const baslik   = haber.sosyal_baslik||haber.site_basligi||haber.baslik||''
-  const spot     = (haber.ozet||'').slice(0,120)
+  const spot     = haber.ozet||''   // tam metin, kesmeden
   const tarih    = haber.tarih||new Date().toLocaleDateString('tr-TR')
   const kategori = (haber.kategori||'GÜNCEL').toUpperCase()
 
   // ── KATEGORİ + TARİH: Sağda, logo altında, alt alta ───────────────────
-  const kFontSize   = km.fontSize * 0.88
-  const kH          = kFontSize * 1.55
-  const kPad        = kFontSize * 0.5
-  const kGap        = 6  // kategori ve tarih arası boşluk
+  const kFontSize = km.fontSize * 0.88
+  const kH        = kFontSize * 1.55
+  const kPad      = kFontSize * 0.5
+  const kGap      = 6
 
-  // Kategori badge
   ctx.font = '700 '+kFontSize+'px Poppins,Arial'
   const kw = ctx.measureText(kategori).width
   const kBandY = bandH + 14
@@ -244,75 +243,80 @@ async function renderFormat(fmt, haber) {
   ctx.fillText(kategori, kX+kPad, kBandY+kH*0.5)
   ctx.textBaseline='alphabetic'
 
-  // Tarih — kategorinin altında, sağa hizalı
   const tFontSize = kFontSize * 0.85
   ctx.font = '400 '+tFontSize+'px "Open Sans",Arial'
   ctx.fillStyle='rgba(255,255,255,0.82)'
   ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=5
   const tw = ctx.measureText(tarih).width
-  const tY  = kBandY + kH + kGap + tFontSize
+  const tY = kBandY + kH + kGap + tFontSize
   ctx.fillText(tarih, w-pad-tw, tY)
   ctx.shadowColor='transparent'; ctx.shadowBlur=0
 
-  // ── BAŞLIK ─────────────────────────────────────────────────────────────
-  const bLineH     = bm.fontSize * 1.32
+  // ── ALTTAN YUKARI LAYOUT ────────────────────────────────────────────────
+  const bottomY    = h - pad * 1.1   // alt kenar boşluğu
   const maxTitleLn = w > h ? 2 : 3
+  const maxSpotLn  = w > h ? 2 : 3
+  const spotMaxW   = w - bm.x - pad
   const bMaxW      = w - bm.x - pad
-  // Yatay formatlarda başlığı yukarı çek (spot için alan aç)
-  const titleY     = w > h ? Math.round(h * 0.55) : bm.y
+
+  // Spot font auto-size (tam metni sığdır)
+  let spotFont = sm.fontSize
+  const minFont = sm.fontSize * 0.45
+  ctx.font = '400 '+spotFont+'px "Open Sans",Arial'
+  while(spotFont > minFont) {
+    const chPerLine = Math.floor(spotMaxW / (spotFont * 0.52))
+    const linesNeeded = Math.min(maxSpotLn, Math.ceil(spot.length / chPerLine))
+    const needed = linesNeeded * spotFont * 1.38
+    const available = h * (w > h ? 0.28 : 0.32)  // alttan alan
+    if(needed <= available) break
+    spotFont *= 0.92
+    ctx.font = '400 '+spotFont+'px "Open Sans",Arial'
+  }
+  spotFont = Math.max(spotFont, minFont)
+  const spotLineH = spotFont * 1.38
+  const spotLines = wrapText(ctx, spot, spotMaxW, maxSpotLn)
+  const spotBlockH = spotLines.length * spotLineH
+
+  // Başlık
+  const bLineH = bm.fontSize * 1.32
   ctx.font = '600 '+bm.fontSize+'px Poppins,Arial'
+  const bLines = wrapText(ctx, baslik, bMaxW, maxTitleLn)
+  const titleBlockH = bLines.length * bLineH
+
+  // Toplam blok yüksekliği
+  const gap = spotFont * 0.8
+  const totalH = titleBlockH + (spot ? gap + spotBlockH : 0)
+
+  // Alt padding'den yukarı hesapla
+  const blockStartY = bottomY - totalH
+  const titleStartY = blockStartY
+  const spotStartY  = titleStartY + titleBlockH + gap
+
+  // Başlık çiz
   ctx.fillStyle='#fff'
   ctx.shadowColor='rgba(0,0,0,.95)'; ctx.shadowBlur=14; ctx.shadowOffsetY=1
-  const bLines = wrapText(ctx, baslik, bMaxW, maxTitleLn)
-  bLines.forEach((ln,i) => ctx.fillText(ln, bm.x, titleY+i*bLineH))
+  bLines.forEach((ln,i) => ctx.fillText(ln, bm.x, titleStartY+i*bLineH))
   ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
 
   // Sol kırmızı şerit
   if(sett.stripeVisible!==false){
     const strW = Math.max(4, Math.round(w*0.004))
     ctx.fillStyle = sett.stripeColor||'#ED1C24'
-    ctx.fillRect(bm.x-strW-Math.round(w*0.012), titleY-bm.fontSize*0.82, strW, bLines.length*bLineH)
+    ctx.fillRect(bm.x-strW-Math.round(w*0.012), titleStartY-bm.fontSize*0.82, strW, titleBlockH)
   }
 
-  // ── SPOT BAŞLIK — dinamik font, alt sınıra kadar ────────────────────────
-  if(spot){
-    const lastTitleY   = titleY + (bLines.length-1)*bLineH
-    const bottomLimit  = h - pad*0.4
-    const availH       = bottomLimit - lastTitleY - bLineH*0.3
-    const maxSpotLines = w > h ? 2 : 3
-    const spotMaxW     = w - sm.x - pad
-
-    // Font auto-size: availH'a sığacak en büyük font
-    let spotFont = sm.fontSize
-    const minFont = sm.fontSize * 0.5
-    while(spotFont > minFont) {
-      const lh = spotFont * 1.38
-      ctx.font = '400 '+spotFont+'px "Open Sans",Arial'
-      const chPerLine = Math.floor(spotMaxW / (spotFont * 0.52))
-      const linesNeeded = Math.min(maxSpotLines, Math.ceil(spot.length / chPerLine))
-      if(linesNeeded * lh <= availH * 0.85) break
-      spotFont *= 0.92
-    }
-    spotFont = Math.max(spotFont, minFont)
-
-    const spotLineH = spotFont * 1.38
-    const spotStartY = lastTitleY + bLineH*0.2 + spotFont*1.1 + 8
-    const spotLines  = wrapText(ctx, spot, spotMaxW, maxSpotLines)
-
+  // Spot çiz
+  if(spot && spotLines.length){
     ctx.font = '400 '+spotFont+'px "Open Sans",Arial'
     const hlColor   = sett.highlightColor||'#ED1C24'
     const hlOpacity = sett.highlightOpacity??0.38
-
-    // Highlight
     ctx.globalAlpha = hlOpacity; ctx.fillStyle = hlColor
     spotLines.forEach((ln,i)=>{
       const lw = ctx.measureText(ln).width
       const ly = spotStartY + i*spotLineH
       ctx.fillRect(sm.x-spotFont*0.3, ly-spotFont*0.82-spotFont*0.18, lw+spotFont*0.6, spotFont+spotFont*0.36)
     })
-    ctx.globalAlpha = 1
-
-    // Metin
+    ctx.globalAlpha=1
     ctx.fillStyle='rgba(255,255,255,.95)'
     ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=6; ctx.shadowOffsetY=1
     spotLines.forEach((ln,i) => ctx.fillText(ln, sm.x, spotStartY+i*spotLineH))
