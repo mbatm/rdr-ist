@@ -143,7 +143,7 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify({
         template_id: 'c742faa5-485f-4102-9b20-a24839a4f693',
         modifications: {
-          'Image-JPB.source': video_url,
+          'Video-M6R.source': video_url,
           'Text-W4Q.text':    (baslik || '').slice(0, 120),
           'Text-STR.text':    `${katStr}  |  ${tarihStr}`,
         },
