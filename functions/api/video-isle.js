@@ -1,7 +1,3 @@
-/**
- * POST /api/video-isle
- * Creatomate ile video branding — kayserim şablonuna göre
- */
 export async function onRequestPost({ request, env }) {
   try {
     const { video_url, baslik, spot, kategori, tarih, source_id } = await request.json()
@@ -15,130 +11,122 @@ export async function onRequestPost({ request, env }) {
     const baslikStr = (baslik   || '').slice(0, 120)
     const spotStr   = (spot     || '').slice(0, 120)
 
-    const template = {
+    const source = {
       output_format: 'mp4',
       width:  1080,
       height: 1920,
-      frame_rate: 30,
       elements: [
-        // ── Arka plan video ───────────────────────────────────────────────
+        // Arka plan video
         {
-          id:     'video_bg',
-          type:   'video',
+          type: 'video',
           source: video_url,
-          fit:    'cover',
-          x: '50%', y: '50%',
-          width: '100%', height: '100%',
-          time: 0, duration: 'auto',
+          fit: 'cover',
         },
-
-        // ── Alt gradient overlay ──────────────────────────────────────────
+        // Alt koyu overlay
         {
-          type: 'shape', shape: 'rectangle',
-          x: '50%', y: '100%', width: '100%', height: '75%',
-          y_anchor: 'bottom',
-          fill_color: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 70%, transparent 100%)',
-          time: 0, duration: 'auto',
+          type: 'shape',
+          shape: 'rectangle',
+          x: '0%', y: '55%',
+          width: '100%', height: '45%',
+          fill_color: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.9) 100%)',
         },
-
-        // ── Üst kırmızı bant ─────────────────────────────────────────────
+        // Üst kırmızı bant
         {
-          type: 'shape', shape: 'rectangle',
-          x: '50%', y: 0, width: '100%', height: 140,
-          y_anchor: 'top',
-          fill_color: 'linear-gradient(to right, #ED1C24 0%, #670000 100%)',
-          time: 0, duration: 'auto',
-        },
-
-        // ── Logo: kayserim ────────────────────────────────────────────────
-        {
-          type: 'text', text: 'kayserim',
-          x: '50%', y: 70,
-          font_family: 'Poppins', font_weight: '700',
-          font_size: 46, fill_color: '#ffffff',
-          x_anchor: 'center', y_anchor: 'center',
-          letter_spacing: 1,
-          time: 0, duration: 'auto',
-        },
-
-        // ── Kategori badge (bandın hemen altında) ─────────────────────────
-        {
-          type: 'text', text: katStr,
-          x: 54, y: 168,
-          font_family: 'Poppins', font_weight: '700',
-          font_size: 30, fill_color: '#ffffff',
-          background_color: '#ED1C24',
-          background_x_padding: '22%',
-          background_y_padding: '18%',
-          background_border_radius: 8,
-          x_anchor: 'left', y_anchor: 'center',
-          // Animasyon: soldan kayarak gelir
-          time: 0, duration: 'auto',
-        },
-
-        // ── Tarih (sağda, badge ile aynı hizada) ─────────────────────────
-        {
-          type: 'text', text: tarihStr,
-          x: 1026, y: 168,
-          font_family: 'Open Sans', font_weight: '400',
-          font_size: 28, fill_color: 'rgba(255,255,255,0.85)',
-          x_anchor: 'right', y_anchor: 'center',
-          // Animasyon: sağdan kayarak gelir
-          time: 0, duration: 'auto',
-        },
-
-        // ── Sol kırmızı şerit ─────────────────────────────────────────────
-        {
-          type: 'shape', shape: 'rectangle',
-          x: 46, y: 1540,
-          width: 8, height: baslikStr.length > 40 ? 260 : 200,
-          y_anchor: 'top',
+          type: 'shape',
+          shape: 'rectangle',
+          x: '0%', y: '0%',
+          width: '100%', height: 130,
           fill_color: '#ED1C24',
-          // Animasyon: aşağıdan yukarı büyür
-          time: 0, duration: 'auto',
         },
-
-        // ── Başlık ────────────────────────────────────────────────────────
+        // Logo
         {
-          type: 'text', text: baslikStr,
-          x: 70, y: 1560,
-          width: 960, height: 320,
-          font_family: 'Poppins', font_weight: '600',
-          font_size: 58, fill_color: '#ffffff',
-          x_anchor: 'left', y_anchor: 'top',
-          text_wrap: true, line_height: 1.3,
-          shadow_color: 'rgba(0,0,0,0.9)',
-          shadow_blur: 12, shadow_offset: [0, 2],
-          // Animasyon: alttan yukarı fade
-          time: 0, duration: 'auto',
+          type: 'text',
+          text: 'kayserim',
+          x: '50%', y: 65,
+          font_family: 'Montserrat',
+          font_weight: '700',
+          font_size: 44,
+          fill_color: '#ffffff',
+          x_anchor: 'center',
+          y_anchor: 'center',
         },
-
-        // ── Spot başlık (highlight efekti) ───────────────────────────────
+        // Kategori (sağ üst)
+        {
+          type: 'text',
+          text: katStr,
+          x: '95%', y: 160,
+          font_family: 'Montserrat',
+          font_weight: '700',
+          font_size: 28,
+          fill_color: '#ffffff',
+          background_color: '#ED1C24',
+          background_x_padding: '20%',
+          background_y_padding: '15%',
+          background_border_radius: 6,
+          x_anchor: 'right',
+          y_anchor: 'center',
+        },
+        // Tarih (sağ üst, kategori altında)
+        {
+          type: 'text',
+          text: tarihStr,
+          x: '95%', y: 210,
+          font_family: 'Open Sans',
+          font_size: 24,
+          fill_color: 'rgba(255,255,255,0.85)',
+          x_anchor: 'right',
+          y_anchor: 'center',
+        },
+        // Sol şerit
+        {
+          type: 'shape',
+          shape: 'rectangle',
+          x: 0, y: 1480,
+          width: 8, height: 260,
+          fill_color: '#ED1C24',
+        },
+        // Başlık
+        {
+          type: 'text',
+          text: baslikStr,
+          x: 24, y: 1490,
+          width: 1032,
+          font_family: 'Montserrat',
+          font_weight: '700',
+          font_size: 56,
+          fill_color: '#ffffff',
+          x_anchor: 'left',
+          y_anchor: 'top',
+          text_wrap: true,
+          line_height: 1.3,
+        },
+        // Spot
         ...(spotStr ? [{
-          type: 'text', text: spotStr,
-          x: 70, y: 1820,
-          width: 960, height: 160,
-          font_family: 'Open Sans', font_weight: '400',
-          font_size: 32, fill_color: 'rgba(255,255,255,0.92)',
+          type: 'text',
+          text: spotStr,
+          x: 24, y: 1760,
+          width: 1032,
+          font_family: 'Open Sans',
+          font_size: 32,
+          fill_color: 'rgba(255,255,255,0.9)',
           background_color: 'rgba(237,28,36,0.38)',
-          background_x_padding: '8%',
-          background_y_padding: '12%',
-          background_border_radius: 4,
-          x_anchor: 'left', y_anchor: 'top',
-          text_wrap: true, line_height: 1.4,
-          // Animasyon: fade in
-          time: 0, duration: 'auto',
+          background_x_padding: '6%',
+          background_y_padding: '10%',
+          x_anchor: 'left',
+          y_anchor: 'top',
+          text_wrap: true,
+          line_height: 1.4,
         }] : []),
       ],
     }
 
     const res = await fetch('https://api.creatomate.com/v1/renders', {
-      method:  'POST',
+      method: 'POST',
       headers: {
-        'Content-Type':  'application/json',
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ source: template }),
+      body: JSON.stringify({ source }),
     })
 
     const data = await res.json()
