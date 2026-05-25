@@ -113,7 +113,7 @@ export async function onRequestPost({ request, env }) {
           shadow_color: 'rgba(0,0,0,0.9)',
           shadow_blur: 12, shadow_offset: [0, 2],
           // Animasyon: alttan yukarı fade
-          animations: [{ time: 0.6, duration: 0.7, easing: 'ease-out', type: 'text-slide', direction: 'up', scope: 'line', split: 'line' }],
+          animations: [{ time: 0.6, duration: 0.7, easing: 'ease-out', type: 'slide', direction: 'up' }],
           time: 0, duration: 'auto',
         },
 
@@ -143,7 +143,7 @@ export async function onRequestPost({ request, env }) {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ source: template }),
+      body: JSON.stringify({ source: JSON.stringify(template) }),
     })
 
     const data = await res.json()
