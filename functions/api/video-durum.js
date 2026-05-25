@@ -1,6 +1,5 @@
 /**
  * GET /api/video-durum?render_id=xxx
- * Creatomate render durumunu sorgular
  */
 export async function onRequestGet({ request, env }) {
   const url      = new URL(request.url)
@@ -11,10 +10,12 @@ export async function onRequestGet({ request, env }) {
     headers: { 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
   })
   const data = await res.json()
+  const render = Array.isArray(data) ? data[0] : data
 
   return Response.json({
-    status:    data.status,        // planned / rendering / succeeded / failed
-    render_url: data.url || null,  // bitince mp4 URL
-    progress:  data.progress || 0,
+    status:     render.status,
+    render_url: render.url || null,
+    snapshot:   render.snapshot_url || null,
+    progress:   render.progress || 0,
   })
 }

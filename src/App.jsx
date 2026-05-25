@@ -389,656 +389,516 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
   )
 }
 
-// ── VIDEO İŞLE BİLEŞENİ (Creatomate) ─────────────────────────────────────
+// ── VIDEO İŞLE BİLEŞENİ ──────────────────────────────────────────────────
 function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
-  const [durum,    setDurum]  = useState(null)
-  const [renderId, setRender] = useState(null)
-  const [videoUrl, setVUrl]   = useState(null)
-  const [progress, setProgress] = useState(0)
-  const [hataMsg,  setHataMsg]  = useState('')
+  const [renders,   setRenders]  = useState({}) // { dikey: {render_id, url, snapshot}, yatay: {...} }
+  const [loading,   setLoading]  = useState({}) // { dikey: bool, yatay: bool }
+  const [hatalar,   setHatalar]  = useState({})
+  const [format,    setFormat]   = useState('dikey')
 
-  const isle = async () => {
-    setDurum('rendering'); setProgress(0); setVUrl(null); setHataMsg('')
+  // KV'den kayıtlı videoları yükle
+  useEffect(() => {
+    if (!haber?.source_id) return
+    const kayitli = {}
+    const sid = haber.source_id
+    ;['dikey','yatay'].forEach(fmt => {
+      const url = haber[`video_${fmt}`]
+      const snap = haber[`video_${fmt}_snapshot`]
+      if (url) { kayitli[fmt] = { url, snapshot: snap }; onVideoHazir?.({ format: fmt, url, snapshot: snap }) }
+    })
+    if (Object.keys(kayitli).length) setRenders(kayitli)
+  }, [haber?.source_id])
+
+  const isle = async (fmt) => {
+    const formatlar = fmt === 'her_ikisi' ? ['dikey','yatay'] : [fmt]
+    setLoading(p => { const n={...p}; formatlar.forEach(f=>n[f]=true); return n })
+    setHatalar(p => { const n={...p}; formatlar.forEach(f=>delete n[f]); return n })
+
     try {
-      const res  = await fetch('/api/video-isle', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/video-isle', {
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           video_url: haber.video,
-          baslik:    baslik || haber.baslik,
-          spot:      spot   || haber.ozet || '',
-          kategori:  kategori || haber.kategori,
-          tarih:     haber.tarih,
+          baslik: baslik||haber.baslik,
+          spot: spot||haber.ozet||'',
+          kategori: kategori||haber.kategori,
+          tarih: haber.tarih,
           source_id: haber.source_id,
+          format: fmt,
         }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setRender(data.render_id)
-    } catch (e) { setDurum('error'); setHataMsg(e.message) }
+
+      // Her render için poll başlat
+      for (const r of data.renders) {
+        pollRender(r.render_id, r.format)
+      }
+    } catch(e) {
+      setLoading(p => { const n={...p}; formatlar.forEach(f=>n[f]=false); return n })
+      setHatalar(p => { const n={...p}; formatlar.forEach(f=>n[f]=e.message); return n })
+    }
   }
 
-  // Render durumunu poll et
-  useEffect(() => {
-    if (!renderId || durum === 'done' || durum === 'error') return
+  const pollRender = (renderId, fmt) => {
     const timer = setInterval(async () => {
       try {
         const res  = await fetch(`/api/video-durum?render_id=${renderId}`)
         const data = await res.json()
-        setProgress(data.progress || 0)
         if (data.status === 'succeeded') {
-          setVUrl(data.render_url); setDurum('done'); clearInterval(timer)
-            onVideoHazir?.(data.render_url)
+          clearInterval(timer)
+          const entry = { url: data.render_url, snapshot: data.snapshot }
+          setRenders(p => ({...p, [fmt]: entry}))
+          setLoading(p => ({...p, [fmt]: false}))
+          // KV'ye kaydet
+          await fetch('/api/haber-kaydet', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              ...haber,
+              [`video_${fmt}`]: data.render_url,
+              [`video_${fmt}_snapshot`]: data.snapshot,
+            })
+          })
+          onVideoHazir?.({ format: fmt, url: data.render_url, snapshot: data.snapshot })
         } else if (data.status === 'failed') {
-          setDurum('error'); clearInterval(timer)
+          clearInterval(timer)
+          setLoading(p => ({...p, [fmt]: false}))
+          setHatalar(p => ({...p, [fmt]: 'Render başarısız'}))
         }
       } catch {}
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [renderId, durum])
+    }, 4000)
+  }
+
+  const FORMATLAR = [
+    { id:'dikey',    label:'Dikey (IG/FB)',  ic:'device-mobile' },
+    { id:'yatay',    label:'Yatay (X/YT)',   ic:'device-desktop' },
+    { id:'her_ikisi',label:'İkisi birden',   ic:'copy' },
+  ]
 
   return (
-    <div style={{ marginBottom:8 }}>
-      {!durum && (
-        <button onClick={isle}
-          style={{ fontSize:12, background:'rgba(230,57,70,.12)', border:'0.5px solid rgba(230,57,70,.3)', color:'#ff7b7b' }}>
-          <Ic n="wand" size={13}/> Creatomate ile Branding Ekle
-        </button>
-      )}
+    <div style={{marginBottom:8}}>
+      {/* Format butonları */}
+      <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+        {FORMATLAR.map(({id,label,ic}) => (
+          <button key={id} onClick={()=>isle(id)}
+            disabled={loading.dikey||loading.yatay}
+            style={{fontSize:12,background:'rgba(230,57,70,.12)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',display:'flex',alignItems:'center',gap:5}}>
+            <Ic n={ic} size={12}/>
+            {id==='dikey'&&loading.dikey ? 'Hazırlanıyor…' :
+             id==='yatay'&&loading.yatay ? 'Hazırlanıyor…' :
+             id==='her_ikisi'&&(loading.dikey||loading.yatay) ? 'Hazırlanıyor…' : label}
+          </button>
+        ))}
+      </div>
 
-      {durum === 'rendering' && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--muted)' }}>
-          <Ic n="loader-2" size={13}/>
-          Video işleniyor… {progress > 0 && `${Math.round(progress * 100)}%`}
-        </div>
-      )}
-
-      {durum === 'done' && videoUrl && (
-        <div>
-          <div style={{ fontSize:11, color:'#00D4AA', marginBottom:6 }}>✓ Video hazır</div>
-          <video src={videoUrl} controls
-            style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid rgba(0,212,170,.3)', maxHeight:240, background:'#000' }}/>
-          <div style={{ display:'flex', gap:6, marginTop:6 }}>
-            <a href={videoUrl} download="kayserim-video.mp4">
-              <button style={{ fontSize:11, background:'rgba(0,212,170,.08)', border:'0.5px solid rgba(0,212,170,.25)', color:'#00D4AA' }}>
-                <Ic n="download" size={11}/> İndir
-              </button>
-            </a>
-            <button onClick={isle} style={{ fontSize:11, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
-              Yeniden İşle
-            </button>
-          </div>
-        </div>
-      )}
-
-      {durum === 'error' && (
-        <div style={{ fontSize:12, color:'#ff7b7b' }}>
-          <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
-            <Ic n="alert-circle" size={13}/> İşleme hatası
-            <button onClick={isle} style={{ fontSize:11 }}>Tekrar dene</button>
-          </div>
-          {hataMsg && <div style={{ fontSize:11, color:'rgba(255,123,123,.7)', fontFamily:'var(--mono)', lineHeight:1.5, wordBreak:'break-all' }}>{hataMsg}</div>}
-        </div>
-      )}
+      {/* Render sonuçları */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        {['dikey','yatay'].map(fmt => {
+          const r = renders[fmt]
+          const isLoading = loading[fmt]
+          const hata = hatalar[fmt]
+          if (!r && !isLoading && !hata) return null
+          return (
+            <div key={fmt} style={{background:'rgba(255,255,255,.04)',borderRadius:6,padding:8,border:'0.5px solid var(--border)'}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase'}}>{fmt}</div>
+              {isLoading && <div style={{fontSize:12,color:'var(--muted)',display:'flex',gap:6,alignItems:'center'}}><Ic n="loader-2" size={12}/>Render ediliyor…</div>}
+              {hata && <div style={{fontSize:11,color:'#ff7b7b'}}><Ic n="alert-circle" size={11}/> {hata}</div>}
+              {r?.url && (
+                <>
+                  {r.snapshot && <img src={r.snapshot} alt={fmt} style={{width:'100%',borderRadius:4,marginBottom:6,border:'0.5px solid var(--border)'}}/>}
+                  <div style={{display:'flex',gap:4}}>
+                    <a href={r.url} download={`kayserim-${fmt}.mp4`} style={{flex:1}}>
+                      <button style={{width:'100%',fontSize:10,background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',color:'#00D4AA'}}>
+                        <Ic n="download" size={10}/> İndir
+                      </button>
+                    </a>
+                    <button onClick={()=>isle(fmt)} style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                      <Ic n="refresh" size={10}/>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 
-function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '', islenmisVideo = null }) {
-  const [platform, setPlatform] = useState('her_ikisi')
-  const [gonderiyor, setGond]   = useState(false)
-  const [sonuc,      setSonuc]  = useState(null)
-  const [hata,       setHata]   = useState(null)
-  const [metin,      setMetin]  = useState('')
 
-  // Platform veya içerik değişince metni güncelle
+
+// ── META PAYLAŞIM ─────────────────────────────────────────────────────────
+function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
+  const [fbTip,  setFbTip]  = useState('foto')  // 'foto' | 'video'
+  const [igTip,  setIgTip]  = useState('foto')
+  const [metin,  setMetin]  = useState('')
+  const [gonderiyor, setGond] = useState(false)
+  const [sonuc,  setSonuc]  = useState(null)
+  const [hata,   setHata]   = useState(null)
+
+  const isVideo = !!(selectedHaber?.video)
+
   useEffect(() => {
-    const ham = platform === 'facebook'
-      ? content?.facebook || content?.site_basligi || ''
-      : content?.instagram || content?.site_basligi || ''
-    const finalMetin = kayserimLink ? `${ham}\n\n🔗 ${kayserimLink}` : ham
-    setMetin(finalMetin)
-  }, [platform, content, kayserimLink])
+    const ham = content?.facebook || content?.site_basligi || ''
+    setMetin(kayserimLink ? `${ham}\n\n🔗 ${kayserimLink}` : ham)
+  }, [content, kayserimLink])
 
-  const paylas = async () => {
-    // Görsel URL: template > orijinal > video
-    const videoUrl  = islenmisVideo || selectedHaber?.video || ''
-    const isVideo   = !!videoUrl
-    const gorselUrl = gorselUrls?.instagram || gorselUrls?.facebook ||
-                      selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-
-    if (!gorselUrl && !videoUrl) { setHata('Paylaşılacak görsel bulunamadı'); return }
-
+  const paylas = async (platform) => {
     setGond(true); setSonuc(null); setHata(null)
     try {
-      const res  = await fetch('/api/meta-paylas', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          gorsel_url: platform === 'facebook'
-            ? gorselUrls?.facebook || gorselUrl
-            : gorselUrls?.instagram || gorselUrl,
+      const tip = platform === 'facebook' ? fbTip : igTip
+      const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
+                        gorselUrls?.instagram || gorselUrls?.facebook ||
+                        selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
+      const videoUrl  = videoRenders?.dikey?.url || selectedHaber?.video || ''
+
+      const res = await fetch('/api/meta-paylas', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          gorsel_url: gorselUrl,
           video_url:  videoUrl,
           metin,
           platform,
-          is_video: isVideo,
+          is_video: tip === 'video',
         }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
       setSonuc(data)
-    } catch (e) { setHata(e.message) }
+    } catch(e) { setHata(e.message) }
     setGond(false)
   }
 
-  const isVideo = !!selectedHaber?.video
-  const templateHazir = Object.keys(gorselUrls || {}).length > 0
+  const TipSec = ({ val, onChange, label }) => (
+    <div style={{display:'flex',gap:4,marginBottom:8}}>
+      <span style={{fontSize:11,color:'var(--muted)',marginRight:4}}>{label}:</span>
+      {[['foto','Fotoğraf'],['video','Video']].map(([v,l])=>(
+        <button key={v} onClick={()=>onChange(v)} disabled={v==='video'&&!isVideo}
+          style={{fontSize:11,background:val===v?'rgba(24,119,242,.2)':'transparent',
+            border:`0.5px solid ${val===v?'rgba(24,119,242,.4)':'var(--border)'}`,
+            color:val===v?'#4dabf7':'var(--muted)',opacity:v==='video'&&!isVideo?0.4:1}}>
+          {l}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
-    <div style={{ marginBottom: '0.875rem' }}>
-      {/* Template durum */}
-      <div style={{ fontSize: 11, color: templateHazir ? '#00D4AA' : 'var(--muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Ic n={templateHazir ? 'circle-check' : 'loader-2'} size={12} />
-        {templateHazir ? 'Template görseller hazır — paylaşımda kullanılacak' : 'Template görseller yükleniyor…'}
-      </div>
+    <div style={{marginBottom:'0.875rem'}}>
+      <TipSec val={fbTip} onChange={setFbTip} label="Facebook" />
+      <TipSec val={igTip} onChange={setIgTip} label="Instagram" />
 
-      {/* Video uyarısı */}
-      {isVideo && <div style={{ background: islenmisVideo ? 'rgba(0,212,170,.08)' : 'rgba(255,180,0,.08)', border: `0.5px solid ${islenmisVideo ? 'rgba(0,212,170,.3)' : 'rgba(255,180,0,.3)'}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: islenmisVideo ? '#00D4AA' : 'rgba(255,180,0,.9)', marginBottom: 8 }}>
-        <Ic n="video" size={12} /> {islenmisVideo ? '✓ İşlenmiş video kullanılacak' : 'Ham video — önce Creatomate ile işleyin'}
-      </div>}
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Paylaşım metni</div>
+      <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={3}
+        style={{width:'100%',fontSize:12,marginBottom:10,resize:'vertical',boxSizing:'border-box'}}/>
 
-      {/* Platform */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {[['her_ikisi','FB + IG'],['facebook','Facebook'],['instagram','Instagram']].map(([val,lbl]) => {
-          const on = platform === val
-          return <button key={val} onClick={() => setPlatform(val)}
-            style={{ fontSize: 12, background: on ? 'rgba(24,119,242,.15)' : 'transparent', border: `0.5px solid ${on ? 'rgba(24,119,242,.4)' : 'var(--border)'}`, color: on ? '#4dabf7' : 'var(--muted)' }}>
-            {lbl}
+      <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+        {[['her_ikisi','FB + IG'],['facebook','Facebook'],['instagram','Instagram']].map(([p,l])=>(
+          <button key={p} onClick={()=>paylas(p)} disabled={gonderiyor}
+            style={{fontSize:12,background:'rgba(24,119,242,.15)',border:'0.5px solid rgba(24,119,242,.3)',color:'#4dabf7'}}>
+            <Ic n={gonderiyor?'loader-2':'send'} size={13}/> {l}
           </button>
-        })}
+        ))}
       </div>
 
-      {/* kayserim.net linki — Isleme'den prop olarak geliyor */}
-      {kayserimLink && <div style={{ fontSize:11, color:'#00D4AA', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
-        <Ic n="link" size={11}/> Link eklenecek: {kayserimLink.slice(0,50)}…
+      {hata && <div style={{background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:12,color:'rgba(230,57,70,.9)'}}>
+        <Ic n="alert-circle" size={13}/> {hata}
       </div>}
-
-      {/* Metin düzenleme */}
-      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Paylaşım metni (düzenlenebilir)</div>
-      <textarea value={metin} onChange={e => setMetin(e.target.value)} rows={3}
-        style={{ width: '100%', fontSize: 12, marginBottom: 10, resize: 'vertical', boxSizing: 'border-box' }} />
-
-      <button onClick={paylas} disabled={gonderiyor}
-        style={{ fontWeight: 500, background: 'rgba(24,119,242,.15)', border: '0.5px solid rgba(24,119,242,.3)', color: '#4dabf7', marginBottom: 8 }}>
-        <Ic n={gonderiyor ? 'loader-2' : 'send'} size={14} />
-        {gonderiyor ? 'Paylaşılıyor…' : 'Paylaş'}
-      </button>
-
-      {hata && <div style={{ background: 'rgba(230,57,70,.08)', border: '0.5px solid rgba(230,57,70,.3)', borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: 'rgba(230,57,70,.9)' }}>
-        <Ic n="alert-circle" size={13} /> {hata}
-      </div>}
-
-      {sonuc && <div style={{ background: 'rgba(0,212,170,.08)', border: '0.5px solid rgba(0,212,170,.25)', borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: 12 }}>
-        <div style={{ color: '#00D4AA', fontWeight: 500, marginBottom: 6 }}><Ic n="check" size={14} /> Paylaşıldı!</div>
-        {sonuc.sonuclar?.facebook && <div style={{ color: 'var(--muted)' }}>
-          Facebook: {sonuc.sonuclar.facebook.ok ? '✓ ' + (sonuc.sonuclar.facebook.post_id || '') : '✗ ' + sonuc.sonuclar.facebook.hata}
-        </div>}
-        {sonuc.sonuclar?.instagram && <div style={{ color: 'var(--muted)' }}>
-          Instagram: {sonuc.sonuclar.instagram.ok ? '✓ ' + (sonuc.sonuclar.instagram.media_id || '') : '✗ ' + sonuc.sonuclar.instagram.hata}
-        </div>}
+      {sonuc && <div style={{background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',borderRadius:'var(--radius-md)',padding:'10px 14px',fontSize:12}}>
+        <div style={{color:'#00D4AA',fontWeight:500,marginBottom:6}}><Ic n="check" size={14}/> Paylaşıldı!</div>
+        {sonuc.sonuclar?.facebook && <div style={{color:'var(--muted)'}}>Facebook: {sonuc.sonuclar.facebook.ok?'✓':'✗ '+sonuc.sonuclar.facebook.hata}</div>}
+        {sonuc.sonuclar?.instagram && <div style={{color:'var(--muted)'}}>Instagram: {sonuc.sonuclar.instagram.ok?'✓':'✗ '+sonuc.sonuclar.instagram.hata}</div>}
       </div>}
     </div>
   )
 }
 
-
-
+// ── ISLEME ────────────────────────────────────────────────────────────────
 function Isleme({ content, processing, error, selectedHaber }) {
-  const [ec,       setEc]     = useState({})   // editable content
-  const [link,     setLink]   = useState('')
-  const [mode,     setMode]   = useState('edit') // 'edit' | 'paylas'
-  const [gorselUrls,setGUrls]       = useState({})
-  const [islenmisVideo,setIslenmisVideo] = useState(null)
-  const [kaydediliyor,setKyd] = useState(false)
-  const [kaydedildi, setKd]   = useState(false)
+  const [ec,          setEc]       = useState({})
+  const [link,        setLink]     = useState('')
+  const [mode,        setMode]     = useState('edit')
+  const [gorselUrls,  setGUrls]    = useState({})
+  const [videoRenders,setVRenders] = useState({})
+  const [kaydediliyor,setKyd]      = useState(false)
 
-  // content değişince editör state'ini güncelle
   useEffect(() => {
-    if (content) { setEc({...content}); setMode('edit'); setLink(''); setGUrls({}) }
+    if (content) { setEc({...content}); setMode('edit'); setLink(''); setGUrls({}); setVRenders({}) }
   }, [content?.url_slug])
 
-  const set = (field, val) => setEc(p => ({...p, [field]: val}))
+  const set = (f,v) => setEc(p=>({...p,[f]:v}))
 
-  // Düzenlenmiş haberi OtoGorselUret için hazırla
   const editedHaber = selectedHaber ? {
     ...selectedHaber,
-    sosyal_baslik: ec.sosyal_baslik || ec.site_basligi || selectedHaber.baslik,
-    site_basligi:  ec.site_basligi  || selectedHaber.baslik,
-    ozet:          ec.ozet          || selectedHaber.icerik?.slice(0,120),
-    kategori:      ec.kategori      || selectedHaber.kategori,
+    sosyal_baslik: ec.sosyal_baslik||ec.site_basligi||selectedHaber.baslik,
+    site_basligi:  ec.site_basligi||selectedHaber.baslik,
+    ozet:          ec.ozet||selectedHaber.icerik?.slice(0,120),
+    kategori:      ec.kategori||selectedHaber.kategori,
     tarih:         selectedHaber.tarih,
   } : null
 
   const kaydet = async () => {
     setKyd(true)
     try {
-      const kayit = {
-        ...ec,
-        source_id:  selectedHaber?.source_id,
-        source_url: selectedHaber?.source_url,
-        baslik:     selectedHaber?.baslik,
-        gorsel:     selectedHaber?.gorsel,
-        gorsel_url: selectedHaber?.gorsel_url || selectedHaber?.gorsel,
-        video:      selectedHaber?.video || '',
-        tarih_iso:  selectedHaber?.tarih_iso || new Date().toISOString(),
-        kayserim_link: link,
-        kaydedildi: new Date().toISOString(),
-        durum: 'islendi',
-      }
-      const liste = await fetch('/api/haberler').then(r => r.json()).catch(() => [])
-      const updated = [kayit, ...liste.filter(h => h.source_id !== kayit.source_id)].slice(0, 200)
       await fetch('/api/haber-kaydet', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(kayit),
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          ...ec,
+          source_id:    selectedHaber?.source_id,
+          source_url:   selectedHaber?.source_url,
+          baslik:       selectedHaber?.baslik,
+          gorsel:       selectedHaber?.gorsel,
+          gorsel_url:   selectedHaber?.gorsel_url||selectedHaber?.gorsel,
+          video:        selectedHaber?.video||'',
+          tarih_iso:    selectedHaber?.tarih_iso||new Date().toISOString(),
+          kayserim_link: link,
+          kaydedildi:   new Date().toISOString(),
+          durum: 'islendi',
+        }),
       })
-      setKd(true); setMode('paylas')
-    } catch (e) { console.error(e) }
+      setMode('paylas')
+    } catch(e){console.error(e)}
     setKyd(false)
   }
 
-  const Divider = ({ label, ic }) => (
-    <div style={{ display:'flex', alignItems:'center', gap:8, borderTop:'0.5px solid var(--border)', paddingTop:'0.875rem', marginTop:'1rem', marginBottom:'0.75rem' }}>
-      <Ic n={ic} size={14} style={{ color:'var(--muted)' }} />
-      <span style={{ fontSize:11, fontWeight:500, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</span>
+  const Divider = ({label,ic}) => (
+    <div style={{display:'flex',alignItems:'center',gap:8,borderTop:'0.5px solid var(--border)',paddingTop:'0.875rem',marginTop:'1rem',marginBottom:'0.75rem'}}>
+      <Ic n={ic} size={14}/> <span style={{fontSize:11,fontWeight:500,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</span>
     </div>
   )
 
-  const EField = ({ label, field, multi=false, rows=3 }) => (
-    <div style={{ marginBottom:'0.75rem' }}>
-      <div style={{ fontSize:11, color:'var(--muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</div>
+  const EField = ({label,field,multi=false,rows=3}) => (
+    <div style={{marginBottom:'0.75rem'}}>
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
       {multi
         ? <textarea value={ec[field]||''} onChange={e=>set(field,e.target.value)} rows={rows}
-            style={{ width:'100%', fontSize:13, resize:'vertical', boxSizing:'border-box', lineHeight:1.6 }} />
-        : <input value={ec[field]||''} onChange={e=>set(field,e.target.value)}
-            style={{ width:'100%', fontSize:13 }} />}
+            style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box',lineHeight:1.6}}/>
+        : <input value={ec[field]||''} onChange={e=>set(field,e.target.value)} style={{width:'100%',fontSize:13}}/>}
     </div>
   )
 
   if (processing) return (
-    <div style={{ padding:'1.25rem' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, color:'#4488FF' }}>
-        <Ic n="loader-2" size={18}/> <span style={{ fontSize:14 }}>Claude işliyor…</span>
-      </div>
+    <div style={{padding:'1.25rem',display:'flex',alignItems:'center',gap:10,color:'#4488FF'}}>
+      <Ic n="loader-2" size={18}/> <span style={{fontSize:14}}>Claude işliyor…</span>
     </div>
   )
 
   if (error) return (
-    <div style={{ padding:'1.25rem' }}>
-      <div style={{ color:'#E63946', fontSize:13 }}><Ic n="alert-circle" size={14}/> {error}</div>
+    <div style={{padding:'1.25rem',color:'#E63946',fontSize:13}}>
+      <Ic n="alert-circle" size={14}/> {error}
     </div>
   )
 
-  if (!content || !ec.site_basligi) return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320, gap:12 }}>
-      <Ic n="bolt" size={36} style={{ color:'rgba(255,255,255,0.1)' }} />
-      <p style={{ fontSize:14, color:'var(--muted)' }}>Henüz işlenmiş haber yok.</p>
+  if (!content||!ec.site_basligi) return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:320,gap:12}}>
+      <Ic n="bolt" size={36} style={{color:'rgba(255,255,255,0.1)'}}/>
+      <p style={{fontSize:14,color:'var(--muted)'}}>Henüz işlenmiş haber yok.</p>
     </div>
   )
 
-  // ── PAYLAŞ MODU ────────────────────────────────────────────────────────────
-  if (mode === 'paylas') return (
-    <div style={{ padding:'1.25rem', overflowY:'auto' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:'1.25rem' }}>
-        <div style={{ background:'rgba(0,212,170,.1)', border:'0.5px solid rgba(0,212,170,.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', flex:1 }}>
-          <div style={{ fontSize:14, fontWeight:500, color:'#00D4AA' }}>✓ Kaydedildi — paylaşıma hazır</div>
-          <div style={{ fontSize:12, color:'rgba(0,212,170,.7)', marginTop:2 }}>{ec.site_basligi}</div>
+  // PAYLAŞ MODU
+  if (mode==='paylas') return (
+    <div style={{padding:'1.25rem',overflowY:'auto'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'1.25rem'}}>
+        <div style={{background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.25)',borderRadius:'var(--radius-md)',padding:'10px 14px',flex:1}}>
+          <div style={{fontSize:14,fontWeight:500,color:'#00D4AA'}}>✓ Kaydedildi</div>
+          <div style={{fontSize:12,color:'rgba(0,212,170,.7)',marginTop:2}}>{ec.site_basligi}</div>
         </div>
-        <button onClick={() => setMode('edit')} style={{ fontSize:12, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)' }}>
+        <button onClick={()=>setMode('edit')} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
           <Ic n="edit" size={13}/> Düzenle
         </button>
       </div>
-
-      <Divider label="Sosyal medya görselleri" ic="photo" />
-      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g => setGUrls(g.urls)} />
-
-      <Divider label="Paylaş" ic="send" />
-      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} islenmisVideo={islenmisVideo} />
+      <Divider label="Sosyal medya görselleri" ic="photo"/>
+      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <Divider label="Paylaş" ic="send"/>
+      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
     </div>
   )
 
-  // ── DÜZENLEME MODU ─────────────────────────────────────────────────────────
+  // DÜZENLEME MODU
   return (
-    <div style={{ padding:'1.25rem', overflowY:'auto' }}>
-
-      {/* Üst toolbar */}
-      <div style={{ display:'flex', gap:8, marginBottom:'1.25rem', alignItems:'center' }}>
-        <div style={{ flex:1, fontSize:13, fontWeight:500, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-          {ec.site_basligi || 'Haber düzenleniyor…'}
+    <div style={{padding:'1.25rem',overflowY:'auto'}}>
+      <div style={{display:'flex',gap:8,marginBottom:'1.25rem',alignItems:'center'}}>
+        <div style={{flex:1,fontSize:13,fontWeight:500,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          {ec.site_basligi||'Haber düzenleniyor…'}
         </div>
         <button onClick={kaydet} disabled={kaydediliyor}
-          style={{ fontWeight:600, background:'rgba(0,212,170,.15)', border:'0.5px solid rgba(0,212,170,.3)', color:'#00D4AA', whiteSpace:'nowrap', flexShrink:0 }}>
+          style={{fontWeight:600,background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',whiteSpace:'nowrap',flexShrink:0}}>
           <Ic n={kaydediliyor?'loader-2':'device-floppy'} size={14}/>
-          {kaydediliyor ? 'Kaydediliyor…' : 'Kaydet & Paylaşıma Geç →'}
+          {kaydediliyor?'Kaydediliyor…':'Kaydet & Paylaşıma Geç →'}
         </button>
       </div>
 
-      {/* SEO */}
-      <Divider label="SEO & web içeriği" ic="world" />
-      <EField label="Site başlığı (SEO)" field="site_basligi" />
-      <EField label="H1 başlığı" field="h1_basligi" />
-      <EField label="Sosyal medya başlığı (görsel için)" field="sosyal_baslik" />
-      <EField label="Meta description" field="meta_description" />
-      <EField label="URL slug" field="url_slug" />
-      <EField label="Özet" field="ozet" />
-      <EField label="Optimize haber içeriği" field="optimize_icerik" multi rows={6} />
+      <Divider label="SEO & web içeriği" ic="world"/>
+      <EField label="Site başlığı (SEO)" field="site_basligi"/>
+      <EField label="H1 başlığı" field="h1_basligi"/>
+      <EField label="Sosyal medya başlığı" field="sosyal_baslik"/>
+      <EField label="Meta description" field="meta_description"/>
+      <EField label="URL slug" field="url_slug"/>
+      <EField label="Özet" field="ozet"/>
+      <EField label="Optimize içerik" field="optimize_icerik" multi rows={6}/>
 
-      {/* kayserim.net linki */}
-      <div style={{ marginBottom:'0.75rem' }}>
-        <div style={{ fontSize:11, color:'var(--muted)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>
-          kayserim.net linki <span style={{ color:'rgba(255,255,255,.2)', textTransform:'none', letterSpacing:0 }}>— yayınladıktan sonra girin</span>
+      <div style={{marginBottom:'0.75rem'}}>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+          kayserim.net linki
         </div>
         <input type="url" value={link} onChange={e=>setLink(e.target.value)}
-          placeholder="https://www.kayserim.net/haber/28040684/..." style={{ width:'100%', fontSize:13, boxSizing:'border-box' }} />
+          placeholder="https://www.kayserim.net/haber/28040684/..."
+          style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
       </div>
 
-      {/* Sosyal medya metinleri */}
-      <Divider label="Sosyal medya metinleri" ic="share" />
-      <EField label="Instagram" field="instagram" multi rows={3} />
-      <EField label="Facebook" field="facebook" multi rows={3} />
-      <EField label="X / Twitter" field="x_twitter" multi rows={2} />
-      <EField label="YouTube başlık" field="youtube_baslik" />
-      <EField label="YouTube açıklama" field="youtube_aciklama" multi rows={3} />
+      <Divider label="Sosyal medya metinleri" ic="share"/>
+      <EField label="Instagram" field="instagram" multi rows={3}/>
+      <EField label="Facebook" field="facebook" multi rows={3}/>
+      <EField label="X / Twitter" field="x_twitter" multi rows={2}/>
+      <EField label="YouTube başlık" field="youtube_baslik"/>
+      <EField label="YouTube açıklama" field="youtube_aciklama" multi rows={3}/>
 
-      {/* Video */}
-      {(selectedHaber?.video) && (
+      {selectedHaber?.video && (
         <>
-          <Divider label="Video" ic="video" />
+          <Divider label="Video" ic="video"/>
           <video key={selectedHaber.video} src={selectedHaber.video} controls
-            style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', maxHeight:240, background:'#000', marginBottom:8 }}/>
-          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi} kategori={ec.kategori} spot={ec.ozet} onVideoHazir={url=>setIslenmisVideo(url)} />
+            style={{width:'100%',borderRadius:'var(--radius-md)',border:'0.5px solid var(--border)',maxHeight:240,background:'#000',marginBottom:8}}/>
+          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi}
+            kategori={ec.kategori} spot={ec.ozet}
+            onVideoHazir={({format,url,snapshot})=>setVRenders(p=>({...p,[format]:{url,snapshot}}))}/>
         </>
       )}
 
-      {/* Sosyal görsel önizleme */}
-      <Divider label="Sosyal medya görseli önizleme" ic="photo" />
-      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g => setGUrls(g.urls)} />
-
+      <Divider label="Görsel önizleme" ic="photo"/>
+      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
     </div>
   )
 }
 
-
-// ── AYARLAR ────────────────────────────────────────────────────────────────
-function Ayarlar() {
-  const rows = [
-    { t:'1ha.com.tr RSS API',               v:'RSS_API_KEY (Cloudflare env)',       s:'aktif' },
-    { t:'Claude API (Anthropic)',            v:'ANTHROPIC_API_KEY (Cloudflare env)', s:'aktif' },
-    { t:'Ahrefs API',                        v:'AHREFS_API_KEY (Cloudflare env)',    s:'aktif' },
-    { t:'kayserim.net API',                  v:'Henüz tanımlanmadı',                s:'bekliyor' },
-    { t:'Meta Graph API (Instagram/Facebook)',v:'Henüz tanımlanmadı',               s:'bekliyor' },
-    { t:'X API v2',                          v:'Henüz tanımlanmadı',                s:'bekliyor' },
-    { t:'Replicate API (FLUX görsel)',        v:'Henüz tanımlanmadı',               s:'bekliyor' },
-  ]
-  return (
-    <div style={{ padding:'1.25rem', maxWidth:580, overflowY:'auto' }}>
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        {rows.map(r => (
-          <div key={r.t} style={{ background:'var(--card)', border:'0.5px solid var(--border)', borderRadius:'var(--radius-md)', padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <div>
-              <div style={{ fontSize:13, fontWeight:500 }}>{r.t}</div>
-              <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'var(--mono)', marginTop:2 }}>{r.v}</div>
-            </div>
-            <span style={{ fontSize:11, fontWeight:500, background: r.s==='aktif' ? 'rgba(0,212,170,0.12)' : 'rgba(255,183,0,0.12)', color: r.s==='aktif' ? '#00D4AA' : '#FFB700', border:`0.5px solid ${r.s==='aktif' ? 'rgba(0,212,170,0.3)' : 'rgba(255,183,0,0.3)'}`, padding:'3px 9px', borderRadius:20, flexShrink:0 }}>
-              {r.s === 'aktif' ? 'Aktif' : 'Bekliyor'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── ROOT ───────────────────────────────────────────────────────────────────
+// ── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [page, setPage]       = useState('login')
-  const [user, setUser]       = useState(null)
-  const [active, setActive]   = useState('dashboard')
-  const [haberler, setHaberler] = useState(MOCK)
-  const [selected, setSelected] = useState(null)
+  const [tab, setTab] = useState('haberler')
+  const [haberler, setHaberler] = useState([])
+  const [selectedHaber, setSelectedHaber] = useState(null)
+  const [detayHaber, setDetayHaber] = useState(null)
   const [content, setContent] = useState(null)
-  const [processing, setProc] = useState(false)
-  const [apiError, setApiErr] = useState(null)
-  const [notifs, setNotifs]   = useState([
-    { id:1, text:"6 haber 1ha'dan yüklendi", type:'success', time:'az önce' },
-    { id:2, text:'Sistem aktif ve bağlı',    type:'info',    time:'5 dk' },
-  ])
-  const [showN, setShowN] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState(null)
+  const [filter, setFilter] = useState('hepsi')
+  const [arama, setArama] = useState('')
+  const [yenileniyor, setYenileniyor] = useState(false)
+  const [gorselEditor, setGorselEditor] = useState(false)
 
-  const addNotif = useCallback((text, type = 'info') => {
-    setNotifs(prev => [{ id: Date.now(), text, type, time: 'az önce' }, ...prev.slice(0, 6)])
-  }, [])
-
-  // ── YENİLE: RSS + oto-isle tetikle ──────────────────────────────────────
   const yenile = useCallback(async () => {
-    addNotif('Yenileniyor…', 'info')
+    setYenileniyor(true)
     try {
-      // 1. Oto-isle tetikle (cron ile aynı iş)
-      const otoRes  = await fetch('/api/oto-isle')
-      const otoData = await otoRes.json()
-      if (otoData.islendi > 0) addNotif(`${otoData.islendi} yeni haber işlendi ✓`, 'success')
+      const [rssRes, kvRes] = await Promise.all([
+        fetch('/api/haberler').catch(()=>({ok:false})),
+        fetch('/api/haberler').catch(()=>({ok:false})),
+      ])
+      const kvListe = kvRes.ok ? await kvRes.json().catch(()=>[]) : []
+      const rssHaberler = Array.isArray(kvListe) ? kvListe : []
+      setHaberler(rssHaberler)
+    } catch(e){console.error(e)}
+    setYenileniyor(false)
+  },[])
 
-      // 2. KV + RSS yeniden çek
-      const kvRes   = await fetch('/api/haberler')
-      const kvListe = kvRes.ok ? await kvRes.json() : []
-      const kvMap   = new Map(kvListe.map(h => [h.source_id, h]))
+  useEffect(()=>{yenile()},[])
 
-      const rssRes  = await fetch('/api/rss')
-      if (!rssRes.ok) throw new Error('RSS alınamadı')
-      const xml     = await rssRes.text()
-      const parser  = new DOMParser()
-      const doc     = parser.parseFromString(xml, 'text/xml')
-      const items   = doc.querySelectorAll('item')
-
-      const rssHaberler = Array.from(items).slice(0, 30).map((item, i) => {
-        const enc      = item.querySelector('enclosure')
-        const dt       = item.querySelector('pubDate')?.textContent
-        const link     = item.querySelector('link')?.textContent?.trim() || ''
-        const enc_type = enc?.getAttribute('type') || ''
-        const enc_url  = enc?.getAttribute('url') || ''
-        const sourceId = link.split('/').pop() || link
-        const kvHaber  = kvMap.get(sourceId)
-        const rssGorsel = enc_type.startsWith('video/') ? '' : enc_url
-        const rssVideo  = enc_type.startsWith('video/') ? enc_url : ''
-        const base = {
-          id: i + 100, source_id: sourceId,
-          baslik: item.querySelector('title')?.textContent?.trim() || '',
-          icerik: item.querySelector('description')?.textContent?.replace(/<[^>]*>/g,'').trim() || '',
-          gorsel: rssGorsel, video: rssVideo,
-          kategori: item.querySelector('category')?.textContent?.trim() || 'Genel',
-          tarih: dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
-          durum: kvHaber ? 'islendi' : 'bekliyor',
-          ...(kvHaber || {}),
-        }
-        if (!base.gorsel)     base.gorsel     = rssGorsel
-        if (!base.gorsel_url) base.gorsel_url = base.gorsel
-        if (!base.video)      base.video      = rssVideo
-        return base
-      }).filter(h => h.baslik.length > 5)
-
-      const rssIds  = new Set(rssHaberler.map(h => h.source_id))
-      const eskiler = kvListe.filter(h => h.source_id && !rssIds.has(h.source_id))
-        .slice(0, 100).map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
-
-      const tumHaberler = [...eskiler, ...rssHaberler]
-      tumHaberler.sort((a, b) => new Date(b.tarih_iso || b.tarih || 0) - new Date(a.tarih_iso || a.tarih || 0))
-      setHaberler(tumHaberler)
-      addNotif(`${tumHaberler.length} haber güncellendi`, 'success')
-    } catch (e) { addNotif('Yenileme hatası: ' + e.message, 'warning') }
-  }, [addNotif])
-
-  // Giriş sonrası: KV + RSS birleştir, işlendi durumunu koru
-  useEffect(() => {
-    if (page !== 'app') return
-    ;(async () => {
-      try {
-        // 1. KV'deki işlenmiş haberleri çek
-        const kvRes  = await fetch('/api/haberler')
-        const kvListe = kvRes.ok ? await kvRes.json() : []
-        const kvMap  = new Map(kvListe.map(h => [h.source_id, h]))
-
-        // 2. 1ha RSS'i çek
-        const rssRes = await fetch('/api/rss')
-        if (!rssRes.ok) throw new Error(`RSS HTTP ${rssRes.status}`)
-        const xml    = await rssRes.text()
-        const parser = new DOMParser()
-        const doc    = parser.parseFromString(xml, 'text/xml')
-        const items  = doc.querySelectorAll('item')
-
-        const rssHaberler = Array.from(items).slice(0, 30).map((item, i) => {
-          const enc    = item.querySelector('enclosure')
-          const dt     = item.querySelector('pubDate')?.textContent
-          const link   = item.querySelector('link')?.textContent?.trim() || ''
-          const enc_type = enc?.getAttribute('type') || ''
-          const enc_url  = enc?.getAttribute('url') || ''
-          const sourceId = link.split('/').pop() || link
-
-          // KV'de bu haber var mı?
-          const kvHaber = kvMap.get(sourceId)
-
-          const rssGorsel = enc_type.startsWith('video/') ? '' : enc_url
-          const rssVideo  = enc_type.startsWith('video/') ? enc_url : ''
-
-          const base = {
-            id:        i + 100,
-            source_id: sourceId,
-            baslik:    item.querySelector('title')?.textContent?.trim() || '',
-            icerik:    item.querySelector('description')?.textContent?.replace(/<[^>]*>/g, '').trim() || '',
-            gorsel:    rssGorsel,
-            video:     rssVideo,
-            kategori:  item.querySelector('category')?.textContent?.trim() || 'Genel',
-            tarih:     dt ? new Date(dt).toLocaleDateString('tr-TR') : '',
-            durum:     kvHaber ? 'islendi' : 'bekliyor',
-            ...(kvHaber || {}),
-          }
-
-          // KV'deki boş değerler RSS değerlerini ezmesin
-          if (!base.gorsel)     base.gorsel     = rssGorsel
-          if (!base.gorsel_url) base.gorsel_url = base.gorsel
-          if (!base.video)      base.video      = rssVideo
-
-          return base
-        }).filter(h => h.baslik.length > 5)
-
-        // 3. RSS'te olmayan eski KV haberlerini başa ekle
-        const rssIds  = new Set(rssHaberler.map(h => h.source_id))
-        const eskiler = kvListe
-          .filter(h => h.source_id && !rssIds.has(h.source_id))
-          .slice(0, 100)
-          .map((h, i) => ({ ...h, id: i + 1000, durum: 'islendi' }))
-
-        const tumHaberler = [...eskiler, ...rssHaberler]
-
-        // Tarih sıralaması — en yeni en üstte
-        tumHaberler.sort((a, b) => {
-          const dateA = new Date(a.tarih_iso || a.tarih || 0)
-          const dateB = new Date(b.tarih_iso || b.tarih || 0)
-          return dateB - dateA
-        })
-
-        setHaberler(tumHaberler)
-
-        const yeniSayi = rssHaberler.filter(h => h.durum === 'bekliyor').length
-        const islSayi  = rssHaberler.filter(h => h.durum === 'islendi').length
-        addNotif(`${rssHaberler.length} haber yüklendi — ${islSayi} işlendi, ${yeniSayi} bekliyor`, 'success')
-
-      } catch (e) {
-        addNotif('Yükleme hatası: ' + e.message, 'warning')
-      }
-
-      // Arka planda otomatik işleme
-      try {
-        const otoRes  = await fetch('/api/oto-isle')
-        const otoData = await otoRes.json()
-        if (otoData.islendi > 0) {
-          addNotif(`${otoData.islendi} haber otomatik işlendi → RSS güncellendi ✓`, 'success')
-        }
-      } catch { /* sessiz */ }
-    })()
-  }, [page])
-
-  // Claude API — /api/claude üzerinden (Cloudflare Pages Function, API key gizli)
-  const process = useCallback(async (text) => {
-    setProc(true)
-    setContent(null)
-    setApiErr(null)
-    setActive('isleme')
+  const isle = async (h) => {
+    setSelectedHaber(h); setContent(null); setProcessing(true); setError(null)
     try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
-          system: 'Sen radar.ist editör sistemi üzerinden çalışan, kayserim.net için kıdemli SEO editörüsün. Kayseri odaklı yerel haber sitesi için içerik üretiyorsun. SADECE geçerli JSON döndür, başka hiçbir şey yazma.',
-          messages: [{ role: 'user', content:
-`Bu haberi al ve kayserim.net için tam içerik paketi üret:\n\n${text}\n\n
-Şu JSON yapısını döndür (başka hiçbir şey yazma):
-{
-  "site_basligi": "max 70 karakter SEO uyumlu başlık",
-  "h1_basligi": "H1 başlığı",
-  "meta_description": "max 155 karakter",
-  "url_slug": "kisa-slug-tire-ile",
-  "optimize_icerik": "H2 başlıklı tam haber min 300 kelime, Kayseri doğal geçsin",
-  "instagram": "150-200 karakter, emoji ve hashtag dahil",
-  "facebook": "100-150 karakter",
-  "x_twitter": "max 230 karakter, 2-3 hashtag",
-  "youtube_baslik": "max 80 karakter",
-  "youtube_aciklama": "250-300 karakter",
-  "hedef_kelimeler": ["kelime1","kelime2","kelime3","kelime4","kelime5"],
-  "kategori": "Güncel",
-  "oncelik": "yuksek",
-  "gorsel_prompt": "realistic news photo prompt in English, max 15 words"
-}` }]
-        })
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().then(t => t.slice(0,200))}`)
+      const res = await fetch('/api/oto-isle?source_id='+encodeURIComponent(h.source_id||h.baslik))
       const data = await res.json()
-      if (data.error) throw new Error(data.error + (data.detail ? ': ' + data.detail : ''))
-      const raw = data.content?.[0]?.text || '{}'
-      const clean = raw.replace(/```json\n?|\n?```/g, '').trim()
-      const parsed = JSON.parse(clean)
-      setContent(parsed)
-      if (selected) setHaberler(prev => prev.map(h => h.id === selected.id ? { ...h, durum: 'islendi' } : h))
-      addNotif('Haber paketi hazır ✓', 'success')
-    } catch (e) {
-      const msg = e.message || 'Bilinmeyen hata'
-      setApiErr(msg)
-      addNotif('API hatası: ' + msg.slice(0, 60), 'error')
-    }
-    setProc(false)
-  }, [selected, addNotif])
-
-  if (page === 'login') {
-    return <Login onLogin={u => { setUser(u); setPage('app') }} />
+      if (data.hata) throw new Error(data.hata)
+      const kv = await fetch('/api/haberler').then(r=>r.json()).catch(()=>[])
+      const bulunan = Array.isArray(kv) ? kv.find(x=>x.source_id===h.source_id) : null
+      setContent(bulunan||data)
+      setTab('isleme')
+    } catch(e){ setError(e.message) }
+    setProcessing(false)
   }
 
-  const bekCnt = haberler.filter(h => h.durum === 'bekliyor').length
+  const haberleriGoster = haberler
+    .filter(h=>filter==='hepsi'||h.durum===filter)
+    .filter(h=>!arama||h.baslik?.toLowerCase().includes(arama.toLowerCase())||h.site_basligi?.toLowerCase().includes(arama.toLowerCase()))
+
+  if (gorselEditor) return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
+      <GorselEditor onKapat={()=>setGorselEditor(false)} ornek={selectedHaber}/>
+    </div>
+  )
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
-      <Sidebar active={active} setActive={setActive} user={user} onLogout={() => { setPage('login'); setUser(null) }} bekCnt={bekCnt} />
-      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        <TopBar page={active} notifications={notifs} showN={showN} setShowN={setShowN} />
-        <div style={{ flex:1, overflow:'auto' }}>
-          {active === 'dashboard' && <Dashboard haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} onYenile={yenile} />}
-          {active === 'haberler'  && <Haberler  haberler={haberler} setSelected={setSelected} setActive={setActive} setContent={setContent} />}
-          {active === 'yeni'      && <YeniHaber selected={selected} setSelected={setSelected} onProcess={process} processing={processing} />}
-          {active === 'isleme'    && <Isleme content={content} processing={processing} error={apiError} selectedHaber={selected} />}
-          {active === 'editor'    && <GorselEditor onKapat={() => setActive('isleme')} />}
-          {active === 'ayarlar'   && <Ayarlar />}
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font)'}}>
+      {/* Header */}
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',flexShrink:0}}>
+        <div style={{fontWeight:700,fontSize:16,color:'#ff7b7b',letterSpacing:'-0.02em'}}>rdr.ist</div>
+        <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+          {[['haberler','1ha akışı','rss'],['isleme','İşleme','bolt']].map(([id,label,ic])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              style={{fontSize:12,background:tab===id?'rgba(255,255,255,.08)':'transparent',
+                border:tab===id?'0.5px solid rgba(255,255,255,.2)':'0.5px solid transparent',fontWeight:tab===id?500:400}}>
+              <Ic n={ic} size={12}/> {label}
+            </button>
+          ))}
+          <button onClick={()=>setGorselEditor(true)} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+            <Ic n="adjustments" size={12}/> Şablon
+          </button>
+          <button onClick={yenile} disabled={yenileniyor} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+            <Ic n={yenileniyor?'loader-2':'refresh'} size={12}/>
+          </button>
         </div>
+      </div>
+
+      {/* Content */}
+      <div style={{flex:1,overflow:'hidden',display:'flex'}}>
+        {tab==='haberler' && (
+          <div style={{flex:1,overflowY:'auto',padding:'0.75rem'}}>
+            <div style={{display:'flex',gap:6,marginBottom:'0.75rem',flexWrap:'wrap'}}>
+              {['hepsi','bekliyor','islendi','yayinda'].map(f=>{
+                const cnt=f==='hepsi'?haberler.length:haberler.filter(h=>h.durum===f).length
+                const on=filter===f
+                return (
+                  <button key={f} onClick={()=>setFilter(f)}
+                    style={{background:on?'rgba(255,255,255,.08)':'transparent',border:on?'0.5px solid rgba(255,255,255,.2)':'0.5px solid var(--border)',fontWeight:on?500:400}}>
+                    {f==='hepsi'?'Tümü':DURUM[f]?.l}
+                    <span style={{fontSize:11,background:'rgba(255,255,255,.06)',color:'var(--muted)',padding:'1px 6px',borderRadius:10}}>{cnt}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <input value={arama} onChange={e=>setArama(e.target.value)} placeholder="Haber ara…"
+              style={{width:'100%',fontSize:13,marginBottom:'0.75rem',boxSizing:'border-box'}}/>
+            {haberleriGoster.map((h,i)=>(
+              <div key={h.source_id||i} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'0.75rem',marginBottom:'0.5rem'}}>
+                <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                  {(h.gorsel||h.gorsel_url)&&<img src={h.gorsel_url||h.gorsel} alt="" style={{width:56,height:40,objectFit:'cover',borderRadius:'var(--radius-sm)',flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:500,lineHeight:1.4,marginBottom:4}}>{h.site_basligi||h.baslik}</div>
+                    <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                      <KatBadge k={h.kategori||'Güncel'}/>
+                      <DurumBadge d={h.durum||'bekliyor'}/>
+                      {h.tarih&&<span style={{fontSize:11,color:'var(--muted)'}}>{h.tarih}</span>}
+                      {h.video&&<span style={{fontSize:10,background:'rgba(230,57,70,.1)',color:'#ff7b7b',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(230,57,70,.2)'}}>VIDEO</span>}
+                    </div>
+                  </div>
+                  <button onClick={()=>{setSelectedHaber(h);setContent(h.durum==='islendi'?h:null);setTab('isleme')}}
+                    style={{fontSize:11,flexShrink:0,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                    Detay
+                  </button>
+                  <button onClick={()=>isle(h)} style={{fontSize:11,flexShrink:0,background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.25)',color:'#00D4AA'}}>
+                    <Ic n="bolt" size={12}/> İşle
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab==='isleme' && (
+          <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+            <Isleme content={content} processing={processing} error={error} selectedHaber={selectedHaber}/>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -60,6 +60,13 @@ Bu haber bir VIDEO içermektedir. İçerik hazırlanırken:
 **DOĞRU örnek (bu şekilde YAZ):**
 "Kaza saat 16.00 sıralarında Mimarsinan OSB 1'nci Cadde'de meydana geldi. Araçta bulunan 3 kişi hafif yaralandı. Yaralılar Kayseri Eğitim Araştırma Hastanesi'ne kaldırıldı. Kazayla ilgili soruşturma başlatıldı."
 
+## KRİTİK KURAL — UNVAN VE MAKAM KORUMA
+Haberdeki kişi unvanlarını, görev tanımlarını ve yer adı+unvan kombinasyonlarını ASLA değiştirme:
+- "Kocasinan Kaymakamı" → olduğu gibi kal (Kayseri Kaymakamı yapma)
+- "Melikgazi Belediye Başkanı" → olduğu gibi kal
+- İlçe adı + unvan kombinasyonları kişinin görevini tanımlar, SEO için değiştirilemez
+- Şahıs adları, kurumlar, resmi unvanlar haberdeki orijinal haliyle kullanılmalı
+
 ## HABER BİLGİSİ
 Başlık: ${haber.baslik.slice(0,200)}
 Özet: ${haber.icerik.slice(0,300)}
