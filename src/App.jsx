@@ -390,7 +390,7 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
 }
 
 // ── VIDEO İŞLE BİLEŞENİ (Creatomate) ─────────────────────────────────────
-function VideoIsle({ haber, baslik, kategori, spot }) {
+function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
   const [durum,    setDurum]  = useState(null)
   const [renderId, setRender] = useState(null)
   const [videoUrl, setVUrl]   = useState(null)
@@ -428,6 +428,7 @@ function VideoIsle({ haber, baslik, kategori, spot }) {
         setProgress(data.progress || 0)
         if (data.status === 'succeeded') {
           setVUrl(data.render_url); setDurum('done'); clearInterval(timer)
+            onVideoHazir?.(data.render_url)
         } else if (data.status === 'failed') {
           setDurum('error'); clearInterval(timer)
         }
@@ -484,7 +485,7 @@ function VideoIsle({ haber, baslik, kategori, spot }) {
 }
 
 
-function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '' }) {
+function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '', islenmisVideo = null }) {
   const [platform, setPlatform] = useState('her_ikisi')
   const [gonderiyor, setGond]   = useState(false)
   const [sonuc,      setSonuc]  = useState(null)
@@ -502,7 +503,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '' }) {
 
   const paylas = async () => {
     // Görsel URL: template > orijinal > video
-    const videoUrl  = selectedHaber?.video || ''
+    const videoUrl  = islenmisVideo || selectedHaber?.video || ''
     const isVideo   = !!videoUrl
     const gorselUrl = gorselUrls?.instagram || gorselUrls?.facebook ||
                       selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
@@ -543,8 +544,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink = '' }) {
       </div>
 
       {/* Video uyarısı */}
-      {isVideo && <div style={{ background: 'rgba(255,180,0,.08)', border: '0.5px solid rgba(255,180,0,.3)', borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: 'rgba(255,180,0,.9)', marginBottom: 8 }}>
-        <Ic n="video" size={12} /> Video haber — Facebook ve Instagram'a video olarak paylaşılacak
+      {isVideo && <div style={{ background: islenmisVideo ? 'rgba(0,212,170,.08)' : 'rgba(255,180,0,.08)', border: `0.5px solid ${islenmisVideo ? 'rgba(0,212,170,.3)' : 'rgba(255,180,0,.3)'}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', fontSize: 12, color: islenmisVideo ? '#00D4AA' : 'rgba(255,180,0,.9)', marginBottom: 8 }}>
+        <Ic n="video" size={12} /> {islenmisVideo ? '✓ İşlenmiş video kullanılacak' : 'Ham video — önce Creatomate ile işleyin'}
       </div>}
 
       {/* Platform */}
@@ -597,7 +598,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const [ec,       setEc]     = useState({})   // editable content
   const [link,     setLink]   = useState('')
   const [mode,     setMode]   = useState('edit') // 'edit' | 'paylas'
-  const [gorselUrls,setGUrls] = useState({})
+  const [gorselUrls,setGUrls]       = useState({})
+  const [islenmisVideo,setIslenmisVideo] = useState(null)
   const [kaydediliyor,setKyd] = useState(false)
   const [kaydedildi, setKd]   = useState(false)
 
@@ -702,7 +704,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <OtoGorselUret haber={editedHaber} onGorsellerHazir={g => setGUrls(g.urls)} />
 
       <Divider label="Paylaş" ic="send" />
-      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} />
+      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} islenmisVideo={islenmisVideo} />
     </div>
   )
 
@@ -755,7 +757,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
           <Divider label="Video" ic="video" />
           <video key={selectedHaber.video} src={selectedHaber.video} controls
             style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', maxHeight:240, background:'#000', marginBottom:8 }}/>
-          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi} kategori={ec.kategori} spot={ec.ozet} />
+          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi} kategori={ec.kategori} spot={ec.ozet} onVideoHazir={url=>setIslenmisVideo(url)} />
         </>
       )}
 
