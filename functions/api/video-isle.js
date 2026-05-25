@@ -94,7 +94,7 @@ export async function onRequestPost({ request, env }) {
       ],
     }
 
-    const res = await fetch('https://api.creatomate.com/v1/renders', {
+    const res = await fetch('https://api.creatomate.com/v2/renders', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
