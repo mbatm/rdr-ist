@@ -103,9 +103,11 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify({
         template_id: 'c742faa5-485f-4102-9b20-a24839a4f693',
         modifications: {
-          'Video-M6R.source': video_url,
-          'Text-W4Q.text':    baslikStr,
-          'Text-STR.text':    `${katStr}  ·  ${tarihStr}`,
+          'Video-BG.source': video_url,
+          'Baslik.text':     baslikStr,
+          'Spot.text':       spotStr,
+          'Kategori.text':   katStr,
+          'Tarih.text':      tarihStr,
         },
       }),
     })
