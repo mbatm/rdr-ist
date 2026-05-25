@@ -615,6 +615,24 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   )
 }
 
+
+// ── SHARED FORM COMPONENTS — Isleme dışında tanımlı (focus korunması için) ──
+const Divider = ({label,ic}) => (
+  <div style={{display:'flex',alignItems:'center',gap:8,borderTop:'0.5px solid var(--border)',paddingTop:'0.875rem',marginTop:'1rem',marginBottom:'0.75rem'}}>
+    <Ic n={ic} size={14}/> <span style={{fontSize:11,fontWeight:500,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</span>
+  </div>
+)
+
+const EField = ({label,field,ec,set,multi=false,rows=3}) => (
+  <div style={{marginBottom:'0.75rem'}}>
+    <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
+    {multi
+      ? <textarea value={ec[field]||''} onChange={e=>set(field,e.target.value)} rows={rows}
+          style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box',lineHeight:1.6}}/>
+      : <input value={ec[field]||''} onChange={e=>set(field,e.target.value)} style={{width:'100%',fontSize:13}}/>}
+  </div>
+)
+
 // ── ISLEME ────────────────────────────────────────────────────────────────
 function Isleme({ content, processing, error, selectedHaber }) {
   const [ec,          setEc]       = useState({})
@@ -662,22 +680,6 @@ function Isleme({ content, processing, error, selectedHaber }) {
     } catch(e){console.error(e)}
     setKyd(false)
   }
-
-  const Divider = ({label,ic}) => (
-    <div style={{display:'flex',alignItems:'center',gap:8,borderTop:'0.5px solid var(--border)',paddingTop:'0.875rem',marginTop:'1rem',marginBottom:'0.75rem'}}>
-      <Ic n={ic} size={14}/> <span style={{fontSize:11,fontWeight:500,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</span>
-    </div>
-  )
-
-  const EField = ({label,field,multi=false,rows=3}) => (
-    <div style={{marginBottom:'0.75rem'}}>
-      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
-      {multi
-        ? <textarea value={ec[field]||''} onChange={e=>set(field,e.target.value)} rows={rows}
-            style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box',lineHeight:1.6}}/>
-        : <input value={ec[field]||''} onChange={e=>set(field,e.target.value)} style={{width:'100%',fontSize:13}}/>}
-    </div>
-  )
 
   if (processing) return (
     <div style={{padding:'1.25rem',display:'flex',alignItems:'center',gap:10,color:'#4488FF'}}>
@@ -732,13 +734,13 @@ function Isleme({ content, processing, error, selectedHaber }) {
       </div>
 
       <Divider label="SEO & web içeriği" ic="world"/>
-      <EField label="Site başlığı (SEO)" field="site_basligi"/>
-      <EField label="H1 başlığı" field="h1_basligi"/>
-      <EField label="Sosyal medya başlığı" field="sosyal_baslik"/>
-      <EField label="Meta description" field="meta_description"/>
-      <EField label="URL slug" field="url_slug"/>
-      <EField label="Özet" field="ozet"/>
-      <EField label="Optimize içerik" field="optimize_icerik" multi rows={6}/>
+      <EField ec={ec} set={set} label="Site başlığı (SEO)" field="site_basligi"/>
+      <EField ec={ec} set={set} label="H1 başlığı" field="h1_basligi"/>
+      <EField ec={ec} set={set} label="Sosyal medya başlığı" field="sosyal_baslik"/>
+      <EField ec={ec} set={set} label="Meta description" field="meta_description"/>
+      <EField ec={ec} set={set} label="URL slug" field="url_slug"/>
+      <EField ec={ec} set={set} label="Özet" field="ozet"/>
+      <EField ec={ec} set={set} label="Optimize içerik" field="optimize_icerik" multi rows={6}/>
 
       <div style={{marginBottom:'0.75rem'}}>
         <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>
@@ -750,11 +752,11 @@ function Isleme({ content, processing, error, selectedHaber }) {
       </div>
 
       <Divider label="Sosyal medya metinleri" ic="share"/>
-      <EField label="Instagram" field="instagram" multi rows={3}/>
-      <EField label="Facebook" field="facebook" multi rows={3}/>
-      <EField label="X / Twitter" field="x_twitter" multi rows={2}/>
-      <EField label="YouTube başlık" field="youtube_baslik"/>
-      <EField label="YouTube açıklama" field="youtube_aciklama" multi rows={3}/>
+      <EField ec={ec} set={set} label="Instagram" field="instagram" multi rows={3}/>
+      <EField ec={ec} set={set} label="Facebook" field="facebook" multi rows={3}/>
+      <EField ec={ec} set={set} label="X / Twitter" field="x_twitter" multi rows={2}/>
+      <EField ec={ec} set={set} label="YouTube başlık" field="youtube_baslik"/>
+      <EField ec={ec} set={set} label="YouTube açıklama" field="youtube_aciklama" multi rows={3}/>
 
       {selectedHaber?.video && (
         <>
@@ -833,7 +835,7 @@ export default function App() {
       <div style={{display:'flex',alignItems:'center',gap:8,padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',flexShrink:0}}>
         <div style={{fontWeight:700,fontSize:16,color:'#ff7b7b',letterSpacing:'-0.02em'}}>rdr.ist</div>
         <div style={{marginLeft:'auto',display:'flex',gap:6}}>
-          {[['haberler','1ha akışı','rss'],['isleme','İşleme','bolt']].map(([id,label,ic])=>(
+          {[['haberler','1ha akışı','rss']].map(([id,label,ic])=>(
             <button key={id} onClick={()=>setTab(id)}
               style={{fontSize:12,background:tab===id?'rgba(255,255,255,.08)':'transparent',
                 border:tab===id?'0.5px solid rgba(255,255,255,.2)':'0.5px solid transparent',fontWeight:tab===id?500:400}}>
@@ -851,8 +853,7 @@ export default function App() {
 
       {/* Content */}
       <div style={{flex:1,overflow:'hidden',display:'flex'}}>
-        {tab==='haberler' && (
-          <div style={{flex:1,overflowY:'auto',padding:'0.75rem'}}>
+        <div style={{width:340,borderRight:'0.5px solid var(--border)',overflowY:'auto',padding:'0.75rem',flexShrink:0}}>
             <div style={{display:'flex',gap:6,marginBottom:'0.75rem',flexWrap:'wrap'}}>
               {['hepsi','bekliyor','islendi','yayinda'].map(f=>{
                 const cnt=f==='hepsi'?haberler.length:haberler.filter(h=>h.durum===f).length
@@ -891,14 +892,12 @@ export default function App() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
+        </div>
 
-        {tab==='isleme' && (
-          <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-            <Isleme content={content} processing={processing} error={error} selectedHaber={selectedHaber}/>
-          </div>
-        )}
+        {/* Sağ panel - her zaman görünür */}
+        <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+          <Isleme content={content} processing={processing} error={error} selectedHaber={selectedHaber}/>
+        </div>
       </div>
     </div>
   )
