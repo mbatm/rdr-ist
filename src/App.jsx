@@ -450,23 +450,16 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           const entry = { url: data.render_url, snapshot: data.snapshot }
           setRenders(p => ({...p, [fmt]: entry}))
           setLoading(p => ({...p, [fmt]: false}))
-          // KV'deki güncel haberi al ve video URL'leriyle birleştir
-          try {
-            const kvRes  = await fetch('/api/haberler')
-            const kvData = await kvRes.json()
-            const current = Array.isArray(kvData)
-              ? (kvData.find(h => h.source_id === haber.source_id) || haber)
-              : haber
-            await fetch('/api/haber-kaydet', {
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({
-                ...current,
-                source_id: haber.source_id,
-                [`video_${fmt}`]: data.render_url,
-                [`video_${fmt}_snapshot`]: data.snapshot || '',
-              })
+          // Ayrı KV key'e kaydet (merge sorunu yok)
+          fetch('/api/video-url', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              source_id: haber.source_id,
+              format:    fmt,
+              url:       data.render_url,
+              snapshot:  data.snapshot || '',
             })
-          } catch(e) { console.warn('Video KV kayıt hatası:', e.message) }
+          }).catch(e => console.warn('Video URL kayıt hatası:', e.message))
           onVideoHazir?.({ format: fmt, url: data.render_url, snapshot: data.snapshot })
         } else if (data.status === 'failed') {
           clearInterval(timer)
@@ -547,6 +540,16 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const [gonderiyor, setGond] = useState(false)
   const [sonuc,  setSonuc]  = useState(null)
   const [hata,   setHata]   = useState(null)
+  const [kvVideo, setKvVideo] = useState({}) // KV'den çekilen video URL'leri
+
+  // Video URL'lerini KV'den yükle
+  useEffect(() => {
+    if (!selectedHaber?.source_id || !isVideo) return
+    fetch('/api/video-url?source_id=' + encodeURIComponent(selectedHaber.source_id))
+      .then(r => r.json())
+      .then(data => { if (data.dikey || data.yatay) setKvVideo(data) })
+      .catch(() => {})
+  }, [selectedHaber?.source_id])
 
   // Video haber değişince tip güncelle
   useEffect(() => {
@@ -566,12 +569,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-      const videoUrl  = videoRenders?.dikey?.url ||
+      const videoUrl = kvVideo?.dikey ||
+                      videoRenders?.dikey?.url ||
                       selectedHaber?.video_dikey ||
                       selectedHaber?.video || ''
-
-      // Debug
-      console.log('Paylaş:', { tip, videoRenders, video_dikey: selectedHaber?.video_dikey, ham_video: selectedHaber?.video, kullanilan: videoUrl })
+      console.log('Paylaş debug:', { kvVideo, videoRenders_dikey: videoRenders?.dikey?.url, video_dikey: selectedHaber?.video_dikey, kullanilan: videoUrl })
 
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -611,8 +613,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
       {/* Kullanılacak video URL'si */}
       {isVideo && (() => {
-        const vUrl = videoRenders?.dikey?.url || selectedHaber?.video_dikey || selectedHaber?.video || ''
-        const isIslenmis = !!(videoRenders?.dikey?.url || selectedHaber?.video_dikey)
+        const vUrl = kvVideo?.dikey || videoRenders?.dikey?.url || selectedHaber?.video_dikey || selectedHaber?.video || ''
+        const isIslenmis = !!(kvVideo?.dikey || videoRenders?.dikey?.url || selectedHaber?.video_dikey)
         return <div style={{fontSize:10,color:isIslenmis?'#00D4AA':'rgba(255,180,0,.8)',marginBottom:8,wordBreak:'break-all'}}>
           {isIslenmis ? '✓ İşlenmiş video' : '⚠ Ham video'}: {vUrl.slice(0,60)}…
         </div>
