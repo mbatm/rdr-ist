@@ -101,13 +101,13 @@ export async function onRequestPost({ request, env }) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        template_id: 'c742faa5-485f-4102-9b20-a24839a4f693',
+        template_id: 'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
         modifications: {
-          'Video-BG.source': video_url,
-          'Baslik.text':     baslikStr,
-          'Spot.text':       spotStr,
-          'Kategori.text':   katStr,
-          'Tarih.text':      tarihStr,
+          'video.source':      video_url,
+          'baslik.text':       baslikStr,
+          'spot-baslik.text':  spotStr,
+          'kategori.text':     katStr,
+          'tarih.text':        tarihStr,
         },
       }),
     })
