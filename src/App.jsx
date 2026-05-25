@@ -587,7 +587,23 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setSonuc(data)
+
+      // Instagram video container bekliyorsa poll et
+      if (data.sonuclar?.instagram?.bekliyor && data.sonuclar.instagram.container_id) {
+        setSonuc({ ...data, sonuclar: { ...data.sonuclar, instagram: { bekliyor: true, mesaj: 'Instagram video işleniyor…' } } })
+        const containerId = data.sonuclar.instagram.container_id
+        let attempts = 0
+        const poll = async () => {
+          if (attempts++ > 24) { setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{hata:'Zaman aşımı'}}})); return }
+          const r = await fetch('/api/ig-publish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({container_id:containerId}) })
+          const d = await r.json()
+          if (d.bekliyor) setTimeout(poll, 5000)
+          else setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram: d}}))
+        }
+        setTimeout(poll, 5000)
+      } else {
+        setSonuc(data)
+      }
     } catch(e) { setHata(e.message) }
     setGond(false)
   }

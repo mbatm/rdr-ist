@@ -77,17 +77,12 @@ export async function onRequestPost({ request, env }) {
         if (cData.error) {
           sonuclar.instagram = { hata: cData.error.message }
         } else {
-          // Reels için container hazırlanmasını bekle
-          await new Promise(r => setTimeout(r, 8000))
-          const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ creation_id: cData.id, access_token: pageToken }),
-          })
-          const pData = await pRes.json()
-          sonuclar.instagram = pData.error
-            ? { hata: pData.error.message }
-            : { ok: true, media_id: pData.id }
+          // Container ID'yi döndür — client poll edecek
+          sonuclar.instagram = {
+            bekliyor: true,
+            container_id: cData.id,
+            mesaj: 'Video işleniyor, lütfen bekleyin…'
+          }
         }
       } else if (gorsel_url) {
         // Fotoğraf post
