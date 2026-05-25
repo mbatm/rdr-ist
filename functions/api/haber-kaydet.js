@@ -7,16 +7,19 @@ export async function onRequestPost({ request, env }) {
   try {
     const haber = await request.json()
 
-    // Zorunlu alanlar
-    if (!haber.url_slug || !haber.site_basligi) {
-      return Response.json({ error: 'url_slug ve site_basligi zorunlu' }, { status: 400 })
+    // En az source_id veya url_slug olmalı
+    if (!haber.url_slug && !haber.source_id) {
+      return Response.json({ error: 'url_slug veya source_id zorunlu' }, { status: 400 })
     }
 
     // Mevcut listeyi al
     const existing = (await env.HABERLER.get('liste', 'json')) || []
 
-    // Aynı slug varsa güncelle, yoksa başa ekle
-    const filtered = existing.filter(h => h.url_slug !== haber.url_slug)
+    // Aynı slug VEYA source_id varsa güncelle, yoksa başa ekle
+    const filtered = existing.filter(h =>
+      h.url_slug !== haber.url_slug &&
+      h.source_id !== haber.source_id
+    )
     const updated = [
       {
         ...haber,

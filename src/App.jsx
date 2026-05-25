@@ -450,15 +450,23 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           const entry = { url: data.render_url, snapshot: data.snapshot }
           setRenders(p => ({...p, [fmt]: entry}))
           setLoading(p => ({...p, [fmt]: false}))
-          // KV'ye kaydet
-          await fetch('/api/haber-kaydet', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              ...haber,
-              [`video_${fmt}`]: data.render_url,
-              [`video_${fmt}_snapshot`]: data.snapshot,
+          // KV'deki güncel haberi al ve video URL'leriyle birleştir
+          try {
+            const kvRes  = await fetch('/api/haberler')
+            const kvData = await kvRes.json()
+            const current = Array.isArray(kvData)
+              ? (kvData.find(h => h.source_id === haber.source_id) || haber)
+              : haber
+            await fetch('/api/haber-kaydet', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                ...current,
+                source_id: haber.source_id,
+                [`video_${fmt}`]: data.render_url,
+                [`video_${fmt}_snapshot`]: data.snapshot || '',
+              })
             })
-          })
+          } catch(e) { console.warn('Video KV kayıt hatası:', e.message) }
           onVideoHazir?.({ format: fmt, url: data.render_url, snapshot: data.snapshot })
         } else if (data.status === 'failed') {
           clearInterval(timer)
@@ -664,7 +672,9 @@ function Isleme({ content, processing, error, selectedHaber }) {
 
   useEffect(() => {
     if (content) {
-      setEc({...content}); setMode('edit'); setLink(''); setGUrls({})
+      setEc({...content})
+      setLink(content.kayserim_link || selectedHaber?.kayserim_link || '')
+      setMode('edit'); setGUrls({})
       // KV'deki işlenmiş videoları yükle
       const vr = {}
       if (selectedHaber?.video_dikey) vr.dikey = { url: selectedHaber.video_dikey, snapshot: selectedHaber.video_dikey_snapshot }
