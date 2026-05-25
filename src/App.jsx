@@ -390,7 +390,7 @@ function YeniHaber({ selected, setSelected, onProcess, processing }) {
 }
 
 // ── VIDEO İŞLE BİLEŞENİ (Creatomate) ─────────────────────────────────────
-function VideoIsle({ haber, baslik, kategori }) {
+function VideoIsle({ haber, baslik, kategori, spot }) {
   const [durum,    setDurum]  = useState(null)
   const [renderId, setRender] = useState(null)
   const [videoUrl, setVUrl]   = useState(null)
@@ -406,6 +406,7 @@ function VideoIsle({ haber, baslik, kategori }) {
         body: JSON.stringify({
           video_url: haber.video,
           baslik:    baslik || haber.baslik,
+          spot:      spot   || haber.ozet || '',
           kategori:  kategori || haber.kategori,
           tarih:     haber.tarih,
           source_id: haber.source_id,
@@ -754,7 +755,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
           <Divider label="Video" ic="video" />
           <video key={selectedHaber.video} src={selectedHaber.video} controls
             style={{ width:'100%', borderRadius:'var(--radius-md)', border:'0.5px solid var(--border)', maxHeight:240, background:'#000', marginBottom:8 }}/>
-          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi} kategori={ec.kategori} />
+          <VideoIsle haber={selectedHaber} baslik={ec.sosyal_baslik||ec.site_basligi} kategori={ec.kategori} spot={ec.ozet} />
         </>
       )}
 
