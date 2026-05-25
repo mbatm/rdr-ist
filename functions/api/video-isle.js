@@ -73,7 +73,6 @@ export async function onRequestPost({ request, env }) {
           background_border_radius: 8,
           x_anchor: 'left', y_anchor: 'center',
           // Animasyon: soldan kayarak gelir
-          animations: [{ time: 0.3, duration: 0.5, easing: 'ease-out', type: 'slide', direction: 'left', distance: '50%' }],
           time: 0, duration: 'auto',
         },
 
@@ -85,7 +84,6 @@ export async function onRequestPost({ request, env }) {
           font_size: 28, fill_color: 'rgba(255,255,255,0.85)',
           x_anchor: 'right', y_anchor: 'center',
           // Animasyon: sağdan kayarak gelir
-          animations: [{ time: 0.3, duration: 0.5, easing: 'ease-out', type: 'slide', direction: 'right', distance: '50%' }],
           time: 0, duration: 'auto',
         },
 
@@ -97,7 +95,6 @@ export async function onRequestPost({ request, env }) {
           y_anchor: 'top',
           fill_color: '#ED1C24',
           // Animasyon: aşağıdan yukarı büyür
-          animations: [{ time: 0.5, duration: 0.6, easing: 'ease-out', type: 'wipe', direction: 'top' }],
           time: 0, duration: 'auto',
         },
 
@@ -113,7 +110,6 @@ export async function onRequestPost({ request, env }) {
           shadow_color: 'rgba(0,0,0,0.9)',
           shadow_blur: 12, shadow_offset: [0, 2],
           // Animasyon: alttan yukarı fade
-          animations: [{ time: 0.6, duration: 0.7, easing: 'ease-out', type: 'slide', direction: 'up' }],
           time: 0, duration: 'auto',
         },
 
@@ -131,7 +127,6 @@ export async function onRequestPost({ request, env }) {
           x_anchor: 'left', y_anchor: 'top',
           text_wrap: true, line_height: 1.4,
           // Animasyon: fade in
-          animations: [{ time: 0.9, duration: 0.6, easing: 'ease-out', type: 'fade' }],
           time: 0, duration: 'auto',
         }] : []),
       ],
@@ -143,7 +138,7 @@ export async function onRequestPost({ request, env }) {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ source: JSON.stringify(template) }),
+      body: JSON.stringify({ source: template }),
     })
 
     const data = await res.json()
