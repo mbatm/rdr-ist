@@ -530,6 +530,7 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
 
 // ── META PAYLAŞIM ─────────────────────────────────────────────────────────
+// v2.1 - video_dikey kalıcı kayıt
 function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,  setFbTip]  = useState(isVideo ? 'video' : 'foto')
@@ -686,22 +687,36 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const kaydet = async () => {
     setKyd(true)
     try {
+      const body = {
+        ...ec,
+        source_id:    selectedHaber?.source_id,
+        source_url:   selectedHaber?.source_url,
+        baslik:       selectedHaber?.baslik,
+        gorsel:       selectedHaber?.gorsel,
+        gorsel_url:   selectedHaber?.gorsel_url||selectedHaber?.gorsel,
+        video:        selectedHaber?.video||'',
+        // İşlenmiş videoları koru
+        video_dikey:  videoRenders?.dikey?.url || selectedHaber?.video_dikey || '',
+        video_yatay:  videoRenders?.yatay?.url || selectedHaber?.video_yatay || '',
+        video_dikey_snapshot: videoRenders?.dikey?.snapshot || selectedHaber?.video_dikey_snapshot || '',
+        video_yatay_snapshot: videoRenders?.yatay?.snapshot || selectedHaber?.video_yatay_snapshot || '',
+        tarih_iso:    selectedHaber?.tarih_iso||new Date().toISOString(),
+        kayserim_link: link,
+        kaydedildi:   new Date().toISOString(),
+        durum: 'islendi',
+      }
       await fetch('/api/haber-kaydet', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          ...ec,
-          source_id:    selectedHaber?.source_id,
-          source_url:   selectedHaber?.source_url,
-          baslik:       selectedHaber?.baslik,
-          gorsel:       selectedHaber?.gorsel,
-          gorsel_url:   selectedHaber?.gorsel_url||selectedHaber?.gorsel,
-          video:        selectedHaber?.video||'',
-          tarih_iso:    selectedHaber?.tarih_iso||new Date().toISOString(),
-          kayserim_link: link,
-          kaydedildi:   new Date().toISOString(),
-          durum: 'islendi',
-        }),
+        body: JSON.stringify(body),
       })
+      // Paylaş moduna geç — selectedHaber'ı güncelle
+      if (selectedHaber) {
+        Object.assign(selectedHaber, {
+          video_dikey: body.video_dikey,
+          video_yatay: body.video_yatay,
+          video_dikey_snapshot: body.video_dikey_snapshot,
+        })
+      }
       setMode('paylas')
     } catch(e){console.error(e)}
     setKyd(false)
