@@ -654,8 +654,14 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       </div>}
       {sonuc && <div style={{background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',borderRadius:'var(--radius-md)',padding:'10px 14px',fontSize:12}}>
         <div style={{color:'#00D4AA',fontWeight:500,marginBottom:6}}><Ic n="check" size={14}/> Paylaşıldı!</div>
-        {sonuc.sonuclar?.facebook && <div style={{color:'var(--muted)'}}>Facebook: {sonuc.sonuclar.facebook.ok?'✓':'✗ '+sonuc.sonuclar.facebook.hata}</div>}
-        {sonuc.sonuclar?.instagram && <div style={{color:'var(--muted)'}}>Instagram: {sonuc.sonuclar.instagram.ok?'✓':'✗ '+sonuc.sonuclar.instagram.hata}</div>}
+        {sonuc.sonuclar?.facebook && <div style={{color:'var(--muted)'}}>Facebook: {sonuc.sonuclar.facebook.ok?'✓':'✗ '+(sonuc.sonuclar.facebook.hata||'Hata')}</div>}
+        {sonuc.sonuclar?.instagram && <div style={{color:'var(--muted)'}}>
+          Instagram: {sonuc.sonuclar.instagram.ok
+            ? '✓ '+(sonuc.sonuclar.instagram.media_id||'')
+            : sonuc.sonuclar.instagram.bekliyor
+              ? '⏳ '+(sonuc.sonuclar.instagram.mesaj||'Video işleniyor…')
+              : '✗ '+(sonuc.sonuclar.instagram.hata||'Hata')}
+        </div>}
       </div>}
     </div>
   )
