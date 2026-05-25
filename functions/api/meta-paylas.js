@@ -1,6 +1,6 @@
 /**
  * POST /api/meta-paylas
- * Body: { gorsel_url, metin, platform: 'facebook'|'instagram'|'her_ikisi' }
+ * Body: { gorsel_url, video_url, metin, platform, is_video }
  */
 export async function onRequestPost({ request, env }) {
   try {
@@ -25,65 +25,96 @@ export async function onRequestPost({ request, env }) {
     // ── FACEBOOK ──────────────────────────────────────────────────────────
     if (platform === 'facebook' || platform === 'her_ikisi') {
       if (is_video && video_url) {
-        // Video post
+        // Video post — /videos endpoint
         const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/videos`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ file_url: video_url, description: metin, access_token: pageToken }),
+          body:    JSON.stringify({
+            file_url:    video_url,
+            description: metin,
+            published:   true,
+            access_token: pageToken,
+          }),
         })
         const data = await res.json()
-        sonuclar.facebook = data.error ? { hata: data.error.message } : { ok: true, post_id: data.id }
-      } else {
-        // Fotoğraf post
-        const photoRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+        sonuclar.facebook = data.error
+          ? { hata: data.error.message }
+          : { ok: true, post_id: data.id }
+      } else if (gorsel_url) {
+        // Fotoğraf post — /photos endpoint (feed'de tam görüntü olarak çıkar)
+        const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ url: gorsel_url, caption: metin, published: true, access_token: pageToken }),
+          body:    JSON.stringify({
+            url:          gorsel_url,
+            caption:      metin,
+            published:    true,
+            access_token: pageToken,
+          }),
         })
-        const photoData = await photoRes.json()
-        if (photoData.error) {
-          // Fallback feed
-          const feedRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ message: metin, link: gorsel_url, access_token: pageToken }),
-          })
-          const feedData = await feedRes.json()
-          sonuclar.facebook = feedData.error ? { hata: feedData.error.message } : { ok: true, post_id: feedData.id }
-        } else {
-          sonuclar.facebook = { ok: true, post_id: photoData.post_id || photoData.id }
-        }
+        const data = await res.json()
+        sonuclar.facebook = data.error
+          ? { hata: data.error.message, detay: JSON.stringify(data.error) }
+          : { ok: true, post_id: data.post_id || data.id }
       }
     }
 
     // ── INSTAGRAM ─────────────────────────────────────────────────────────
     if ((platform === 'instagram' || platform === 'her_ikisi') && igId) {
-      let containerBody
       if (is_video && video_url) {
-        containerBody = { video_url, caption: metin, media_type: 'REELS', access_token: pageToken }
-      } else {
-        containerBody = { image_url: gorsel_url, caption: metin, access_token: pageToken }
-      }
-
-      const cRes  = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(containerBody),
-      })
-      const cData = await cRes.json()
-
-      if (cData.error) {
-        sonuclar.instagram = { hata: cData.error.message }
-      } else {
-        // Video için daha uzun bekle
-        await new Promise(r => setTimeout(r, is_video ? 5000 : 2000))
-        const pRes  = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+        // Reels video
+        const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ creation_id: cData.id, access_token: pageToken }),
+          body:    JSON.stringify({
+            video_url,
+            caption:      metin,
+            media_type:  'REELS',
+            access_token: pageToken,
+          }),
         })
-        const pData = await pRes.json()
-        sonuclar.instagram = pData.error ? { hata: pData.error.message } : { ok: true, media_id: pData.id }
+        const cData = await cRes.json()
+        if (cData.error) {
+          sonuclar.instagram = { hata: cData.error.message }
+        } else {
+          // Reels için container hazırlanmasını bekle
+          await new Promise(r => setTimeout(r, 8000))
+          const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ creation_id: cData.id, access_token: pageToken }),
+          })
+          const pData = await pRes.json()
+          sonuclar.instagram = pData.error
+            ? { hata: pData.error.message }
+            : { ok: true, media_id: pData.id }
+        }
+      } else if (gorsel_url) {
+        // Fotoğraf post
+        const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            image_url:    gorsel_url,
+            caption:      metin,
+            access_token: pageToken,
+          }),
+        })
+        const cData = await cRes.json()
+        if (cData.error) {
+          sonuclar.instagram = { hata: cData.error.message }
+        } else {
+          await new Promise(r => setTimeout(r, 2000))
+          const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ creation_id: cData.id, access_token: pageToken }),
+          })
+          const pData = await pRes.json()
+          sonuclar.instagram = pData.error
+            ? { hata: pData.error.message }
+            : { ok: true, media_id: pData.id }
+        }
       }
     }
 
