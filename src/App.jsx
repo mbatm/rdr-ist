@@ -558,8 +558,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
       const videoUrl  = videoRenders?.dikey?.url ||
-                      selectedHaber?.video_dikey ||   // KV'ye kaydedilmiş işlenmiş video
+                      selectedHaber?.video_dikey ||
                       selectedHaber?.video || ''
+
+      // Debug
+      console.log('Paylaş:', { tip, videoRenders, video_dikey: selectedHaber?.video_dikey, ham_video: selectedHaber?.video, kullanilan: videoUrl })
 
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -596,6 +599,15 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     <div style={{marginBottom:'0.875rem'}}>
       <TipSec val={fbTip} onChange={setFbTip} label="Facebook" />
       <TipSec val={igTip} onChange={setIgTip} label="Instagram" />
+
+      {/* Kullanılacak video URL'si */}
+      {isVideo && (() => {
+        const vUrl = videoRenders?.dikey?.url || selectedHaber?.video_dikey || selectedHaber?.video || ''
+        const isIslenmis = !!(videoRenders?.dikey?.url || selectedHaber?.video_dikey)
+        return <div style={{fontSize:10,color:isIslenmis?'#00D4AA':'rgba(255,180,0,.8)',marginBottom:8,wordBreak:'break-all'}}>
+          {isIslenmis ? '✓ İşlenmiş video' : '⚠ Ham video'}: {vUrl.slice(0,60)}…
+        </div>
+      })()}
 
       <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Paylaşım metni</div>
       <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={3}
