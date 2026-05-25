@@ -531,14 +531,19 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
 // ── META PAYLAŞIM ─────────────────────────────────────────────────────────
 function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
-  const [fbTip,  setFbTip]  = useState('foto')  // 'foto' | 'video'
-  const [igTip,  setIgTip]  = useState('foto')
+  const isVideo = !!(selectedHaber?.video)
+  const [fbTip,  setFbTip]  = useState(isVideo ? 'video' : 'foto')
+  const [igTip,  setIgTip]  = useState(isVideo ? 'video' : 'foto')
   const [metin,  setMetin]  = useState('')
   const [gonderiyor, setGond] = useState(false)
   const [sonuc,  setSonuc]  = useState(null)
   const [hata,   setHata]   = useState(null)
 
-  const isVideo = !!(selectedHaber?.video)
+  // Video haber değişince tip güncelle
+  useEffect(() => {
+    setFbTip(isVideo ? 'video' : 'foto')
+    setIgTip(isVideo ? 'video' : 'foto')
+  }, [selectedHaber?.source_id])
 
   useEffect(() => {
     const ham = content?.facebook || content?.site_basligi || ''
@@ -552,7 +557,9 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-      const videoUrl  = videoRenders?.dikey?.url || selectedHaber?.video || ''
+      const videoUrl  = videoRenders?.dikey?.url ||
+                      selectedHaber?.video_dikey ||   // KV'ye kaydedilmiş işlenmiş video
+                      selectedHaber?.video || ''
 
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -643,7 +650,14 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const [kaydediliyor,setKyd]      = useState(false)
 
   useEffect(() => {
-    if (content) { setEc({...content}); setMode('edit'); setLink(''); setGUrls({}); setVRenders({}) }
+    if (content) {
+      setEc({...content}); setMode('edit'); setLink(''); setGUrls({})
+      // KV'deki işlenmiş videoları yükle
+      const vr = {}
+      if (selectedHaber?.video_dikey) vr.dikey = { url: selectedHaber.video_dikey, snapshot: selectedHaber.video_dikey_snapshot }
+      if (selectedHaber?.video_yatay) vr.yatay = { url: selectedHaber.video_yatay, snapshot: selectedHaber.video_yatay_snapshot }
+      setVRenders(vr)
+    }
   }, [content?.url_slug])
 
   const set = (f,v) => setEc(p=>({...p,[f]:v}))
