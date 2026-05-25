@@ -255,26 +255,28 @@ async function renderFormat(fmt, haber) {
   ctx.shadowColor='transparent'; ctx.shadowBlur=0
 
   // ── BAŞLIK ─────────────────────────────────────────────────────────────
-  const bLineH    = bm.fontSize * 1.32
+  const bLineH     = bm.fontSize * 1.32
   const maxTitleLn = w > h ? 2 : 3
-  const bMaxW     = w - bm.x - pad
+  const bMaxW      = w - bm.x - pad
+  // Yatay formatlarda başlığı yukarı çek (spot için alan aç)
+  const titleY     = w > h ? Math.round(h * 0.55) : bm.y
   ctx.font = '600 '+bm.fontSize+'px Poppins,Arial'
   ctx.fillStyle='#fff'
   ctx.shadowColor='rgba(0,0,0,.95)'; ctx.shadowBlur=14; ctx.shadowOffsetY=1
   const bLines = wrapText(ctx, baslik, bMaxW, maxTitleLn)
-  bLines.forEach((ln,i) => ctx.fillText(ln, bm.x, bm.y+i*bLineH))
+  bLines.forEach((ln,i) => ctx.fillText(ln, bm.x, titleY+i*bLineH))
   ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
 
   // Sol kırmızı şerit
   if(sett.stripeVisible!==false){
     const strW = Math.max(4, Math.round(w*0.004))
     ctx.fillStyle = sett.stripeColor||'#ED1C24'
-    ctx.fillRect(bm.x-strW-Math.round(w*0.012), bm.y-bm.fontSize*0.82, strW, bLines.length*bLineH)
+    ctx.fillRect(bm.x-strW-Math.round(w*0.012), titleY-bm.fontSize*0.82, strW, bLines.length*bLineH)
   }
 
   // ── SPOT BAŞLIK — dinamik font, alt sınıra kadar ────────────────────────
   if(spot){
-    const lastTitleY   = bm.y + (bLines.length-1)*bLineH
+    const lastTitleY   = titleY + (bLines.length-1)*bLineH
     const bottomLimit  = h - pad*0.4
     const availH       = bottomLimit - lastTitleY - bLineH*0.3
     const maxSpotLines = w > h ? 2 : 3

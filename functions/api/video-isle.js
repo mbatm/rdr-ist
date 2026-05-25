@@ -1,6 +1,6 @@
 export async function onRequestPost({ request, env }) {
   try {
-    const { video_url, baslik, spot, kategori, tarih, source_id } = await request.json()
+    const { video_url, baslik, spot, kategori, tarih } = await request.json()
     if (!video_url) return Response.json({ hata: 'video_url gerekli' }, { status: 400 })
 
     const apiKey = env.CREATOMATE_API_KEY
@@ -8,7 +8,7 @@ export async function onRequestPost({ request, env }) {
 
     const tarihStr  = tarih    || new Date().toLocaleDateString('tr-TR')
     const katStr    = (kategori || 'GÜNCEL').toUpperCase()
-    const baslikStr = (baslik   || '').slice(0, 120)
+    const baslikStr = (baslik   || '').slice(0, 100)
     const spotStr   = (spot     || '').slice(0, 120)
 
     const source = {
@@ -16,106 +16,80 @@ export async function onRequestPost({ request, env }) {
       width:  1080,
       height: 1920,
       elements: [
-        // Arka plan video
+        // 1. Arka plan video
         {
           type: 'video',
           source: video_url,
           fit: 'cover',
+          x: 540, y: 960,
+          width: 1080, height: 1920,
+          x_anchor: 'center', y_anchor: 'center',
         },
-        // Alt koyu overlay
+        // 2. Alt koyu overlay (solid)
         {
-          type: 'shape',
-          shape: 'rectangle',
-          x: '0%', y: '55%',
-          width: '100%', height: '45%',
-          fill_color: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.9) 100%)',
+          type: 'shape', shape: 'rectangle',
+          x: 0, y: 960, width: 1080, height: 960,
+          x_anchor: 'left', y_anchor: 'top',
+          fill_color: 'rgba(0,0,0,0.75)',
+          opacity: 0.8,
         },
-        // Üst kırmızı bant
+        // 3. Üst kırmızı bant
         {
-          type: 'shape',
-          shape: 'rectangle',
-          x: '0%', y: '0%',
-          width: '100%', height: 130,
+          type: 'shape', shape: 'rectangle',
+          x: 0, y: 0, width: 1080, height: 130,
+          x_anchor: 'left', y_anchor: 'top',
           fill_color: '#ED1C24',
         },
-        // Logo
+        // 4. Logo
         {
-          type: 'text',
-          text: 'kayserim',
-          x: '50%', y: 65,
-          font_family: 'Montserrat',
-          font_weight: '700',
-          font_size: 44,
-          fill_color: '#ffffff',
-          x_anchor: 'center',
-          y_anchor: 'center',
+          type: 'text', text: 'kayserim',
+          x: 540, y: 65,
+          font_family: 'Montserrat', font_weight: '700',
+          font_size: 44, fill_color: '#ffffff',
+          x_anchor: 'center', y_anchor: 'center',
         },
-        // Kategori (sağ üst)
+        // 5. Kategori badge (sağda, logo altında)
         {
-          type: 'text',
-          text: katStr,
-          x: '95%', y: 160,
-          font_family: 'Montserrat',
-          font_weight: '700',
-          font_size: 28,
-          fill_color: '#ffffff',
+          type: 'text', text: katStr,
+          x: 1032, y: 155,
+          font_family: 'Montserrat', font_weight: '700',
+          font_size: 26, fill_color: '#ffffff',
           background_color: '#ED1C24',
-          background_x_padding: '20%',
-          background_y_padding: '15%',
-          background_border_radius: 6,
-          x_anchor: 'right',
-          y_anchor: 'center',
+          x_anchor: 'right', y_anchor: 'center',
         },
-        // Tarih (sağ üst, kategori altında)
+        // 6. Tarih (kategori altında, sağda)
         {
-          type: 'text',
-          text: tarihStr,
-          x: '95%', y: 210,
-          font_family: 'Open Sans',
-          font_size: 24,
+          type: 'text', text: tarihStr,
+          x: 1032, y: 200,
+          font_family: 'Open Sans', font_size: 22,
           fill_color: 'rgba(255,255,255,0.85)',
-          x_anchor: 'right',
-          y_anchor: 'center',
+          x_anchor: 'right', y_anchor: 'center',
         },
-        // Sol şerit
+        // 7. Sol şerit
         {
-          type: 'shape',
-          shape: 'rectangle',
-          x: 0, y: 1480,
-          width: 8, height: 260,
+          type: 'shape', shape: 'rectangle',
+          x: 0, y: 1400, width: 8, height: 300,
+          x_anchor: 'left', y_anchor: 'top',
           fill_color: '#ED1C24',
         },
-        // Başlık
+        // 8. Başlık
         {
-          type: 'text',
-          text: baslikStr,
-          x: 24, y: 1490,
-          width: 1032,
-          font_family: 'Montserrat',
-          font_weight: '700',
-          font_size: 56,
-          fill_color: '#ffffff',
-          x_anchor: 'left',
-          y_anchor: 'top',
-          text_wrap: true,
-          line_height: 1.3,
+          type: 'text', text: baslikStr,
+          x: 24, y: 1410, width: 1032,
+          font_family: 'Montserrat', font_weight: '700',
+          font_size: 54, fill_color: '#ffffff',
+          x_anchor: 'left', y_anchor: 'top',
+          text_wrap: true, line_height: 1.3,
         },
-        // Spot
+        // 9. Spot (varsa)
         ...(spotStr ? [{
-          type: 'text',
-          text: spotStr,
-          x: 24, y: 1760,
-          width: 1032,
-          font_family: 'Open Sans',
-          font_size: 32,
-          fill_color: 'rgba(255,255,255,0.9)',
-          background_color: 'rgba(237,28,36,0.38)',
-          background_x_padding: '6%',
-          background_y_padding: '10%',
-          x_anchor: 'left',
-          y_anchor: 'top',
-          text_wrap: true,
-          line_height: 1.4,
+          type: 'text', text: spotStr,
+          x: 24, y: 1710, width: 1032,
+          font_family: 'Open Sans', font_size: 30,
+          fill_color: 'rgba(255,255,255,0.92)',
+          background_color: 'rgba(237,28,36,0.4)',
+          x_anchor: 'left', y_anchor: 'top',
+          text_wrap: true, line_height: 1.4,
         }] : []),
       ],
     }
