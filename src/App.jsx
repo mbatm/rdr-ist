@@ -593,7 +593,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     const igHam = content?.instagram || content?.optimize_icerik || content?.ozet || content?.site_basligi || ''
     const igSon = link ? `\n\nDaha fazla detay için:\n${link}` : ''
     setIgMetin(igHam.slice(0, 2000) + igSon)
-  }, [content?.url_slug, kayserimLink])
+  }, [content, kayserimLink])
 
   const paylas = async (platform) => {
     setGond(true); setSonuc(null); setHata(null)
@@ -1103,13 +1103,82 @@ function HesapYonetimi() {
   )
 }
 
+// ── KULLANICI DÜZENLEME FORMU ──────────────────────────────────────────────
+function DuzenleForm({ u, token, tumHesaplar, onKaydet }) {
+  const [form, setForm] = useState({ ...u, sifre: '', sayfalar: u.sayfalar||[] })
+  const [busy, setBusy] = useState(false)
+
+  const kaydet = async () => {
+    setBusy(true)
+    try {
+      const body = { islem:'guncelle', kullanici:form.kullanici, ad:form.ad, rol:form.rol,
+        sayfalar: form.sayfalar?.length ? form.sayfalar : null,
+        ...(form.sifre ? { sifre:form.sifre } : { sifre: u.sifre||'?' }) }
+      const res = await fetch('/api/kullanicilar', {
+        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+        body: JSON.stringify(body)
+      })
+      const data = await res.json()
+      if (data.ok) onKaydet({ kullanici:form.kullanici, ad:form.ad, rol:form.rol, sayfalar:form.sayfalar })
+    } catch(e){}
+    setBusy(false)
+  }
+
+  return (
+    <div style={{marginTop:10,paddingTop:10,borderTop:'0.5px solid var(--border)'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+        <div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>AD SOYAD</div>
+          <input value={form.ad} onChange={e=>setForm(p=>({...p,ad:e.target.value}))} style={{width:'100%',fontSize:12}}/>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>YENİ ŞİFRE (opsiyonel)</div>
+          <input type="password" value={form.sifre} onChange={e=>setForm(p=>({...p,sifre:e.target.value}))} style={{width:'100%',fontSize:12}} placeholder="Değiştirmek için yaz"/>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>ROL</div>
+          <select value={form.rol} onChange={e=>setForm(p=>({...p,rol:e.target.value}))}
+            style={{width:'100%',fontSize:12,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'5px 8px'}}>
+            <option value="editor">Editör</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      {tumHesaplar.facebook?.length > 0 && (
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ <span style={{opacity:.6}}>(boş = tümü)</span></div>
+          <div style={{maxHeight:110,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
+            {tumHesaplar.facebook.map(h=>(
+              <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',fontSize:11,cursor:'pointer'}}>
+                <input type="checkbox"
+                  checked={(form.sayfalar||[]).includes(h.page_id)}
+                  onChange={e=>{
+                    const cur = form.sayfalar||[]
+                    setForm(p=>({...p, sayfalar: e.target.checked?[...cur,h.page_id]:cur.filter(x=>x!==h.page_id)}))
+                  }}/>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.page_name}</span>
+              </label>
+            ))}
+          </div>
+          <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Seçili: {(form.sayfalar||[]).length||'Tümü'}</div>
+        </div>
+      )}
+      <button onClick={kaydet} disabled={busy}
+        style={{fontSize:11,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+        <Ic n={busy?'loader-2':'check'} size={11}/> Kaydet
+      </button>
+    </div>
+  )
+}
+
 // ── ADMIN LOG PANELİ ──────────────────────────────────────────────────────
 function AdminLog({ onKapat }) {
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(true)
   const [sekme, setSekme] = useState('log')
   const [users, setUsers] = useState([])
-  const [yeniK, setYeniK] = useState({ kullanici:'', sifre:'', ad:'', rol:'editor', sayfalar:null })
+  const [yeniK, setYeniK] = useState({ kullanici:'', sifre:'', ad:'', rol:'editor', sayfalar:[] })
+  const [duzenleK, setDuzenleK] = useState(null) // düzenlenen kullanıcı
   const [tumHesaplar, setTumHesaplar] = useState({ facebook:[] })
   const [kayit, setKayit] = useState(false)
   const [siliyor, setSiliyor] = useState('')
@@ -1124,14 +1193,36 @@ function AdminLog({ onKapat }) {
     yukleLog()
     fetch('/api/kullanicilar?token='+token, { headers:{'X-Token':token} })
       .then(r=>r.json()).then(d=>{ if(Array.isArray(d)) setUsers(d) }).catch(()=>{})
+    fetch('/api/hesaplar')
+      .then(r=>r.json()).then(d=>setTumHesaplar(d)).catch(()=>{})
   }, [])
+
+  const kaydet = async (form) => {
+    if (!form.kullanici || !form.sifre) return
+    setKayit(true)
+    try {
+      const res = await fetch('/api/kullanicilar', {
+        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+        body: JSON.stringify({ islem:'guncelle', ...form, sayfalar: form.sayfalar?.length ? form.sayfalar : null })
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setUsers(p => p.some(u=>u.kullanici===form.kullanici)
+          ? p.map(u=>u.kullanici===form.kullanici ? {...u,rol:form.rol,ad:form.ad,sayfalar:form.sayfalar} : u)
+          : [...p, {kullanici:form.kullanici,rol:form.rol,ad:form.ad,sayfalar:form.sayfalar}])
+        setYeniK({ kullanici:'', sifre:'', ad:'', rol:'editor', sayfalar:[] })
+        setDuzenleK(null)
+      }
+    } catch(e){}
+    setKayit(false)
+  }
 
   const paylasSil = async (l) => {
     if (!l.post_id) return alert('Post ID yok — silinemez')
     if (!confirm(`${l.platform} paylaşımı silinsin mi?`)) return
     setSiliyor(l.post_id)
     try {
-      const res  = await fetch('/api/paylas-sil', {
+      const res = await fetch('/api/paylas-sil', {
         method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
         body: JSON.stringify({ platform:l.platform, post_id:l.post_id, page_id:l.page_id })
       })
@@ -1142,22 +1233,7 @@ function AdminLog({ onKapat }) {
     setSiliyor('')
   }
 
-  const kullaniciEkle = async () => {
-    if (!yeniK.kullanici || !yeniK.sifre) return
-    setKayit(true)
-    try {
-      const res = await fetch('/api/kullanicilar', {
-        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
-        body: JSON.stringify({ islem:'ekle', ...yeniK, sayfalar: yeniK.sayfalar?.length ? yeniK.sayfalar : null })
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setUsers(p=>[...p, {kullanici:yeniK.kullanici,rol:yeniK.rol,ad:yeniK.ad}])
-        setYeniK({ kullanici:'', sifre:'', ad:'', rol:'editor' })
-      }
-    } catch(e){}
-    setKayit(false)
-  }
+  const kullaniciEkle = () => kaydet(yeniK)
 
   const kullaniciSil = async (k) => {
     if (!confirm(`"${k}" silinsin mi?`)) return
@@ -1167,6 +1243,29 @@ function AdminLog({ onKapat }) {
     })
     setUsers(p=>p.filter(u=>u.kullanici!==k))
   }
+
+  // Sayfa yetki seçici
+  const SayfaSecici = ({ form, setForm }) => (
+    tumHesaplar.facebook?.length > 0 ? (
+      <div style={{marginBottom:8}}>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ <span style={{opacity:.6}}>(boş = tümü)</span></div>
+        <div style={{maxHeight:110,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
+          {tumHesaplar.facebook.map(h=>(
+            <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',fontSize:11,cursor:'pointer'}}>
+              <input type="checkbox"
+                checked={(form.sayfalar||[]).includes(h.page_id)}
+                onChange={e=>{
+                  const cur = form.sayfalar||[]
+                  setForm(p=>({...p, sayfalar: e.target.checked?[...cur,h.page_id]:cur.filter(x=>x!==h.page_id)}))
+                }}/>
+              <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.page_name}</span>
+            </label>
+          ))}
+        </div>
+        <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>Seçili: {(form.sayfalar||[]).length||'Tümü'}</div>
+      </div>
+    ) : null
+  )
 
   const PLT_COLORS = { facebook:'#1877F2', instagram:'#E1306C', twitter:'#1DA1F2', youtube:'#FF0000' }
 
@@ -1233,24 +1332,7 @@ function AdminLog({ onKapat }) {
                 </select>
               </div>
             </div>
-            {tumHesaplar.facebook?.length > 0 && (
-              <div style={{marginBottom:8}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ (boş = tümü)</div>
-                <div style={{maxHeight:100,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
-                  {tumHesaplar.facebook.map(h=>(
-                    <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'2px 8px',fontSize:11,cursor:'pointer'}}>
-                      <input type="checkbox"
-                        checked={(yeniK.sayfalar||[]).includes(h.page_id)}
-                        onChange={e=>{
-                          const cur = yeniK.sayfalar||[]
-                          setYeniK(p=>({...p, sayfalar: e.target.checked ? [...cur,h.page_id] : cur.filter(x=>x!==h.page_id)}))
-                        }}/>
-                      {h.page_name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
+            {tumHesaplar.facebook?.length > 0 && <SayfaSecici form={yeniK} setForm={setYeniK}/>}
             <button onClick={kullaniciEkle} disabled={kayit||!yeniK.kullanici||!yeniK.sifre}
               style={{background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',fontSize:12}}>
               <Ic n={kayit?'loader-2':'user-plus'} size={12}/> Ekle
@@ -1258,16 +1340,33 @@ function AdminLog({ onKapat }) {
           </div>
 
           {users.map(u=>(
-            <div key={u.kullanici} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 14px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
-              <Ic n="user" size={16}/>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500}}>{u.ad||u.kullanici}</div>
-                <div style={{fontSize:11,color:'var(--muted)'}}>{u.kullanici} · {u.rol==='admin'?'Admin':'Editör'}</div>
+            <div key={u.kullanici}>
+              <div style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 14px',marginBottom:6}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <Ic n="user" size={16}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500}}>{u.ad||u.kullanici}</div>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>{u.kullanici} · {u.rol==='admin'?'Admin':'Editör'}
+                      {u.sayfalar?.length ? ` · ${u.sayfalar.length} sayfa` : ' · Tümü'}
+                    </div>
+                  </div>
+                  <button onClick={()=>setDuzenleK(duzenleK===u.kullanici?null:u.kullanici)}
+                    style={{fontSize:11,background:'rgba(255,255,255,.06)',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+                    <Ic n="edit" size={11}/> Düzenle
+                  </button>
+                  {u.kullanici!=='admin'&&<button onClick={()=>kullaniciSil(u.kullanici)}
+                    style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                    <Ic n="trash" size={11}/> Sil
+                  </button>}
+                </div>
+                {duzenleK===u.kullanici && (
+                  <DuzenleForm u={u} token={token} tumHesaplar={tumHesaplar}
+                    onKaydet={guncellenen=>{
+                      setUsers(p=>p.map(x=>x.kullanici===guncellened?.kullanici||u.kullanici?{...x,...guncellened}:x))
+                      setDuzenleK(null)
+                    }}/>
+                )}
               </div>
-              {u.kullanici!=='admin'&&<button onClick={()=>kullaniciSil(u.kullanici)}
-                style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
-                <Ic n="trash" size={11}/> Sil
-              </button>}
             </div>
           ))}
         </>)}
