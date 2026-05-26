@@ -682,46 +682,46 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     <div style={{marginBottom:'0.875rem'}}>
       {/* Hesap seçim — kompakt */}
       {(hesaplar.facebook?.length > 0 || hesaplar.instagram?.length > 0) && (
-        <div style={{marginBottom:10,border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
-          {/* Facebook */}
+        <div style={{marginBottom:10,border:'0.5px solid #30363d',borderRadius:6,overflow:'hidden',background:'#0d1117'}}>
           {hesaplar.facebook?.length > 0 && (
-            <div>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 10px',background:'rgba(24,119,242,.06)',borderBottom:'0.5px solid var(--border)'}}>
-                <span style={{fontSize:11,color:'#4dabf7',fontWeight:500}}>Facebook ({secilenFb.length}/{hesaplar.facebook.length})</span>
-                <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>setSecilenFb(hesaplar.facebook.map(h=>h.page_id))} style={{fontSize:10,background:'transparent',border:'none',color:'#4dabf7',padding:'2px 4px'}}>Tümü</button>
-                  <button onClick={()=>setSecilenFb([])} style={{fontSize:10,background:'transparent',border:'none',color:'var(--muted)',padding:'2px 4px'}}>Temizle</button>
+            <div style={{borderBottom: hesaplar.instagram?.length ? '0.5px solid #30363d' : 'none'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 10px',background:'rgba(24,119,242,.07)'}}>
+                <span style={{fontSize:11,color:'#4dabf7',fontWeight:500}}>Facebook — {secilenFb.length}/{hesaplar.facebook.length} seçili</span>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>setSecilenFb(hesaplar.facebook.map(h=>h.page_id))} style={{fontSize:10,background:'transparent',border:'none',color:'#4dabf7',cursor:'pointer'}}>Tümü</button>
+                  <button onClick={()=>setSecilenFb([])} style={{fontSize:10,background:'transparent',border:'none',color:'#8891a5',cursor:'pointer'}}>Temizle</button>
                 </div>
               </div>
-              <div style={{maxHeight:120,overflowY:'auto',padding:'4px 0'}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:1,maxHeight:130,overflowY:'auto',padding:4}}>
                 {hesaplar.facebook.map(h=>(
-                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',cursor:'pointer',fontSize:12,userSelect:'none'}}>
+                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 6px',cursor:'pointer',
+                    borderRadius:3,background:secilenFb.includes(h.page_id)?'rgba(24,119,242,.12)':'transparent'}}>
                     <input type="checkbox" checked={secilenFb.includes(h.page_id)}
                       onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}
-                      style={{flexShrink:0}}/>
-                    <span style={{color:'#cdd3de',fontSize:12,flex:1}}>{h.page_name}</span>
+                      style={{flexShrink:0,width:13,height:13}}/>
+                    <span style={{fontSize:11,color:'#cdd3de'}}>{h.page_name}</span>
                   </label>
                 ))}
               </div>
             </div>
           )}
-          {/* Instagram */}
           {hesaplar.instagram?.length > 0 && (
-            <div style={{borderTop:'0.5px solid var(--border)'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 10px',background:'rgba(225,48,108,.06)',borderBottom:'0.5px solid var(--border)'}}>
-                <span style={{fontSize:11,color:'#E1306C',fontWeight:500}}>Instagram ({secilenIg.length}/{hesaplar.instagram.length})</span>
-                <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>setSecilenIg(hesaplar.instagram.map(h=>h.ig_id))} style={{fontSize:10,background:'transparent',border:'none',color:'#E1306C',padding:'2px 4px'}}>Tümü</button>
-                  <button onClick={()=>setSecilenIg([])} style={{fontSize:10,background:'transparent',border:'none',color:'var(--muted)',padding:'2px 4px'}}>Temizle</button>
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 10px',background:'rgba(225,48,108,.07)'}}>
+                <span style={{fontSize:11,color:'#E1306C',fontWeight:500}}>Instagram — {secilenIg.length}/{hesaplar.instagram.length} seçili</span>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>setSecilenIg(hesaplar.instagram.map(h=>h.ig_id))} style={{fontSize:10,background:'transparent',border:'none',color:'#E1306C',cursor:'pointer'}}>Tümü</button>
+                  <button onClick={()=>setSecilenIg([])} style={{fontSize:10,background:'transparent',border:'none',color:'#8891a5',cursor:'pointer'}}>Temizle</button>
                 </div>
               </div>
-              <div style={{maxHeight:120,overflowY:'auto',padding:'4px 0'}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:1,maxHeight:100,overflowY:'auto',padding:4}}>
                 {hesaplar.instagram.map(h=>(
-                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',cursor:'pointer',fontSize:12,userSelect:'none'}}>
+                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 6px',cursor:'pointer',
+                    borderRadius:3,background:secilenIg.includes(h.ig_id)?'rgba(225,48,108,.12)':'transparent'}}>
                     <input type="checkbox" checked={secilenIg.includes(h.ig_id)}
                       onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}
-                      style={{flexShrink:0}}/>
-                    <span style={{color:'#cdd3de',fontSize:12,flex:1}}>{h.username ? '@'+h.username : h.ig_id}</span>
+                      style={{flexShrink:0,width:13,height:13}}/>
+                    <span style={{fontSize:11,color:'#cdd3de'}}>@{h.username||h.ig_id}</span>
                   </label>
                 ))}
               </div>
