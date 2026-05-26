@@ -215,9 +215,30 @@ async function renderFormat(fmt, haber) {
   grad.addColorStop(1,'rgba(0,0,0,0.92)')
   ctx.fillStyle=grad; ctx.fillRect(0,0,w,h)
 
-  // 3. SVG chrome (story için instagram şablonunu kullan ama dikey)
-  const chrome = await getSvg(fmt === 'story' ? 'instagram' : fmt)
-  if(chrome) ctx.drawImage(chrome,0,0,w,h)
+  // 3. SVG chrome (story için doğrudan canvas, diğerleri için SVG)
+  if (fmt === 'story') {
+    // Üst kırmızı bant
+    ctx.fillStyle = '#ED1C24'
+    ctx.fillRect(0, 0, w, bandH)
+    // Logo
+    ctx.font = `700 ${Math.round(bandH * 0.4)}px Poppins, Arial`
+    ctx.fillStyle = '#fff'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('kayserim', w / 2, bandH / 2)
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+    // Alt gradient overlay
+    const storyGrad = ctx.createLinearGradient(0, h * 0.35, 0, h)
+    storyGrad.addColorStop(0, 'rgba(0,0,0,0)')
+    storyGrad.addColorStop(0.5, 'rgba(0,0,0,0.5)')
+    storyGrad.addColorStop(1, 'rgba(0,0,0,0.92)')
+    ctx.fillStyle = storyGrad
+    ctx.fillRect(0, 0, w, h)
+  } else {
+    const chrome = await getSvg(fmt)
+    if (chrome) ctx.drawImage(chrome, 0, 0, w, h)
+  }
 
   const bm  = m.baslik
   const sm  = m.spot_baslik

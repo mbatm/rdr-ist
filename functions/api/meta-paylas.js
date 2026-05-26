@@ -93,9 +93,10 @@ export async function onRequestPost({ request, env }) {
             const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
-                video_url, media_type:'STORIES',
-                ...(kayserim_link ? { sticker_link: kayserim_link } : {}),
-                access_token: userToken
+                video_url,
+                media_type: 'STORIES',
+                ...(kayserim_link ? { link: kayserim_link } : {}),
+                access_token: userToken,
               }),
             })
             const cData = await cRes.json()
@@ -110,7 +111,7 @@ export async function onRequestPost({ request, env }) {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({
                   image_url: storyImg, media_type:'STORIES',
-                  ...(kayserim_link ? { sticker_link: kayserim_link } : {}),
+                  ...(kayserim_link ? { link: kayserim_link } : {}),
                   access_token: userToken
                 }),
               })
