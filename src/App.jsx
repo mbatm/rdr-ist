@@ -959,7 +959,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
         </button>
       </div>
       <Divider label="Sosyal medya görselleri" ic="photo"/>
-      <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <OtoGorselUret key={`${editedHaber?.source_id}-${link}`} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
       <Divider label="Paylaş" ic="send"/>
       <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
     </div>
@@ -1016,7 +1016,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       )}
 
       <Divider label="Görsel önizleme" ic="photo"/>
-      <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <OtoGorselUret key={`${editedHaber?.source_id}-${link}`} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
     </div>
   )
 }

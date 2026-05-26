@@ -349,32 +349,46 @@ async function renderFormat(fmt, haber) {
 
   // Story için link etiketi (spot altında)
   if(fmt === 'story' && (haber.kayserim_link || haber.source_url)){
-    const linkUrl  = haber.kayserim_link || haber.source_url || ''
     const domain   = 'kayserim.net'
-    const linkFont = Math.round(w * 0.032)
-    const lbH      = linkFont * 2.0
-    const lbY      = bottomY + pad * 0.3
+    const linkFont = Math.round(w * 0.034)
+    const lbH      = linkFont * 2.2
+    const lbY      = bottomY + pad * 0.5
     const lbX      = w / 2
 
-    // Pill arka plan
     ctx.font = `600 ${linkFont}px "Open Sans", Arial`
-    const lw = ctx.measureText(`🔗  ${domain}  ↑`).width
-    const lbW = lw + linkFont * 2
-    const rx = lbX - lbW / 2
-    const ry = lbY - lbH * 0.75
+    const txt = `🔗  ${domain}  ↑`
+    const lw  = ctx.measureText(txt).width
+    const lbW = lw + linkFont * 2.4
+    const rx  = lbX - lbW / 2
+    const ry  = lbY - lbH * 0.8
+    const r   = lbH / 2
 
-    // Beyaz pill
+    // Beyaz pill (roundRect polyfill)
     ctx.beginPath()
-    ctx.roundRect(rx, ry, lbW, lbH, lbH / 2)
-    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    if (ctx.roundRect) {
+      ctx.roundRect(rx, ry, lbW, lbH, r)
+    } else {
+      ctx.moveTo(rx + r, ry)
+      ctx.lineTo(rx + lbW - r, ry)
+      ctx.quadraticCurveTo(rx + lbW, ry, rx + lbW, ry + r)
+      ctx.lineTo(rx + lbW, ry + lbH - r)
+      ctx.quadraticCurveTo(rx + lbW, ry + lbH, rx + lbW - r, ry + lbH)
+      ctx.lineTo(rx + r, ry + lbH)
+      ctx.quadraticCurveTo(rx, ry + lbH, rx, ry + lbH - r)
+      ctx.lineTo(rx, ry + r)
+      ctx.quadraticCurveTo(rx, ry, rx + r, ry)
+      ctx.closePath()
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'
+    ctx.shadowBlur  = 8
     ctx.fill()
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
 
-    // Yazı
     ctx.fillStyle = '#111'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.shadowColor = 'transparent'
-    ctx.fillText(`🔗  ${domain}  ↑`, lbX, ry + lbH / 2)
+    ctx.fillText(txt, lbX, ry + lbH / 2)
     ctx.textAlign = 'left'
     ctx.textBaseline = 'alphabetic'
   }
