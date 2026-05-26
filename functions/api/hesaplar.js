@@ -12,12 +12,13 @@ export async function onRequestGet({ env }) {
     picture:   h.picture || null,
   }))
 
-  // Instagram: aynı ig_id'ye sahip birden fazla FB sayfası olabilir — dedup
+  // Instagram: aynı ig_id veya aynı username → dedup
   const igMap = new Map()
   hesaplar.filter(h => h.ig_id).forEach(h => {
-    if (!igMap.has(h.ig_id)) {
-      igMap.set(h.ig_id, {
-        ig_id:    h.ig_id,
+    const key = h.ig_username || String(h.ig_id)
+    if (!igMap.has(key)) {
+      igMap.set(key, {
+        ig_id:    String(h.ig_id),
         username: h.ig_username || '',
         page_id:  h.page_id,
         page_name: h.page_name,

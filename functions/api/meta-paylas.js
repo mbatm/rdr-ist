@@ -13,11 +13,12 @@ export async function onRequestPost({ request, env }) {
 
     const secilenFbIds = fb_page_ids?.length ? fb_page_ids : (fb_page_id ? [fb_page_id] : [hesaplar[0].page_id])
     // ig_id + username çift dedup — aynı hesaba birden fazla atma
-    const tumIgIds = ig_ids?.length ? ig_ids : (reqIgId ? [reqIgId] : hesaplar.filter(h=>h.ig_id).map(h=>h.ig_id))
+    const tumIgIds = ig_ids?.length ? ig_ids : (reqIgId ? [reqIgId] : hesaplar.filter(h=>h.ig_id).map(h=>String(h.ig_id)))
     const gorulmusUsernames = new Set()
-    const secilenIgIds = [...new Set(tumIgIds)].filter(id => {
-      const h = hesaplar.find(x=>x.ig_id===id)
-      const uname = h?.ig_username || id
+    const secilenIgIds = [...new Set(tumIgIds.map(String))].filter(id => {
+      const h = hesaplar.find(x=>String(x.ig_id)===String(id))
+      const uname = h?.ig_username || null
+      if (!uname) return true // username yoksa ID bazlı tekil sayılır
       if (gorulmusUsernames.has(uname)) return false
       gorulmusUsernames.add(uname)
       return true
