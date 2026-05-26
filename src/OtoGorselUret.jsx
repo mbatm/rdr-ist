@@ -349,42 +349,48 @@ async function renderFormat(fmt, haber) {
 
   // Story için link etiketi — alt bölgede sabit konum
   if(fmt === 'story'){
-    const domain   = (haber.kayserim_link && haber.kayserim_link.includes('kayserim'))
-      ? 'kayserim.net'
-      : 'kayserim.net'
-    const linkFont = Math.round(w * 0.036)
-    const lbH      = Math.round(linkFont * 2.4)
-    const lbW      = Math.round(w * 0.6)
+    const domain   = 'kayserim.net'
+    const linkFont = Math.round(w * 0.042)
+    const lbH      = Math.round(linkFont * 2.6)
+    const lbW      = Math.round(w * 0.65)
     const rx       = Math.round((w - lbW) / 2)
-    const ry       = h - Math.round(pad * 3.2)  // alt kenardan sabit mesafe
+    const ry       = Math.round(h * 0.88)  // %88 aşağıda, sabit yüzde
     const r        = lbH / 2
     const txt      = `🔗  ${domain}  ↑`
 
-    // Beyaz pill
+    // Arka plan pill
+    ctx.globalAlpha = 1
     ctx.beginPath()
     if (ctx.roundRect) {
       ctx.roundRect(rx, ry, lbW, lbH, r)
     } else {
       ctx.moveTo(rx+r,ry); ctx.lineTo(rx+lbW-r,ry)
-      ctx.quadraticCurveTo(rx+lbW,ry,rx+lbW,ry+r); ctx.lineTo(rx+lbW,ry+lbH-r)
-      ctx.quadraticCurveTo(rx+lbW,ry+lbH,rx+lbW-r,ry+lbH); ctx.lineTo(rx+r,ry+lbH)
-      ctx.quadraticCurveTo(rx,ry+lbH,rx,ry+lbH-r); ctx.lineTo(rx,ry+r)
-      ctx.quadraticCurveTo(rx,ry,rx+r,ry); ctx.closePath()
+      ctx.quadraticCurveTo(rx+lbW,ry,rx+lbW,ry+r)
+      ctx.lineTo(rx+lbW,ry+lbH-r)
+      ctx.quadraticCurveTo(rx+lbW,ry+lbH,rx+lbW-r,ry+lbH)
+      ctx.lineTo(rx+r,ry+lbH)
+      ctx.quadraticCurveTo(rx,ry+lbH,rx,ry+lbH-r)
+      ctx.lineTo(rx,ry+r)
+      ctx.quadraticCurveTo(rx,ry,rx+r,ry)
+      ctx.closePath()
     }
-    ctx.globalAlpha = 1
-    ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 12
+    ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=16
+    ctx.fillStyle='rgba(255,255,255,0.97)'
     ctx.fill()
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+    ctx.shadowColor='transparent'; ctx.shadowBlur=0
+
+    // Kırmızı sol aksan çizgisi
+    ctx.fillStyle='#ED1C24'
+    ctx.fillRect(rx+12, ry+lbH*0.2, 4, lbH*0.6)
 
     // Metin
-    ctx.font = `700 ${linkFont}px "Open Sans", Arial`
-    ctx.fillStyle = '#1a1a2e'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(txt, rx + lbW/2, ry + lbH/2)
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
-    ctx.globalAlpha = 1
+    ctx.font=`700 ${linkFont}px Poppins,"Open Sans",Arial`
+    ctx.fillStyle='#111111'
+    ctx.textAlign='center'
+    ctx.textBaseline='middle'
+    ctx.fillText(txt, rx+lbW/2, ry+lbH/2)
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.globalAlpha=1
   }
 
   return cv.toDataURL('image/jpeg',.93)
