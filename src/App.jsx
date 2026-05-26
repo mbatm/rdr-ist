@@ -1333,35 +1333,3 @@ export default function App() {
     </div>
   )
 }
-// ── AUTH HOOK ─────────────────────────────────────────────────────────────
-function useAuth() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const token = localStorage.getItem('cms_token')
-    if (!token) { setLoading(false); return }
-    fetch('/api/auth?token=' + token)
-      .then(r => r.json())
-      .then(d => { if (d.gecerli) setUser({...d, token}); else localStorage.removeItem('cms_token') })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const girisYap = async (kullanici, sifre) => {
-    const res  = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kullanici, sifre}) })
-    const data = await res.json()
-    if (data.hata) throw new Error(data.hata)
-    localStorage.setItem('cms_token', data.token)
-    setUser(data)
-    return data
-  }
-
-  const cikisYap = () => {
-    localStorage.removeItem('cms_token')
-    setUser(null)
-  }
-
-  return { user, loading, girisYap, cikisYap }
-}
-
