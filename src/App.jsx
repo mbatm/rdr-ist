@@ -550,8 +550,9 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       .then(r=>r.json())
       .then(d => {
         setHesaplar(d)
-        if (d.facebook?.length)  setSecilenFb(d.facebook.map(h=>h.page_id))
-        if (d.instagram?.length) setSecilenIg(d.instagram.map(h=>h.ig_id))
+        // Default boş — kullanıcı seçecek
+        setSecilenFb([])
+        setSecilenIg([])
       })
       .catch(()=>{})
   }, [])
@@ -660,33 +661,53 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
   return (
     <div style={{marginBottom:'0.875rem'}}>
-      {/* Hesap çoklu seçim */}
-      {hesaplar.facebook?.length > 0 && (
-        <div style={{marginBottom:8}}>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>FACEBOOK SAYFALAR</div>
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            {hesaplar.facebook.map(h=>(
-              <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
-                <input type="checkbox" checked={secilenFb.includes(h.page_id)}
-                  onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}/>
-                {h.page_name}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-      {hesaplar.instagram?.length > 0 && (
-        <div style={{marginBottom:8}}>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>INSTAGRAM HESAPLAR</div>
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            {hesaplar.instagram.map(h=>(
-              <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
-                <input type="checkbox" checked={secilenIg.includes(h.ig_id)}
-                  onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}/>
-                @{h.username||h.ig_id} ({h.page_name})
-              </label>
-            ))}
-          </div>
+      {/* Hesap seçim — kompakt */}
+      {(hesaplar.facebook?.length > 0 || hesaplar.instagram?.length > 0) && (
+        <div style={{marginBottom:10,border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+          {/* Facebook */}
+          {hesaplar.facebook?.length > 0 && (
+            <div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 10px',background:'rgba(24,119,242,.06)',borderBottom:'0.5px solid var(--border)'}}>
+                <span style={{fontSize:11,color:'#4dabf7',fontWeight:500}}>Facebook ({secilenFb.length}/{hesaplar.facebook.length})</span>
+                <div style={{display:'flex',gap:6}}>
+                  <button onClick={()=>setSecilenFb(hesaplar.facebook.map(h=>h.page_id))} style={{fontSize:10,background:'transparent',border:'none',color:'#4dabf7',padding:'2px 4px'}}>Tümü</button>
+                  <button onClick={()=>setSecilenFb([])} style={{fontSize:10,background:'transparent',border:'none',color:'var(--muted)',padding:'2px 4px'}}>Temizle</button>
+                </div>
+              </div>
+              <div style={{maxHeight:120,overflowY:'auto',padding:'4px 0'}}>
+                {hesaplar.facebook.map(h=>(
+                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 10px',cursor:'pointer',fontSize:12}}>
+                    <input type="checkbox" checked={secilenFb.includes(h.page_id)}
+                      onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}
+                      style={{flexShrink:0}}/>
+                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.page_name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Instagram */}
+          {hesaplar.instagram?.length > 0 && (
+            <div style={{borderTop: hesaplar.facebook?.length ? '0.5px solid var(--border)' : 'none'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 10px',background:'rgba(225,48,108,.06)',borderBottom:'0.5px solid var(--border)'}}>
+                <span style={{fontSize:11,color:'#E1306C',fontWeight:500}}>Instagram ({secilenIg.length}/{hesaplar.instagram.length})</span>
+                <div style={{display:'flex',gap:6}}>
+                  <button onClick={()=>setSecilenIg(hesaplar.instagram.map(h=>h.ig_id))} style={{fontSize:10,background:'transparent',border:'none',color:'#E1306C',padding:'2px 4px'}}>Tümü</button>
+                  <button onClick={()=>setSecilenIg([])} style={{fontSize:10,background:'transparent',border:'none',color:'var(--muted)',padding:'2px 4px'}}>Temizle</button>
+                </div>
+              </div>
+              <div style={{maxHeight:120,overflowY:'auto',padding:'4px 0'}}>
+                {hesaplar.instagram.map(h=>(
+                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 10px',cursor:'pointer',fontSize:12}}>
+                    <input type="checkbox" checked={secilenIg.includes(h.ig_id)}
+                      onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}
+                      style={{flexShrink:0}}/>
+                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>@{h.username||h.ig_id}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
