@@ -95,20 +95,14 @@ export async function onRequestPost({ request, env }) {
               body: JSON.stringify({ video_url, access_token:userToken }),
             })
             const cData = await cRes.json()
-            if (cData.error && (cData.error.code===10||cData.error.code===200||cData.error.code===100)) {
-              // Fallback: /media ile Reels
-              const c2 = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ video_url, media_type:'REELS', share_to_feed:true, access_token:userToken }),
-              })
-              const d2 = await c2.json()
-              sonuclar.instagram[storyKey] = d2.error
-                ? { hata:`Story video fallback: ${d2.error.message}` }
-                : { bekliyor:true, container_id:d2.id, ig_username:sayfa.ig_username, story:true }
+            if (cData.error) {
+              const kod = cData.error.code
+              const msg = (kod===10||kod===200||kod===100)
+                ? `Story izni yok (@${sayfa.ig_username||igId}). Meta Business > Ayarlar > Instagram > Stories Publishing iznini etkinleştirin.`
+                : `Story video: ${cData.error.message} (${kod})`
+              sonuclar.instagram[storyKey] = { hata: msg }
             } else {
-              sonuclar.instagram[storyKey] = cData.error
-                ? { hata:`Story video: ${cData.error.message}` }
-                : { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username, story:true }
+              sonuclar.instagram[storyKey] = { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username, story:true }
             }
           } else {
             // Görsel story — story formatı görseli öncelikli
@@ -122,29 +116,12 @@ export async function onRequestPost({ request, env }) {
               const cData = await cRes.json()
               if (cData.error) {
                 const kod = cData.error.code
-                if (kod===10||kod===200||kod===100) {
-                  // İzin yok — /media ile dene (eski yöntem)
-                  const c2 = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ image_url:storyImg, media_type:'IMAGE', access_token:userToken }),
-                  })
-                  const d2 = await c2.json()
-                  if (!d2.error) {
-                    await new Promise(r=>setTimeout(r,2000))
-                    const p2 = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
-                      method:'POST', headers:{'Content-Type':'application/json'},
-                      body: JSON.stringify({ creation_id:d2.id, access_token:userToken }),
-                    })
-                    const pd2 = await p2.json()
-                    sonuclar.instagram[storyKey] = pd2.error
-                      ? { hata:`Story (feed): ${pd2.error.message}` }
-                      : { ok:true, media_id:pd2.id, story:true, ig_username:sayfa.ig_username }
-                  } else {
-                    sonuclar.instagram[storyKey] = { hata:`Story izin yok: ${d2.error.message}` }
-                  }
-                } else {
-                  sonuclar.instagram[storyKey] = { hata:`Story: ${cData.error.message} (${kod})` }
-                }
+                // Story API sadece belirli hesaplarda çalışır
+                // Meta Business > Ayarlar > Instagram > İzinler > Stories Publishing
+                const msg = (kod===10||kod===200||kod===100)
+                  ? `Story izni yok (@${sayfa.ig_username||igId}). Meta Business > Ayarlar > Instagram > Stories Publishing iznini etkinleştirin.`
+                  : `Story: ${cData.error.message} (${kod})`
+                sonuclar.instagram[storyKey] = { hata: msg }
               } else {
                 sonuclar.instagram[storyKey] = { ok:true, media_id:cData.id, story:true, ig_username:sayfa.ig_username }
               }
