@@ -108,7 +108,7 @@ export async function onRequestPost({ request, env }) {
           const useVideoStory = is_video && video_url && video_dur !== null && Number(video_dur) <= 59
 
           if (useVideoStory) {
-            // Video story: REELS yöntemi (çalışan yöntem)
+            // Video story: REELS yöntemi (güvenilir)
             const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({ video_url, media_type:'REELS', access_token:userToken }),
@@ -118,7 +118,7 @@ export async function onRequestPost({ request, env }) {
               ? { hata:`Story video: ${cData.error.message}` }
               : { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username, story:true }
           } else {
-            // Görsel story: /stories endpoint dene
+            // Görsel story: /stories endpoint — desteklemeyen hesaplarda sessizce atla
             const storyImg = ig_story_gorsel || gorsel_url
             if (storyImg) {
               const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/stories`, {
@@ -126,9 +126,18 @@ export async function onRequestPost({ request, env }) {
                 body: JSON.stringify({ image_url:storyImg, access_token:userToken }),
               })
               const cData = await cRes.json()
-              sonuclar.instagram[storyKey] = cData.error
-                ? { hata:`Story: ${cData.error.message} (${cData.error.code})` }
-                : { ok:true, media_id:cData.id, story:true, ig_username:sayfa.ig_username }
+              if (cData.error) {
+                const kod = cData.error.code
+                // 100, 10, 200 = izin yok — bu hesap için story desteklenmiyor, sessizce geç
+                if (kod===100||kod===10||kod===200) {
+                  // Log'a ekle ama hata olarak gösterme
+                  sonuclar.instagram[storyKey] = { atlandı:true, ig_username:sayfa.ig_username, sebep:'Story API bu hesapta desteklenmiyor' }
+                } else {
+                  sonuclar.instagram[storyKey] = { hata:`Story: ${cData.error.message} (${kod})`, ig_username:sayfa.ig_username }
+                }
+              } else {
+                sonuclar.instagram[storyKey] = { ok:true, media_id:cData.id, story:true, ig_username:sayfa.ig_username }
+              }
             }
           }
         }
