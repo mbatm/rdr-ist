@@ -535,6 +535,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
   const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
+  const [igStory,  setIgStory]  = useState(false)
+  const [igKolabor, setIgKolabor] = useState('')  // kolaboratör usernameler virgülle ayrılmış
   const [fbMetin,  setFbMetin]  = useState('')
   const [igMetin,  setIgMetin]  = useState('')
   const [gonderiyor, setGond]  = useState(false)
@@ -578,6 +580,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   useEffect(() => {
     setFbTip(isVideo ? 'video' : 'foto')
     setIgTip(isVideo ? 'video' : 'foto')
+    setIgStory(false)
   }, [selectedHaber?.source_id])
 
   useEffect(() => {
@@ -622,15 +625,18 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
         body: JSON.stringify({
-          source_id:  selectedHaber?.source_id,
-          baslik:     content?.site_basligi||'',
-          gorsel_url: gorselUrl,
-          video_url:  videoUrl,
+          source_id:    selectedHaber?.source_id,
+          baslik:       content?.site_basligi||'',
+          gorsel_url:   gorselUrl,
+          video_url:    videoUrl,
           metin,
           platform,
-          is_video:   tip === 'video',
-          fb_page_ids: secilenFb.length ? secilenFb : undefined,
-          ig_ids:      secilenIg.length ? secilenIg : undefined,
+          is_video:     tip === 'video',
+          fb_page_ids:  secilenFb.length ? secilenFb : undefined,
+          ig_ids:       secilenIg.length ? secilenIg : undefined,
+          ig_story:     igStory,
+          ig_kolabor:   igKolabor ? igKolabor.split(',').map(s=>s.trim().replace('@','')).filter(Boolean) : undefined,
+          kayserim_link: kayserimLink || '',
         }),
       })
       const data = await res.json()
@@ -737,7 +743,25 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       )}
 
       <TipSec val={fbTip} onChange={setFbTip} label="Facebook" />
+
       <TipSec val={igTip} onChange={setIgTip} label="Instagram" />
+      {/* Instagram Story */}
+      <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#8891a5',marginBottom:6,cursor:'pointer'}}>
+        <input type="checkbox" checked={igStory} onChange={e=>setIgStory(e.target.checked)}/>
+        <span>Story olarak da paylaş {isVideo ? '(video)' : '(fotoğraf)'}</span>
+      </label>
+      {/* Instagram Kolaboratör */}
+      <div style={{marginBottom:8}}>
+        <div style={{fontSize:11,color:'#8891a5',marginBottom:3}}>
+          Kolaboratör hesaplar <span style={{opacity:.6}}>(virgülle ayır, @ olmadan)</span>
+        </div>
+        <input value={igKolabor} onChange={e=>setIgKolabor(e.target.value)}
+          placeholder="ornek_hesap, diger_hesap"
+          style={{width:'100%',fontSize:12,boxSizing:'border-box'}}/>
+        {igKolabor && <div style={{fontSize:10,color:'#4dabf7',marginTop:3}}>
+          ℹ️ Davet gönderilir, karşı tarafın kabul etmesi gerekir
+        </div>}
+      </div>
 
       {/* Kullanılacak video URL'si */}
       {isVideo && (() => {
@@ -775,9 +799,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         {Object.entries(sonuc.sonuclar?.facebook||{}).map(([pid,s])=>(
           <div key={pid} style={{color:'var(--muted)'}}>Facebook ({s.page_name||pid}): {s.ok?'✓':'✗ '+(s.hata||'Hata')}</div>
         ))}
-        {Object.entries(sonuc.sonuclar?.instagram||{}).map(([igId,s])=>(
-          <div key={igId} style={{color:'var(--muted)'}}>
-            Instagram (@{s.ig_username||igId}): {s.ok?'✓':s.bekliyor?'⏳ '+(s.mesaj||'İşleniyor…'):'✗ '+(s.hata||'Hata')}
+        {Object.entries(sonuc.sonuclar?.instagram||{}).map(([igKey,s])=>(
+          <div key={igKey} style={{color:'var(--muted)'}}>
+            {s.story ? '📸 Story' : 'Instagram'} (@{s.ig_username||igKey.replace('_story','')}):
+            {s.ok ? ' ✓' : s.bekliyor ? ' ⏳ '+( s.mesaj||'İşleniyor…') : ' ✗ '+(s.hata||'Hata')}
           </div>
         ))}
       </div>}
@@ -1234,8 +1259,15 @@ function AdminLog({ onKapat }) {
         body: JSON.stringify({ platform:l.platform, post_id:l.post_id, page_id:l.page_id })
       })
       const data = await res.json()
-      if (data.ok) setLog(p=>p.filter(x=>x.post_id!==l.post_id))
-      else alert('Hata: ' + data.hata)
+      if (data.ok) {
+        setLog(p=>p.filter(x=>x.post_id!==l.post_id))
+      } else if (data.log_silindi) {
+        setLog(p=>p.filter(x=>x.post_id!==l.post_id))
+        if (data.post_url) window.open(data.post_url, '_blank')
+        alert('Instagram API silme izni yok.\nGönderi logdan kaldırıldı.\nManuel silmek için Instagram açıldı.')
+      } else {
+        alert('Hata: ' + data.hata)
+      }
     } catch(e) { alert(e.message) }
     setSiliyor('')
   }
