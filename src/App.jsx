@@ -589,9 +589,13 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     const fbHam = content?.facebook || content?.sosyal_baslik || content?.site_basligi || ''
     setFbMetin(fbHam + linkKisa)
 
-    // Instagram: tam haber metni (optimize_icerik öncelikli) + link
-    const igHam = content?.optimize_icerik || content?.instagram || content?.ozet || content?.site_basligi || ''
-    const igSon = link ? `\n\nDaha fazla detay için:\n${link}` : ''
+    // Instagram: Claude'un ürettiği optimize instagram metni öncelikli
+    const temizle = (t='') => t
+      .replace(/^[A-ZÇĞİÖŞÜa-zçğışöüı\s]+\s*\([^)]+\)\s*[-–—:]\s*/,'') // KAYSERİ (1HA)- vs kaldır
+      .replace(/^\s+/,'').trim()
+    const igHam = content?.instagram ? temizle(content.instagram)
+                : temizle(content?.optimize_icerik || content?.ozet || content?.site_basligi || '')
+    const igSon = link ? `\n\n🔗 ${link}` : ''
     setIgMetin(igHam.slice(0, 2200) + igSon)
   }, [content, kayserimLink])
 

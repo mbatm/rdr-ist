@@ -88,7 +88,7 @@ SADECE şu JSON formatını döndür:
   "url_slug": "kayseri-ile-baslayan-slug",
   "optimize_icerik": "250-400 kelime, Türk haber ajansı dilinde, gerçek haber metni formatında — spekülasyon ve editöryal yorum olmadan",
   "ozet": "1 cümle, haberin özü",
-  "instagram": "Haberin TAM METNİ (optimize_icerik ile aynı ya da daha detaylı, 2000 karaktere kadar). Sonuna #kayseri #kayserihaber etiketleri ekle. Link girilmeyecek — ayrıca eklenecek.",
+  "instagram": "Haberi Instagram için yeniden yaz. Kurallar: 1) 'KAYSERİ (1HA)-' gibi kaynak öneklerini kaldır, 2) Doğal, akıcı haber diliyle yaz, 3) Metin 1500-2000 karakter, 4) Sonuna 'Haber detayları kayserim.net\\'te 🔗' ekle, 5) En alta ilgili 5-8 hashtag ekle (#kayseri #kayserihaber #kayserison vb), 6) Link veya URL ekleme - ayrıca eklenecek",
   "facebook": "Haber başlığı (sosyal_baslik) + haberin özeti (ozet) + 1-2 cümle detay. Max 300 karakter. Site linki ayrıca eklenecek.",
   "x_twitter": "Başlık + kısa spot. Max 230 karakter. #KayseriSonDakika #Kayseri etiketleri dahil. Site linki ayrıca eklenecek.",
   "youtube_baslik": "max 80 karakter, arama odaklı",
