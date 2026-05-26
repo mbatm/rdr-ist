@@ -94,7 +94,7 @@ export async function onRequestPost({ request, env }) {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
                 video_url,
-                media_type: 'STORIES',
+                media_type: 'VIDEO',
                 ...(kayserim_link ? { link: kayserim_link } : {}),
                 access_token: userToken,
               }),
@@ -110,7 +110,7 @@ export async function onRequestPost({ request, env }) {
               const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({
-                  image_url: storyImg, media_type:'STORIES',
+                  image_url: storyImg,
                   ...(kayserim_link ? { link: kayserim_link } : {}),
                   access_token: userToken
                 }),
