@@ -430,8 +430,14 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
             setItems({...acc})
             const surl=await gorselYukle(sb64,haber.source_id,STORY_FORMAT)
             if(surl){ urlAcc[STORY_FORMAT]=surl; setStoryUrl(surl); if(!stop) setUrls({...urlAcc}) }
+          } else {
+            console.error('Story renderFormat null döndürdü')
           }
-        }catch(e){console.warn('story hata:',e.message)}
+        }catch(e){
+          console.error('Story render HATA:',e)
+          acc[STORY_FORMAT+'_err']=e.message
+          setItems({...acc})
+        }
       }
       if(!stop){setBusy(false);onGorsellerHazir?.({items:acc,urls:urlAcc})}
     })()
@@ -486,7 +492,9 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
           </div>
         ) : (
           <div style={{fontSize:12,color:'var(--muted)',display:'flex',alignItems:'center',gap:8}}>
-            {busy ? <><Ic n="loader-2" sz={12}/>Üretiliyor…</> : 'Story görseli üretilmedi'}
+            {busy ? <><Ic n="loader-2" sz={12}/>Üretiliyor…</> : 
+             items[STORY_FORMAT+'_err'] ? <span style={{color:'#ff7b7b'}}>Hata: {items[STORY_FORMAT+'_err']}</span> :
+             'Story görseli üretilmedi'}
           </div>
         )}
       </div>
