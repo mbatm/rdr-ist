@@ -589,10 +589,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     const fbHam = content?.facebook || content?.sosyal_baslik || content?.site_basligi || ''
     setFbMetin(fbHam + linkKisa)
 
-    // Instagram: tüm metin + uzun link ibaresi
-    const igHam = content?.instagram || content?.optimize_icerik || content?.ozet || content?.site_basligi || ''
+    // Instagram: tam haber metni (optimize_icerik öncelikli) + link
+    const igHam = content?.optimize_icerik || content?.instagram || content?.ozet || content?.site_basligi || ''
     const igSon = link ? `\n\nDaha fazla detay için:\n${link}` : ''
-    setIgMetin(igHam.slice(0, 2000) + igSon)
+    setIgMetin(igHam.slice(0, 2200) + igSon)
   }, [content, kayserimLink])
 
   const paylas = async (platform) => {
