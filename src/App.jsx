@@ -699,7 +699,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
                     <input type="checkbox" checked={secilenFb.includes(h.page_id)}
                       onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}
                       style={{flexShrink:0}}/>
-                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.page_name}</span>
+                    <span style={{color:'#cdd3de',fontSize:12,flex:1}}>{h.page_name}</span>
                   </label>
                 ))}
               </div>
@@ -721,7 +721,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
                     <input type="checkbox" checked={secilenIg.includes(h.ig_id)}
                       onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}
                       style={{flexShrink:0}}/>
-                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.username ? '@'+h.username : h.ig_id}</span>
+                    <span style={{color:'#cdd3de',fontSize:12,flex:1}}>{h.username ? '@'+h.username : h.ig_id}</span>
                   </label>
                 ))}
               </div>
@@ -1149,14 +1149,14 @@ function DuzenleForm({ u, token, tumHesaplar, onKaydet }) {
           <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ <span style={{opacity:.6}}>(boş = tümü)</span></div>
           <div style={{maxHeight:110,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
             {tumHesaplar.facebook.map(h=>(
-              <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',fontSize:11,cursor:'pointer'}}>
+              <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',cursor:'pointer',width:'100%'}}>
                 <input type="checkbox"
                   checked={(form.sayfalar||[]).includes(h.page_id)}
                   onChange={e=>{
                     const cur = form.sayfalar||[]
                     setForm(p=>({...p, sayfalar: e.target.checked?[...cur,h.page_id]:cur.filter(x=>x!==h.page_id)}))
                   }}/>
-                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.page_name}</span>
+                <span style={{color:'#cdd3de',fontSize:11}}>{h.page_name}</span>
               </label>
             ))}
           </div>
@@ -1251,14 +1251,14 @@ function AdminLog({ onKapat }) {
         <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ <span style={{opacity:.6}}>(boş = tümü)</span></div>
         <div style={{maxHeight:110,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
           {tumHesaplar.facebook.map(h=>(
-            <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',fontSize:11,cursor:'pointer'}}>
+            <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',cursor:'pointer',width:'100%'}}>
               <input type="checkbox"
                 checked={(form.sayfalar||[]).includes(h.page_id)}
                 onChange={e=>{
                   const cur = form.sayfalar||[]
                   setForm(p=>({...p, sayfalar: e.target.checked?[...cur,h.page_id]:cur.filter(x=>x!==h.page_id)}))
                 }}/>
-              <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.page_name}</span>
+              <span style={{color:'#cdd3de',fontSize:11}}>{h.page_name}</span>
             </label>
           ))}
         </div>
