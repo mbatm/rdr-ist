@@ -541,8 +541,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const [hata,     setHata]    = useState(null)
   const [kvVideo,  setKvVideo] = useState({})
   const [hesaplar, setHesaplar] = useState({ facebook: [], instagram: [] })
-  const [secilenFb, setSecilenFb] = useState('')
-  const [secilenIg, setSecilenIg] = useState('')
+  const [secilenFb, setSecilenFb] = useState([])
+  const [secilenIg, setSecilenIg] = useState([])
 
   // Bağlı hesapları yükle
   useEffect(() => {
@@ -550,8 +550,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       .then(r=>r.json())
       .then(d => {
         setHesaplar(d)
-        if (d.facebook?.length)  setSecilenFb(d.facebook[0].page_id)
-        if (d.instagram?.length) setSecilenIg(d.instagram[0].ig_id)
+        if (d.facebook?.length)  setSecilenFb(d.facebook.map(h=>h.page_id))
+        if (d.instagram?.length) setSecilenIg(d.instagram.map(h=>h.ig_id))
       })
       .catch(()=>{})
   }, [])
@@ -603,51 +603,42 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           metin,
           platform,
           is_video:   tip === 'video',
-          fb_page_id: secilenFb || undefined,
-          ig_id:      secilenIg || undefined,
+          fb_page_ids: secilenFb.length ? secilenFb : undefined,
+          ig_ids:      secilenIg.length ? secilenIg : undefined,
         }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
 
-      // Instagram video container bekliyorsa poll et
-      if (data.sonuclar?.instagram?.bekliyor && data.sonuclar.instagram.container_id) {
-        setSonuc({ ...data, sonuclar: { ...data.sonuclar, instagram: { bekliyor: true, mesaj: 'Instagram video işleniyor…' } } })
-        const containerId = data.sonuclar.instagram.container_id
-        let attempts = 0
-        const poll = async () => {
-          if (attempts++ > 24) {
-            setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{hata:'Zaman aşımı — token iznini kontrol edin'}}}))
-            return
+      // Instagram video container bekleyenleri poll et
+      const igSonuclar = data.sonuclar?.instagram || {}
+      const bekleyenler = Object.entries(igSonuclar).filter(([,s])=>s.bekliyor&&s.container_id)
+      if (bekleyenler.length) {
+        setSonuc(data)
+        for (const [igId, igSonuc] of bekleyenler) {
+          let attempts = 0
+          const poll = async () => {
+            if (attempts++ > 24) { setSonuc(p=>({...p,sonuclar:{...p.sonuclar,instagram:{...p.sonuclar.instagram,[igId]:{hata:'Zaman aşımı'}}}})); return }
+            try {
+              const r = await fetch('/api/ig-publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({container_id:igSonuc.container_id, ig_id:igId})})
+              const d = await r.json()
+              if (d.bekliyor) {
+                setSonuc(p=>({...p,sonuclar:{...p.sonuclar,instagram:{...p.sonuclar.instagram,[igId]:{bekliyor:true,mesaj:`Video işleniyor… (${attempts}/24)`}}}}))
+                setTimeout(poll,5000)
+              } else {
+                setSonuc(p=>({...p,sonuclar:{...p.sonuclar,instagram:{...p.sonuclar.instagram,[igId]:d}}}))
+              }
+            } catch(e){ setSonuc(p=>({...p,sonuclar:{...p.sonuclar,instagram:{...p.sonuclar.instagram,[igId]:{hata:e.message}}}})) }
           }
-          try {
-            const r = await fetch('/api/ig-publish', {
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({container_id: containerId})
-            })
-            const d = await r.json()
-            if (d.bekliyor) {
-              setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{bekliyor:true, mesaj:`Video işleniyor… (${attempts}/24)`}}}))
-              setTimeout(poll, 5000)
-            } else {
-              setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram: d}}))
-            }
-          } catch(e) {
-            setSonuc(p=>({...p, sonuclar:{...p.sonuclar, instagram:{hata: e.message}}}))
-          }
+          setTimeout(poll,5000)
         }
-        setTimeout(poll, 5000)
       } else {
         setSonuc(data)
         // Paylaşım flag'lerini güncelle
-        if (data.sonuclar?.facebook?.ok) {
-          await fetch('/api/haber-kaydet', {method:'POST',headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({...selectedHaber, paylasildi_fb: new Date().toISOString()})}).catch(()=>{})
-        }
-        if (data.sonuclar?.instagram?.ok) {
-          await fetch('/api/haber-kaydet', {method:'POST',headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({...selectedHaber, paylasildi_ig: new Date().toISOString()})}).catch(()=>{})
-        }
+        const fbOk = Object.values(data.sonuclar?.facebook||{}).some(s=>s.ok)
+        const igOk = Object.values(data.sonuclar?.instagram||{}).some(s=>s.ok)
+        if (fbOk) await fetch('/api/haber-kaydet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...selectedHaber,paylasildi_fb:new Date().toISOString()})}).catch(()=>{})
+        if (igOk) await fetch('/api/haber-kaydet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...selectedHaber,paylasildi_ig:new Date().toISOString()})}).catch(()=>{})
       }
     } catch(e) { setHata(e.message) }
     setGond(false)
@@ -669,23 +660,33 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
   return (
     <div style={{marginBottom:'0.875rem'}}>
-      {/* Hesap seçiciler */}
-      {hesaplar.facebook?.length > 1 && (
+      {/* Hesap çoklu seçim */}
+      {hesaplar.facebook?.length > 0 && (
         <div style={{marginBottom:8}}>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>FACEBOOK SAYFASI</div>
-          <select value={secilenFb} onChange={e=>setSecilenFb(e.target.value)}
-            style={{width:'100%',fontSize:12,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'5px 8px'}}>
-            {hesaplar.facebook.map(h=><option key={h.page_id} value={h.page_id}>{h.page_name}</option>)}
-          </select>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>FACEBOOK SAYFALAR</div>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {hesaplar.facebook.map(h=>(
+              <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
+                <input type="checkbox" checked={secilenFb.includes(h.page_id)}
+                  onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}/>
+                {h.page_name}
+              </label>
+            ))}
+          </div>
         </div>
       )}
-      {hesaplar.instagram?.length > 1 && (
+      {hesaplar.instagram?.length > 0 && (
         <div style={{marginBottom:8}}>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>INSTAGRAM HESABI</div>
-          <select value={secilenIg} onChange={e=>setSecilenIg(e.target.value)}
-            style={{width:'100%',fontSize:12,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'5px 8px'}}>
-            {hesaplar.instagram.map(h=><option key={h.ig_id} value={h.ig_id}>@{h.username||h.ig_id} ({h.page_name})</option>)}
-          </select>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>INSTAGRAM HESAPLAR</div>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {hesaplar.instagram.map(h=>(
+              <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
+                <input type="checkbox" checked={secilenIg.includes(h.ig_id)}
+                  onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}/>
+                @{h.username||h.ig_id} ({h.page_name})
+              </label>
+            ))}
+          </div>
         </div>
       )}
 
@@ -719,14 +720,14 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       </div>}
       {sonuc && <div style={{background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.25)',borderRadius:'var(--radius-md)',padding:'10px 14px',fontSize:12}}>
         <div style={{color:'#00D4AA',fontWeight:500,marginBottom:6}}><Ic n="check" size={14}/> Paylaşıldı!</div>
-        {sonuc.sonuclar?.facebook && <div style={{color:'var(--muted)'}}>Facebook: {sonuc.sonuclar.facebook.ok?'✓':'✗ '+(sonuc.sonuclar.facebook.hata||'Hata')}</div>}
-        {sonuc.sonuclar?.instagram && <div style={{color:'var(--muted)'}}>
-          Instagram: {sonuc.sonuclar.instagram.ok
-            ? '✓ '+(sonuc.sonuclar.instagram.media_id||'')
-            : sonuc.sonuclar.instagram.bekliyor
-              ? '⏳ '+(sonuc.sonuclar.instagram.mesaj||'Video işleniyor…')
-              : '✗ '+(sonuc.sonuclar.instagram.hata||'Hata')}
-        </div>}
+        {Object.entries(sonuc.sonuclar?.facebook||{}).map(([pid,s])=>(
+          <div key={pid} style={{color:'var(--muted)'}}>Facebook ({s.page_name||pid}): {s.ok?'✓':'✗ '+(s.hata||'Hata')}</div>
+        ))}
+        {Object.entries(sonuc.sonuclar?.instagram||{}).map(([igId,s])=>(
+          <div key={igId} style={{color:'var(--muted)'}}>
+            Instagram (@{s.ig_username||igId}): {s.ok?'✓':s.bekliyor?'⏳ '+(s.mesaj||'İşleniyor…'):'✗ '+(s.hata||'Hata')}
+          </div>
+        ))}
       </div>}
     </div>
   )
@@ -1060,18 +1061,39 @@ function HesapYonetimi() {
 function AdminLog({ onKapat }) {
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(true)
-  const [sekme, setSekme] = useState('log') // 'log' | 'kullanicilar'
+  const [sekme, setSekme] = useState('log')
   const [users, setUsers] = useState([])
   const [yeniK, setYeniK] = useState({ kullanici:'', sifre:'', ad:'', rol:'editor' })
   const [kayit, setKayit] = useState(false)
+  const [siliyor, setSiliyor] = useState('')
   const token = localStorage.getItem('cms_token') || ''
 
-  useEffect(() => {
-    fetch('/api/paylas-log?admin=1', { headers: { 'X-Token': token } })
+  const yukleLog = () => {
+    fetch('/api/paylas-log?admin=1', { headers:{'X-Token':token} })
       .then(r=>r.json()).then(d=>{ setLog(Array.isArray(d)?d:[]); setLoading(false) }).catch(()=>setLoading(false))
-    fetch('/api/kullanicilar?token='+token, { headers: { 'X-Token': token } })
+  }
+
+  useEffect(() => {
+    yukleLog()
+    fetch('/api/kullanicilar?token='+token, { headers:{'X-Token':token} })
       .then(r=>r.json()).then(d=>{ if(Array.isArray(d)) setUsers(d) }).catch(()=>{})
   }, [])
+
+  const paylasSil = async (l) => {
+    if (!l.post_id) return alert('Post ID yok — silinemez')
+    if (!confirm(`${l.platform} paylaşımı silinsin mi?`)) return
+    setSiliyor(l.post_id)
+    try {
+      const res  = await fetch('/api/paylas-sil', {
+        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+        body: JSON.stringify({ platform:l.platform, post_id:l.post_id, page_id:l.page_id })
+      })
+      const data = await res.json()
+      if (data.ok) setLog(p=>p.filter(x=>x.post_id!==l.post_id))
+      else alert('Hata: ' + data.hata)
+    } catch(e) { alert(e.message) }
+    setSiliyor('')
+  }
 
   const kullaniciEkle = async () => {
     if (!yeniK.kullanici || !yeniK.sifre) return
@@ -1123,11 +1145,18 @@ function AdminLog({ onKapat }) {
                 <div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.baslik||l.source_id}</div>
                 <div style={{fontSize:11,color:'var(--muted)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
                   <span>👤 {l.kullanici}</span>
+                  {l.hesap&&<span>📄 {l.hesap}</span>}
                   <span>{l.tip==='video'?'🎬 Video':'📷 Fotoğraf'}</span>
                   <span>{l.tarih?new Date(l.tarih).toLocaleString('tr-TR'):''}</span>
                   {l.post_id&&<span style={{fontFamily:'var(--mono)',fontSize:10}}>ID: {l.post_id}</span>}
                 </div>
               </div>
+              {l.post_id && (
+                <button onClick={()=>paylasSil(l)} disabled={siliyor===l.post_id}
+                  style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',flexShrink:0}}>
+                  <Ic n={siliyor===l.post_id?'loader-2':'trash'} size={11}/> Sil
+                </button>
+              )}
             </div>
           ))}
           {!loading&&log.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Henüz paylaşım yapılmamış.</div>}
