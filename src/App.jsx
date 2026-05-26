@@ -1177,12 +1177,12 @@ function AdminLog({ onKapat }) {
             </div>
           ))}
         </>)}
+
+        {sekme==='hesaplar' && <HesapYonetimi/>}
       </div>
     </div>
   )
 }
-
-// ── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
   const { user, loading, girisYap, cikisYap } = useAuth()
   const [adminLog, setAdminLog] = useState(false)
