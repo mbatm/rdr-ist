@@ -184,8 +184,92 @@ async function gorselYukle(b64,sid,fmt){
   }catch{return null}
 }
 
+// ── STORY RENDER — tamamen bağımsız ─────────────────────────────────────────
+async function renderStory(haber) {
+  const W=1080,H=1920,BAND=130,PAD=54
+  const cv=document.createElement('canvas')
+  cv.width=W; cv.height=H
+  const ctx=cv.getContext('2d')
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'
+
+  // Arka plan
+  const gUrl=haber.gorsel_url||haber.gorsel||''
+  if(gUrl){
+    const bg=await loadImg('/api/gorsel-proxy?url='+encodeURIComponent(gUrl),true)
+    if(bg){
+      await loadSmartCrop()
+      let sx=0,sy=0,sw=bg.width,sh=bg.height
+      if(window.SmartCrop){try{const r=await window.SmartCrop.crop(bg,{width:W,height:H,minScale:0.8});const c=r.topCrop;sx=c.x;sy=c.y;sw=c.width;sh=c.height}catch{}}
+      if(!sw||!sh){const s=Math.max(W/bg.width,H/bg.height);sx=(bg.width-W/s)/2;sy=(bg.height-H/s)/2;sw=W/s;sh=H/s}
+      ctx.drawImage(bg,sx,sy,sw,sh,0,0,W,H)
+    }else{ctx.fillStyle='#1a2535';ctx.fillRect(0,0,W,H)}
+  }else{ctx.fillStyle='#1a2535';ctx.fillRect(0,0,W,H)}
+
+  // Gradient
+  const g1=ctx.createLinearGradient(0,H*0.3,0,H)
+  g1.addColorStop(0,'rgba(0,0,0,0)');g1.addColorStop(0.6,'rgba(0,0,0,0.65)');g1.addColorStop(1,'rgba(0,0,0,0.93)')
+  ctx.fillStyle=g1;ctx.fillRect(0,0,W,H)
+
+  // Üst bant
+  ctx.fillStyle='#ED1C24';ctx.fillRect(0,0,W,BAND)
+  ctx.font=`700 ${Math.round(BAND*0.44)}px Poppins,Arial`
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle'
+  ctx.fillText('kayserim',W/2,BAND/2)
+  ctx.textAlign='left';ctx.textBaseline='alphabetic'
+
+  // Kategori pill
+  const kat=(haber.kategori||'GÜNCEL').toUpperCase()
+  ctx.font='700 28px Poppins,Arial'
+  const kw=ctx.measureText(kat).width
+  ctx.fillStyle='#ED1C24';ctx.fillRect(PAD-8,200,kw+28,40)
+  ctx.fillStyle='#fff';ctx.fillText(kat,PAD,228)
+
+  // Başlık
+  const baslik=haber.sosyal_baslik||haber.site_basligi||haber.baslik||''
+  ctx.font='600 56px Poppins,Arial'
+  const bLines=wrapText(ctx,baslik,W-PAD*2-10,3)
+  const bLineH=76,bStartY=1280
+  ctx.fillStyle='#ED1C24';ctx.fillRect(PAD,bStartY-46,6,bLines.length*bLineH+4)
+  ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=14;ctx.shadowOffsetY=2
+  bLines.forEach((ln,i)=>ctx.fillText(ln,PAD+20,bStartY+i*bLineH))
+  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0
+
+  // Spot
+  const spot=haber.ozet||''
+  if(spot){
+    ctx.font='400 32px "Open Sans",Arial'
+    const sLines=wrapText(ctx,spot,W-PAD*2,3)
+    const sY=bStartY+bLines.length*bLineH+26
+    ctx.globalAlpha=0.36;ctx.fillStyle='#ED1C24'
+    sLines.forEach((ln,i)=>{const lw=ctx.measureText(ln).width;ctx.fillRect(PAD-8,sY+i*50-26,lw+16,42)})
+    ctx.globalAlpha=1;ctx.fillStyle='rgba(255,255,255,.95)';ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=5
+    sLines.forEach((ln,i)=>ctx.fillText(ln,PAD,sY+i*50))
+    ctx.shadowColor='transparent';ctx.shadowBlur=0
+  }
+
+  // Link etiketi
+  const lFont=40,lbH=90,lbW=560
+  const rx=Math.round((W-lbW)/2),ry=H-175,r=lbH/2
+  ctx.beginPath()
+  ctx.moveTo(rx+r,ry);ctx.lineTo(rx+lbW-r,ry);ctx.quadraticCurveTo(rx+lbW,ry,rx+lbW,ry+r)
+  ctx.lineTo(rx+lbW,ry+lbH-r);ctx.quadraticCurveTo(rx+lbW,ry+lbH,rx+lbW-r,ry+lbH)
+  ctx.lineTo(rx+r,ry+lbH);ctx.quadraticCurveTo(rx,ry+lbH,rx,ry+lbH-r)
+  ctx.lineTo(rx,ry+r);ctx.quadraticCurveTo(rx,ry,rx+r,ry);ctx.closePath()
+  ctx.shadowColor='rgba(0,0,0,0.45)';ctx.shadowBlur=10
+  ctx.fillStyle='rgba(255,255,255,0.96)';ctx.fill()
+  ctx.shadowColor='transparent';ctx.shadowBlur=0
+  ctx.fillStyle='#ED1C24';ctx.fillRect(rx+14,ry+lbH*0.2,5,lbH*0.6)
+  ctx.font=`700 ${lFont}px Poppins,"Open Sans",Arial`
+  ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle'
+  ctx.fillText('🔗  kayserim.net  ↑',rx+lbW/2,ry+lbH/2)
+  ctx.textAlign='left';ctx.textBaseline='alphabetic'
+
+  return cv.toDataURL('image/jpeg',0.93)
+}
+
 async function renderFormat(fmt, haber) {
-  const base = MANIFEST[fmt]; if(!base) return null
+  const base = MANIFEST[fmt]
+  if(!base) { console.error('MANIFEST['+fmt+'] YOK'); return null }
   const sett = await getSettings()
   const m = {
     ...base,
@@ -194,6 +278,7 @@ async function renderFormat(fmt, haber) {
     kategori:    {...base.kategori,    ...(sett.kategori||{})},
   }
   const { w, h, bandH, pad } = m
+  if(!w||!h) { console.error(fmt+': w veya h eksik',{w,h,base}); return null }
 
   const cv = document.createElement('canvas')
   cv.width=w; cv.height=h
@@ -433,14 +518,14 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
       // Story ayrı render
       if(!stop){
         try{
-          const sb64=await renderFormat(STORY_FORMAT,haber)
+          const sb64=await renderStory(haber)
           if(sb64){
             acc[STORY_FORMAT]=sb64
             setItems({...acc})
             const surl=await gorselYukle(sb64,haber.source_id,STORY_FORMAT)
-            if(surl){ urlAcc[STORY_FORMAT]=surl; setStoryUrl(surl); if(!stop) setUrls({...urlAcc}) }
-          } else {
-            console.error('Story renderFormat null döndürdü')
+            if(surl){urlAcc[STORY_FORMAT]=surl;setStoryUrl(surl);if(!stop)setUrls({...urlAcc})}
+          }else{
+            console.error('renderStory null/undefined döndü')
           }
         }catch(e){
           console.error('Story render HATA:',e)
