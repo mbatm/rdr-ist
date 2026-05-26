@@ -20,7 +20,13 @@ export async function onRequestPost({ request, env }) {
     const secilenIgIds = [...new Set(tumIgIds.map(String))].filter(id => {
       const h = hesaplar.find(x=>String(x.ig_id)===String(id))
       const uname = h?.ig_username || null
-      if (!uname) return true
+      if (!h) return false        // hesaplar listesinde yoksa atla
+      if (!uname) {
+        // username yoksa ig_id bazlı dedup
+        if (gorulmusUsernames.has(id)) return false
+        gorulmusUsernames.add(id)
+        return true
+      }
       if (gorulmusUsernames.has(uname)) return false
       gorulmusUsernames.add(uname)
       return true

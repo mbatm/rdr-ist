@@ -14,12 +14,12 @@ export async function onRequestGet({ env }) {
 
   // Instagram: aynı ig_id veya aynı username → dedup
   const igMap = new Map()
-  hesaplar.filter(h => h.ig_id).forEach(h => {
-    const key = h.ig_username || String(h.ig_id)
+  hesaplar.filter(h => h.ig_id && h.ig_username).forEach(h => {  // username olmayanı gösterme
+    const key = h.ig_username
     if (!igMap.has(key)) {
       igMap.set(key, {
         ig_id:    String(h.ig_id),
-        username: h.ig_username || '',
+        username: h.ig_username,
         page_id:  h.page_id,
         page_name: h.page_name,
         picture:  h.ig_picture || null,
