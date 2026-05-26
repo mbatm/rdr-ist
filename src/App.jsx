@@ -575,8 +575,9 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
                       selectedHaber?.video || ''
       console.log('Paylaş debug:', { kvVideo, videoRenders_dikey: videoRenders?.dikey?.url, video_dikey: selectedHaber?.video_dikey, kullanilan: videoUrl })
 
-      const kullanici = JSON.parse(localStorage.getItem('cms_token')||'""') ? 
-        (await fetch('/api/auth?token='+localStorage.getItem('cms_token')).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
+      const token = localStorage.getItem('cms_token') || ''
+      const kullanici = token
+        ? (await fetch('/api/auth?token='+token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
         : 'editor'
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
