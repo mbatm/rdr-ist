@@ -535,7 +535,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
   const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
-  const [metin,    setMetin]   = useState('')
+  const [fbMetin,  setFbMetin]  = useState('')
+  const [igMetin,  setIgMetin]  = useState('')
   const [gonderiyor, setGond]  = useState(false)
   const [sonuc,    setSonuc]   = useState(null)
   const [hata,     setHata]    = useState(null)
@@ -573,9 +574,19 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   }, [selectedHaber?.source_id])
 
   useEffect(() => {
-    const ham = content?.facebook || content?.site_basligi || ''
-    setMetin(kayserimLink ? `${ham}\n\n🔗 ${kayserimLink}` : ham)
-  }, [content, kayserimLink])
+    const link = kayserimLink || ''
+    const linkStr = link ? `\n\n🔗 ${link}` : ''
+    const linkKisa = link ? `\n\nTamamını oku: ${link}` : ''
+
+    // Facebook: başlık + spot + link
+    const fbHam = content?.facebook || content?.sosyal_baslik || content?.site_basligi || ''
+    setFbMetin(fbHam + linkKisa)
+
+    // Instagram: tüm metin + uzun link ibaresi
+    const igHam = content?.instagram || content?.optimize_icerik || content?.ozet || content?.site_basligi || ''
+    const igSon = link ? `\n\nDaha fazla detay için:\n${link}` : ''
+    setIgMetin(igHam.slice(0, 2000) + igSon)
+  }, [content?.url_slug, kayserimLink])
 
   const paylas = async (platform) => {
     setGond(true); setSonuc(null); setHata(null)
@@ -596,6 +607,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         : 'editor'
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
+        const metin = platform === 'instagram' ? igMetin : fbMetin
         body: JSON.stringify({
           source_id:  selectedHaber?.source_id,
           baslik:     content?.site_basligi||'',
@@ -676,11 +688,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
               </div>
               <div style={{maxHeight:120,overflowY:'auto',padding:'4px 0'}}>
                 {hesaplar.facebook.map(h=>(
-                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 10px',cursor:'pointer',fontSize:12}}>
+                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',cursor:'pointer',fontSize:12,userSelect:'none'}}>
                     <input type="checkbox" checked={secilenFb.includes(h.page_id)}
                       onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}
                       style={{flexShrink:0}}/>
-                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.page_name}</span>
+                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.page_name}</span>
                   </label>
                 ))}
               </div>
@@ -698,11 +710,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
               </div>
               <div style={{maxHeight:120,overflowY:'auto',padding:'4px 0'}}>
                 {hesaplar.instagram.map(h=>(
-                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 10px',cursor:'pointer',fontSize:12}}>
+                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',cursor:'pointer',fontSize:12,userSelect:'none'}}>
                     <input type="checkbox" checked={secilenIg.includes(h.ig_id)}
                       onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}
                       style={{flexShrink:0}}/>
-                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>@{h.username||h.ig_id}</span>
+                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{h.username ? '@'+h.username : h.ig_id}</span>
                   </label>
                 ))}
               </div>
@@ -723,14 +735,20 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         </div>
       })()}
 
-      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Paylaşım metni</div>
-      <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={3}
-        style={{width:'100%',fontSize:12,marginBottom:10,resize:'vertical',boxSizing:'border-box'}}/>
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:'#1877F2',marginBottom:3}}>Facebook metni</div>
+        <textarea value={fbMetin} onChange={e=>setFbMetin(e.target.value)} rows={3}
+          style={{width:'100%',fontSize:12,marginBottom:8,resize:'vertical',boxSizing:'border-box'}}/>
+        <div style={{fontSize:11,color:'#E1306C',marginBottom:3}}>Instagram metni</div>
+        <textarea value={igMetin} onChange={e=>setIgMetin(e.target.value)} rows={4}
+          style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+      </div>
 
       <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-        {[['her_ikisi','FB + IG'],['facebook','Facebook'],['instagram','Instagram']].map(([p,l])=>(
+        {[['facebook','Facebook','#1877F2'],['instagram','Instagram','#E1306C'],['her_ikisi','FB + IG','#4dabf7']].map(([p,l,c])=>(
           <button key={p} onClick={()=>paylas(p)} disabled={gonderiyor}
-            style={{fontSize:12,background:'rgba(24,119,242,.15)',border:'0.5px solid rgba(24,119,242,.3)',color:'#4dabf7'}}>
+            style={{fontSize:12,background:`rgba(${p==='facebook'?'24,119,242':p==='instagram'?'225,48,108':'24,119,242'},.15)`,
+              border:`0.5px solid ${c}44`,color:c}}>
             <Ic n={gonderiyor?'loader-2':'send'} size={13}/> {l}
           </button>
         ))}
@@ -1278,7 +1296,8 @@ export default function App() {
       if (data.hata) throw new Error(data.hata)
       const kv = await fetch('/api/haberler').then(r=>r.json()).catch(()=>[])
       const bulunan = Array.isArray(kv) ? kv.find(x=>x.source_id===h.source_id) : null
-      setContent(bulunan||data)
+      const merged  = { ...data, kayserim_link: bulunan?.kayserim_link || data.kayserim_link || '' }
+      setContent(merged)
       setTab('isleme')
     } catch(e){ setError(e.message) }
     setProcessing(false)
