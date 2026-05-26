@@ -531,16 +531,30 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
 
 // ── META PAYLAŞIM ─────────────────────────────────────────────────────────
-// v2.1 - video_dikey kalıcı kayıt
 function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
   const isVideo = !!(selectedHaber?.video)
-  const [fbTip,  setFbTip]  = useState(isVideo ? 'video' : 'foto')
-  const [igTip,  setIgTip]  = useState(isVideo ? 'video' : 'foto')
-  const [metin,  setMetin]  = useState('')
-  const [gonderiyor, setGond] = useState(false)
-  const [sonuc,  setSonuc]  = useState(null)
-  const [hata,   setHata]   = useState(null)
-  const [kvVideo, setKvVideo] = useState({}) // KV'den çekilen video URL'leri
+  const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
+  const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
+  const [metin,    setMetin]   = useState('')
+  const [gonderiyor, setGond]  = useState(false)
+  const [sonuc,    setSonuc]   = useState(null)
+  const [hata,     setHata]    = useState(null)
+  const [kvVideo,  setKvVideo] = useState({})
+  const [hesaplar, setHesaplar] = useState({ facebook: [], instagram: [] })
+  const [secilenFb, setSecilenFb] = useState('')
+  const [secilenIg, setSecilenIg] = useState('')
+
+  // Bağlı hesapları yükle
+  useEffect(() => {
+    fetch('/api/hesaplar')
+      .then(r=>r.json())
+      .then(d => {
+        setHesaplar(d)
+        if (d.facebook?.length)  setSecilenFb(d.facebook[0].page_id)
+        if (d.instagram?.length) setSecilenIg(d.instagram[0].ig_id)
+      })
+      .catch(()=>{})
+  }, [])
 
   // Video URL'lerini KV'den yükle
   useEffect(() => {
@@ -582,13 +596,15 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
         body: JSON.stringify({
-          source_id: selectedHaber?.source_id,
-          baslik: content?.site_basligi||'',
+          source_id:  selectedHaber?.source_id,
+          baslik:     content?.site_basligi||'',
           gorsel_url: gorselUrl,
           video_url:  videoUrl,
           metin,
           platform,
-          is_video: tip === 'video',
+          is_video:   tip === 'video',
+          fb_page_id: secilenFb || undefined,
+          ig_id:      secilenIg || undefined,
         }),
       })
       const data = await res.json()
@@ -653,6 +669,26 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
   return (
     <div style={{marginBottom:'0.875rem'}}>
+      {/* Hesap seçiciler */}
+      {hesaplar.facebook?.length > 1 && (
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>FACEBOOK SAYFASI</div>
+          <select value={secilenFb} onChange={e=>setSecilenFb(e.target.value)}
+            style={{width:'100%',fontSize:12,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'5px 8px'}}>
+            {hesaplar.facebook.map(h=><option key={h.page_id} value={h.page_id}>{h.page_name}</option>)}
+          </select>
+        </div>
+      )}
+      {hesaplar.instagram?.length > 1 && (
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>INSTAGRAM HESABI</div>
+          <select value={secilenIg} onChange={e=>setSecilenIg(e.target.value)}
+            style={{width:'100%',fontSize:12,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'5px 8px'}}>
+            {hesaplar.instagram.map(h=><option key={h.ig_id} value={h.ig_id}>@{h.username||h.ig_id} ({h.page_name})</option>)}
+          </select>
+        </div>
+      )}
+
       <TipSec val={fbTip} onChange={setFbTip} label="Facebook" />
       <TipSec val={igTip} onChange={setIgTip} label="Instagram" />
 
@@ -1005,10 +1041,10 @@ function AdminLog({ onKapat }) {
     <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',flexShrink:0}}>
         <button onClick={onKapat} style={{background:'transparent',border:'0.5px solid var(--border)',fontSize:12}}><Ic n="arrow-left" size={12}/> Geri</button>
-        {['log','kullanicilar'].map(s=>(
+        {['log','kullanicilar','hesaplar'].map(s=>(
           <button key={s} onClick={()=>setSekme(s)}
             style={{fontSize:12,background:sekme===s?'rgba(255,255,255,.08)':'transparent',border:sekme===s?'0.5px solid rgba(255,255,255,.2)':'0.5px solid transparent',fontWeight:sekme===s?500:400}}>
-            {s==='log' ? `📋 Paylaşım Logu (${log.length})` : '👥 Kullanıcılar'}
+            {s==='log' ? `📋 Paylaşım Logu (${log.length})` : s==='kullanicilar' ? '👥 Kullanıcılar' : '🔗 Hesaplar'}
           </button>
         ))}
       </div>
