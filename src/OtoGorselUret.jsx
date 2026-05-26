@@ -107,7 +107,7 @@ const MANIFEST = {
     }
   }
 }
-const FORMATLAR = ['instagram','facebook','twitter','youtube','story']
+const FORMATLAR = ['instagram','facebook','twitter','youtube']
 const STORY_FORMAT = 'story'
 
 let scReady=false
@@ -416,13 +416,22 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
           if(b64){
             acc[fmt]=b64
             const url=await gorselYukle(b64,haber.source_id,fmt)
-            if(url){
-              urlAcc[fmt]=url
-              if(fmt===STORY_FORMAT) setStoryUrl(url)
-            }
+            if(url) urlAcc[fmt]=url
           }
         }catch(e){console.warn(fmt,e.message)}
         if(!stop){setItems({...acc});setUrls({...urlAcc})}
+      }
+      // Story ayrı render
+      if(!stop){
+        try{
+          const sb64=await renderFormat(STORY_FORMAT,haber)
+          if(sb64){
+            acc[STORY_FORMAT]=sb64
+            setItems({...acc})
+            const surl=await gorselYukle(sb64,haber.source_id,STORY_FORMAT)
+            if(surl){ urlAcc[STORY_FORMAT]=surl; setStoryUrl(surl); if(!stop) setUrls({...urlAcc}) }
+          }
+        }catch(e){console.warn('story hata:',e.message)}
       }
       if(!stop){setBusy(false);onGorsellerHazir?.({items:acc,urls:urlAcc})}
     })()
@@ -453,23 +462,34 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
           </div>
         })}
       </div>
-      {/* Story önizleme */}
-      {items[STORY_FORMAT] && (
-        <div style={{marginTop:10}}>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,display:'flex',justifyContent:'space-between'}}>
-            <span>STORY · 1080×1920</span>
-            {urls[STORY_FORMAT]&&<span style={{color:'#E1306C',fontSize:10}}>✓ Story hazır</span>}
-          </div>
-          <div style={{maxWidth:180}}>
-            <img src={items[STORY_FORMAT]} alt="story" style={{width:'100%',borderRadius:6,border:'0.5px solid rgba(225,48,108,.3)',display:'block',marginBottom:4}}/>
-            <a href={items[STORY_FORMAT]} download="kayserim-story.jpg">
-              <button style={{width:'100%',fontSize:11,background:'rgba(225,48,108,.08)',border:'0.5px solid rgba(225,48,108,.25)',color:'#E1306C'}}>
-                <Ic n="download" sz={11}/>Story İndir
-              </button>
-            </a>
-          </div>
+      {/* Story önizleme — ayrı bölüm */}
+      <div style={{marginTop:12,padding:10,background:'rgba(225,48,108,.06)',border:'0.5px solid rgba(225,48,108,.25)',borderRadius:6}}>
+        <div style={{fontSize:11,color:'#E1306C',fontWeight:500,marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span>📱 Instagram Story (1080×1920)</span>
+          {urls[STORY_FORMAT]&&<span style={{fontSize:10,color:'#00D4AA'}}>✓ KV'ye yüklendi</span>}
+          {!items[STORY_FORMAT]&&busy&&<span style={{fontSize:10,color:'var(--muted)'}}>Hazırlanıyor…</span>}
         </div>
-      )}
+        {items[STORY_FORMAT] ? (
+          <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+            <img src={items[STORY_FORMAT]} alt="story"
+              style={{width:90,borderRadius:4,border:'1px solid rgba(225,48,108,.4)',display:'block',flexShrink:0}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>
+                Link etiketi görsel üzerine işlenmiş durumda.
+              </div>
+              <a href={items[STORY_FORMAT]} download="kayserim-story.jpg">
+                <button style={{fontSize:11,background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>
+                  <Ic n="download" sz={11}/> Story İndir
+                </button>
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div style={{fontSize:12,color:'var(--muted)',display:'flex',alignItems:'center',gap:8}}>
+            {busy ? <><Ic n="loader-2" sz={12}/>Üretiliyor…</> : 'Story görseli üretilmedi'}
+          </div>
+        )}
+      </div>
       {busy&&<div style={{fontSize:11,color:'var(--muted)',marginTop:8,display:'flex',gap:6,alignItems:'center'}}><Ic n="loader-2" sz={11}/>Devam ediyor…</div>}
     </div>
   )
