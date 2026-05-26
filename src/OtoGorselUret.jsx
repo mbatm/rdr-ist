@@ -1,4 +1,4 @@
-// ── OTO GÖRSEL ÜRET ─────────────────────────────────────────────────────
+// ── OTO GÖRSEL ÜRET v2.5 ───────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 
 const MANIFEST = {
@@ -386,6 +386,8 @@ async function renderFormat(fmt, haber) {
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
     ctx.globalAlpha = 1
   }
+
+  return cv.toDataURL('image/jpeg',.93)
 }
 
 const Ic=({n,sz=14})=><i className={`ti ti-${n}`} aria-hidden style={{fontSize:sz}}/>
