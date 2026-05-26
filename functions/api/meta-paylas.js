@@ -3,7 +3,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json()
     const { gorsel_url, video_url, metin, platform = 'her_ikisi', is_video,
             fb_page_ids, ig_ids, fb_page_id, ig_id: reqIgId,
-            source_id, baslik, ig_story, ig_story_gorsel, ig_kolabor, kayserim_link } = body
+            source_id, baslik, ig_story, ig_story_gorsel, ig_kolabor, kayserim_link, video_dur } = body
 
     if (!gorsel_url && !video_url) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
 
@@ -85,7 +85,11 @@ export async function onRequestPost({ request, env }) {
         // Instagram Story
         if (ig_story) {
           const storyKey = igId + '_story'
-          if (is_video && video_url) {
+          // Video < 59s ise video story, değilse görsel story
+          const useVideoStory = is_video && video_url && video_dur !== null && video_dur <= 59
+
+          if (useVideoStory) {
+            // Video story
             const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
@@ -96,29 +100,34 @@ export async function onRequestPost({ request, env }) {
             })
             const cData = await cRes.json()
             sonuclar.instagram[storyKey] = cData.error
-              ? { hata:`Story: ${cData.error.message}` }
+              ? { hata:`Story video: ${cData.error.message}` }
               : { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username, story:true }
-          } else if (gorsel_url) {
-            const storyImg = ig_story_gorsel || gorsel_url  // dikey story görseli öncelikli
-            const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({
-                image_url: storyImg, media_type:'STORIES',
-                ...(kayserim_link ? { sticker_link: kayserim_link } : {}),
-                access_token: userToken
-              }),
-            })
-            const cData = await cRes.json()
-            if (!cData.error) {
-              await new Promise(r=>setTimeout(r,2000))
-              const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+          } else {
+            // Görsel story — story formatı görseli öncelikli
+            const storyImg = ig_story_gorsel || gorsel_url
+            if (storyImg) {
+              const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ creation_id:cData.id, access_token:userToken }),
+                body: JSON.stringify({
+                  image_url: storyImg, media_type:'STORIES',
+                  ...(kayserim_link ? { sticker_link: kayserim_link } : {}),
+                  access_token: userToken
+                }),
               })
-              const pData = await pRes.json()
-              sonuclar.instagram[storyKey] = pData.error
-                ? { hata:`Story: ${pData.error.message}` }
-                : { ok:true, media_id:pData.id, story:true, ig_username:sayfa.ig_username }
+              const cData = await cRes.json()
+              if (!cData.error) {
+                await new Promise(r=>setTimeout(r,2000))
+                const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+                  method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ creation_id:cData.id, access_token:userToken }),
+                })
+                const pData = await pRes.json()
+                sonuclar.instagram[storyKey] = pData.error
+                  ? { hata:`Story görsel: ${pData.error.message}` }
+                  : { ok:true, media_id:pData.id, story:true, ig_username:sayfa.ig_username }
+              } else {
+                sonuclar.instagram[storyKey] = { hata:`Story: ${cData.error.message}` }
+              }
             }
           }
         }

@@ -535,8 +535,9 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
   const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
-  const [igStory,  setIgStory]  = useState(false)
-  const [igKolabor, setIgKolabor] = useState('')  // kolaboratör usernameler virgülle ayrılmış
+  const [igStory,    setIgStory]    = useState(false)
+  const [igKolabor,  setIgKolabor]  = useState('')
+  const [videoDur,   setVideoDur]   = useState(null) // saniye cinsinden video süresi
   const [fbMetin,  setFbMetin]  = useState('')
   const [igMetin,  setIgMetin]  = useState('')
   const [gonderiyor, setGond]  = useState(false)
@@ -567,13 +568,22 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     }).catch(()=>{})
   }, [])
 
-  // Video URL'lerini KV'den yükle
+  // Video URL'lerini KV'den yükle + video süresini oku
   useEffect(() => {
     if (!selectedHaber?.source_id || !isVideo) return
     fetch('/api/video-url?source_id=' + encodeURIComponent(selectedHaber.source_id))
       .then(r => r.json())
       .then(data => { if (data.dikey || data.yatay) setKvVideo(data) })
       .catch(() => {})
+    // Video süresini oku
+    const videoUrl = selectedHaber?.video
+    if (videoUrl) {
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      v.onloadedmetadata = () => setVideoDur(Math.round(v.duration))
+      v.onerror = () => setVideoDur(null)
+      v.src = videoUrl
+    }
   }, [selectedHaber?.source_id])
 
   // Video haber değişince tip güncelle
@@ -637,6 +647,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           ig_ids:       secilenIg.length ? secilenIg : undefined,
           ig_story:     igStory,
           ig_story_gorsel: igStory ? storyGorselUrl : undefined,
+          video_dur:    videoDur,
           ig_kolabor:   igKolabor ? igKolabor.split(',').map(s=>s.trim().replace('@','')).filter(Boolean) : undefined,
           kayserim_link: kayserimLink || '',
         }),
@@ -748,10 +759,20 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
       <TipSec val={igTip} onChange={setIgTip} label="Instagram" />
       {/* Instagram Story */}
-      <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#8891a5',marginBottom:6,cursor:'pointer'}}>
-        <input type="checkbox" checked={igStory} onChange={e=>setIgStory(e.target.checked)}/>
-        <span>Story olarak da paylaş {isVideo ? '(video)' : '(fotoğraf)'}</span>
-      </label>
+      {(() => {
+        const storyTip = isVideo && videoDur !== null && videoDur <= 59 ? 'video' : 'gorsel'
+        const storyEtiket = storyTip === 'video'
+          ? `Story - Video (${videoDur}s)`
+          : isVideo && videoDur > 59
+            ? `Story - Görsel (video ${videoDur}s > 59s)`
+            : 'Story - Görsel'
+        return (
+          <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#8891a5',marginBottom:6,cursor:'pointer'}}>
+            <input type="checkbox" checked={igStory} onChange={e=>setIgStory(e.target.checked)}/>
+            <span>{storyEtiket}</span>
+          </label>
+        )
+      })()}
       {/* Instagram Kolaboratör */}
       <div style={{marginBottom:8}}>
         <div style={{fontSize:11,color:'#8891a5',marginBottom:3}}>

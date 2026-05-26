@@ -107,7 +107,7 @@ const MANIFEST = {
     }
   }
 }
-const FORMATLAR = ['instagram','facebook','twitter','youtube']
+const FORMATLAR = ['instagram','facebook','twitter','youtube','story']
 const STORY_FORMAT = 'story'
 
 let scReady=false
@@ -215,8 +215,8 @@ async function renderFormat(fmt, haber) {
   grad.addColorStop(1,'rgba(0,0,0,0.92)')
   ctx.fillStyle=grad; ctx.fillRect(0,0,w,h)
 
-  // 3. SVG chrome
-  const chrome = await getSvg(fmt)
+  // 3. SVG chrome (story için instagram şablonunu kullan ama dikey)
+  const chrome = await getSvg(fmt === 'story' ? 'instagram' : fmt)
   if(chrome) ctx.drawImage(chrome,0,0,w,h)
 
   const bm  = m.baslik
@@ -340,7 +340,6 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
     let stop=false;setItems({});setUrls({});setBusy(true);setStoryUrl(null)
     ;(async()=>{
       const acc={},urlAcc={}
-      // Normal formatlar
       for(const fmt of FORMATLAR){
         if(stop)break
         try{
@@ -348,21 +347,13 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
           if(b64){
             acc[fmt]=b64
             const url=await gorselYukle(b64,haber.source_id,fmt)
-            if(url)urlAcc[fmt]=url
+            if(url){
+              urlAcc[fmt]=url
+              if(fmt===STORY_FORMAT) setStoryUrl(url)
+            }
           }
         }catch(e){console.warn(fmt,e.message)}
         if(!stop){setItems({...acc});setUrls({...urlAcc})}
-      }
-      // Story formatı
-      if(!stop){
-        try{
-          const b64=await renderFormat(STORY_FORMAT,haber)
-          if(b64){
-            acc[STORY_FORMAT]=b64
-            const url=await gorselYukle(b64,haber.source_id,STORY_FORMAT)
-            if(url){ urlAcc[STORY_FORMAT]=url; setStoryUrl(url) }
-          }
-        }catch(e){console.warn('story',e.message)}
       }
       if(!stop){setBusy(false);onGorsellerHazir?.({items:acc,urls:urlAcc})}
     })()
