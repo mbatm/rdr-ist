@@ -956,13 +956,44 @@ function LoginEkrani({ onGiris }) {
 function AdminLog({ onKapat }) {
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(true)
+  const [sekme, setSekme] = useState('log') // 'log' | 'kullanicilar'
+  const [users, setUsers] = useState([])
+  const [yeniK, setYeniK] = useState({ kullanici:'', sifre:'', ad:'', rol:'editor' })
+  const [kayit, setKayit] = useState(false)
+  const token = localStorage.getItem('cms_token') || ''
 
   useEffect(() => {
-    fetch('/api/paylas-log?admin=1')
-      .then(r=>r.json())
-      .then(d=>{ setLog(Array.isArray(d)?d:[]); setLoading(false) })
-      .catch(()=>setLoading(false))
+    fetch('/api/paylas-log?admin=1', { headers: { 'X-Token': token } })
+      .then(r=>r.json()).then(d=>{ setLog(Array.isArray(d)?d:[]); setLoading(false) }).catch(()=>setLoading(false))
+    fetch('/api/kullanicilar?token='+token, { headers: { 'X-Token': token } })
+      .then(r=>r.json()).then(d=>{ if(Array.isArray(d)) setUsers(d) }).catch(()=>{})
   }, [])
+
+  const kullaniciEkle = async () => {
+    if (!yeniK.kullanici || !yeniK.sifre) return
+    setKayit(true)
+    try {
+      const res = await fetch('/api/kullanicilar', {
+        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+        body: JSON.stringify({ islem:'ekle', ...yeniK })
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setUsers(p=>[...p, {kullanici:yeniK.kullanici,rol:yeniK.rol,ad:yeniK.ad}])
+        setYeniK({ kullanici:'', sifre:'', ad:'', rol:'editor' })
+      }
+    } catch(e){}
+    setKayit(false)
+  }
+
+  const kullaniciSil = async (k) => {
+    if (!confirm(`"${k}" silinsin mi?`)) return
+    await fetch('/api/kullanicilar', {
+      method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+      body: JSON.stringify({ islem:'sil', kullanici:k })
+    })
+    setUsers(p=>p.filter(u=>u.kullanici!==k))
+  }
 
   const PLT_COLORS = { facebook:'#1877F2', instagram:'#E1306C', twitter:'#1DA1F2', youtube:'#FF0000' }
 
@@ -970,26 +1001,78 @@ function AdminLog({ onKapat }) {
     <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',flexShrink:0}}>
         <button onClick={onKapat} style={{background:'transparent',border:'0.5px solid var(--border)',fontSize:12}}><Ic n="arrow-left" size={12}/> Geri</button>
-        <span style={{fontWeight:600,fontSize:15}}>Paylaşım Logu</span>
-        <span style={{fontSize:12,color:'var(--muted)'}}>{log.length} kayıt</span>
+        {['log','kullanicilar'].map(s=>(
+          <button key={s} onClick={()=>setSekme(s)}
+            style={{fontSize:12,background:sekme===s?'rgba(255,255,255,.08)':'transparent',border:sekme===s?'0.5px solid rgba(255,255,255,.2)':'0.5px solid transparent',fontWeight:sekme===s?500:400}}>
+            {s==='log' ? `📋 Paylaşım Logu (${log.length})` : '👥 Kullanıcılar'}
+          </button>
+        ))}
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'0.75rem'}}>
-        {loading && <div style={{color:'var(--muted)',fontSize:13}}>Yükleniyor…</div>}
-        {log.map((l,i)=>(
-          <div key={i} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,display:'flex',gap:10,alignItems:'flex-start'}}>
-            <div style={{fontSize:10,background:`${PLT_COLORS[l.platform]||'#666'}22`,color:PLT_COLORS[l.platform]||'#aaa',border:`0.5px solid ${PLT_COLORS[l.platform]||'#666'}44`,borderRadius:4,padding:'2px 6px',flexShrink:0,textTransform:'capitalize'}}>{l.platform}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.baslik||l.source_id}</div>
-              <div style={{fontSize:11,color:'var(--muted)',marginTop:3,display:'flex',gap:8}}>
-                <span>👤 {l.kullanici}</span>
-                <span>{l.tip==='video'?'🎬 Video':'📷 Fotoğraf'}</span>
-                <span>{l.tarih?new Date(l.tarih).toLocaleString('tr-TR'):''}</span>
-                {l.post_id&&<span style={{fontFamily:'var(--mono)',fontSize:10}}>ID: {l.post_id}</span>}
+
+        {sekme==='log' && (<>
+          {loading && <div style={{color:'var(--muted)',fontSize:13}}>Yükleniyor…</div>}
+          {log.map((l,i)=>(
+            <div key={i} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,display:'flex',gap:10,alignItems:'flex-start'}}>
+              <div style={{fontSize:10,background:`${PLT_COLORS[l.platform]||'#666'}22`,color:PLT_COLORS[l.platform]||'#aaa',border:`0.5px solid ${PLT_COLORS[l.platform]||'#666'}44`,borderRadius:4,padding:'2px 6px',flexShrink:0,textTransform:'capitalize'}}>{l.platform}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.baslik||l.source_id}</div>
+                <div style={{fontSize:11,color:'var(--muted)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <span>👤 {l.kullanici}</span>
+                  <span>{l.tip==='video'?'🎬 Video':'📷 Fotoğraf'}</span>
+                  <span>{l.tarih?new Date(l.tarih).toLocaleString('tr-TR'):''}</span>
+                  {l.post_id&&<span style={{fontFamily:'var(--mono)',fontSize:10}}>ID: {l.post_id}</span>}
+                </div>
               </div>
             </div>
+          ))}
+          {!loading&&log.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Henüz paylaşım yapılmamış.</div>}
+        </>)}
+
+        {sekme==='kullanicilar' && (<>
+          <div style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'1rem',marginBottom:'1rem'}}>
+            <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Yeni Kullanıcı Ekle</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>KULLANICI ADI</div>
+                <input value={yeniK.kullanici} onChange={e=>setYeniK(p=>({...p,kullanici:e.target.value}))} style={{width:'100%',fontSize:13}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>ŞİFRE</div>
+                <input type="password" value={yeniK.sifre} onChange={e=>setYeniK(p=>({...p,sifre:e.target.value}))} style={{width:'100%',fontSize:13}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>AD SOYAD</div>
+                <input value={yeniK.ad} onChange={e=>setYeniK(p=>({...p,ad:e.target.value}))} style={{width:'100%',fontSize:13}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>ROL</div>
+                <select value={yeniK.rol} onChange={e=>setYeniK(p=>({...p,rol:e.target.value}))} style={{width:'100%',fontSize:13,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'6px 8px'}}>
+                  <option value="editor">Editör</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <button onClick={kullaniciEkle} disabled={kayit||!yeniK.kullanici||!yeniK.sifre}
+              style={{background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',fontSize:12}}>
+              <Ic n={kayit?'loader-2':'user-plus'} size={12}/> Ekle
+            </button>
           </div>
-        ))}
-        {!loading&&log.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Henüz paylaşım yapılmamış.</div>}
+
+          {users.map(u=>(
+            <div key={u.kullanici} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 14px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
+              <Ic n="user" size={16}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500}}>{u.ad||u.kullanici}</div>
+                <div style={{fontSize:11,color:'var(--muted)'}}>{u.kullanici} · {u.rol==='admin'?'Admin':'Editör'}</div>
+              </div>
+              {u.kullanici!=='admin'&&<button onClick={()=>kullaniciSil(u.kullanici)}
+                style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                <Ic n="trash" size={11}/> Sil
+              </button>}
+            </div>
+          ))}
+        </>)}
       </div>
     </div>
   )

@@ -9,6 +9,13 @@ export async function onRequestGet({ request, env }) {
   const admin    = url.searchParams.get('admin')
 
   if (admin) {
+    // Admin kontrolü
+    const token = request.headers.get('X-Token') || url.searchParams.get('token')
+    if (token) {
+      const data = await env.HABERLER.get(`token:${token}`, 'json')
+      if (!data || data.rol !== 'admin')
+        return Response.json({ hata: 'Yetkisiz erişim' }, { status: 403 })
+    }
     const all = await env.HABERLER.get('paylas_log', 'json') || []
     return Response.json(all)
   }
