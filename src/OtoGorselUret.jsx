@@ -276,7 +276,7 @@ async function renderFormat(fmt, haber) {
 
   // ── ALTTAN YUKARI LAYOUT ────────────────────────────────────────────────
   const bottomY = fmt === 'story'
-    ? h - pad * 4.5   // story'de link etiketi için daha fazla boşluk
+    ? h - Math.round(pad * 6.5)  // story: link etiketi için yer bırak
     : h - pad * 1.1
   const maxTitleLn = w > h ? 2 : 3
   const maxSpotLn  = w > h ? 2 : 3
@@ -347,43 +347,44 @@ async function renderFormat(fmt, haber) {
     ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
   }
 
-  // Story için link etiketi — her zaman göster
+  // Story için link etiketi — alt bölgede sabit konum
   if(fmt === 'story'){
-    const domain   = haber.kayserim_link?.includes('kayserim') ? 'kayserim.net'
-                   : haber.kayserim_link ? haber.kayserim_link.replace(/https?:\/\//,'').split('/')[0]
-                   : 'kayserim.net'
-    const linkFont = Math.round(w * 0.034)
-    const lbH      = linkFont * 2.2
-    const lbY      = bottomY + pad * 0.5
-    const lbX      = w / 2
+    const domain   = (haber.kayserim_link && haber.kayserim_link.includes('kayserim'))
+      ? 'kayserim.net'
+      : 'kayserim.net'
+    const linkFont = Math.round(w * 0.036)
+    const lbH      = Math.round(linkFont * 2.4)
+    const lbW      = Math.round(w * 0.6)
+    const rx       = Math.round((w - lbW) / 2)
+    const ry       = h - Math.round(pad * 3.2)  // alt kenardan sabit mesafe
+    const r        = lbH / 2
+    const txt      = `🔗  ${domain}  ↑`
 
-    ctx.font = `600 ${linkFont}px "Open Sans", Arial`
-    const txt = `🔗  ${domain}  ↑`
-    const lw  = ctx.measureText(txt).width
-    const lbW = lw + linkFont * 2.4
-    const rx  = lbX - lbW / 2
-    const ry  = lbY - lbH * 0.8
-    const r   = lbH / 2
-
+    // Beyaz pill
     ctx.beginPath()
     if (ctx.roundRect) {
       ctx.roundRect(rx, ry, lbW, lbH, r)
     } else {
       ctx.moveTo(rx+r,ry); ctx.lineTo(rx+lbW-r,ry)
-      ctx.quadraticCurveTo(rx+lbW,ry,rx+lbW,ry+r)
-      ctx.lineTo(rx+lbW,ry+lbH-r)
-      ctx.quadraticCurveTo(rx+lbW,ry+lbH,rx+lbW-r,ry+lbH)
-      ctx.lineTo(rx+r,ry+lbH); ctx.quadraticCurveTo(rx,ry+lbH,rx,ry+lbH-r)
-      ctx.lineTo(rx,ry+r); ctx.quadraticCurveTo(rx,ry,rx+r,ry); ctx.closePath()
+      ctx.quadraticCurveTo(rx+lbW,ry,rx+lbW,ry+r); ctx.lineTo(rx+lbW,ry+lbH-r)
+      ctx.quadraticCurveTo(rx+lbW,ry+lbH,rx+lbW-r,ry+lbH); ctx.lineTo(rx+r,ry+lbH)
+      ctx.quadraticCurveTo(rx,ry+lbH,rx,ry+lbH-r); ctx.lineTo(rx,ry+r)
+      ctx.quadraticCurveTo(rx,ry,rx+r,ry); ctx.closePath()
     }
-    ctx.fillStyle='rgba(255,255,255,0.95)'
-    ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=8
+    ctx.globalAlpha = 1
+    ctx.fillStyle = '#ffffff'
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 12
     ctx.fill()
-    ctx.shadowColor='transparent'; ctx.shadowBlur=0
-    ctx.fillStyle='#111'
-    ctx.textAlign='center'; ctx.textBaseline='middle'
-    ctx.fillText(txt, lbX, ry+lbH/2)
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+
+    // Metin
+    ctx.font = `700 ${linkFont}px "Open Sans", Arial`
+    ctx.fillStyle = '#1a1a2e'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(txt, rx + lbW/2, ry + lbH/2)
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+    ctx.globalAlpha = 1
   }
 }
 
