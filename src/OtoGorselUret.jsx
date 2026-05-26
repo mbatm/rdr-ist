@@ -275,7 +275,9 @@ async function renderFormat(fmt, haber) {
   ctx.shadowColor='transparent'; ctx.shadowBlur=0
 
   // ── ALTTAN YUKARI LAYOUT ────────────────────────────────────────────────
-  const bottomY    = h - pad * 1.1   // alt kenar boşluğu
+  const bottomY = fmt === 'story'
+    ? h - pad * 4.5   // story'de link etiketi için daha fazla boşluk
+    : h - pad * 1.1
   const maxTitleLn = w > h ? 2 : 3
   const maxSpotLn  = w > h ? 2 : 3
   const spotMaxW   = w - bm.x - pad
@@ -345,7 +347,37 @@ async function renderFormat(fmt, haber) {
     ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
   }
 
-  return cv.toDataURL('image/jpeg',.93)
+  // Story için link etiketi (spot altında)
+  if(fmt === 'story' && (haber.kayserim_link || haber.source_url)){
+    const linkUrl  = haber.kayserim_link || haber.source_url || ''
+    const domain   = 'kayserim.net'
+    const linkFont = Math.round(w * 0.032)
+    const lbH      = linkFont * 2.0
+    const lbY      = bottomY + pad * 0.3
+    const lbX      = w / 2
+
+    // Pill arka plan
+    ctx.font = `600 ${linkFont}px "Open Sans", Arial`
+    const lw = ctx.measureText(`🔗  ${domain}  ↑`).width
+    const lbW = lw + linkFont * 2
+    const rx = lbX - lbW / 2
+    const ry = lbY - lbH * 0.75
+
+    // Beyaz pill
+    ctx.beginPath()
+    ctx.roundRect(rx, ry, lbW, lbH, lbH / 2)
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.fill()
+
+    // Yazı
+    ctx.fillStyle = '#111'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor = 'transparent'
+    ctx.fillText(`🔗  ${domain}  ↑`, lbX, ry + lbH / 2)
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+  }
 }
 
 const Ic=({n,sz=14})=><i className={`ti ti-${n}`} aria-hidden style={{fontSize:sz}}/>
