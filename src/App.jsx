@@ -738,12 +738,15 @@ function Isleme({ content, processing, error, selectedHaber }) {
 
   const set = (f,v) => setEc(p=>({...p,[f]:v}))
 
+  // ec hangi habere ait? Farklı haberden kalıyorsa selectedHaber'ın değerlerini kullan
+  const ecAyniHaber = ec.source_id === selectedHaber?.source_id || ec.url_slug === selectedHaber?.url_slug
+
   const editedHaber = selectedHaber ? {
     ...selectedHaber,
-    sosyal_baslik: ec.sosyal_baslik||ec.site_basligi||selectedHaber.baslik,
-    site_basligi:  ec.site_basligi||selectedHaber.baslik,
-    ozet:          ec.ozet||selectedHaber.icerik?.slice(0,120),
-    kategori:      ec.kategori||selectedHaber.kategori,
+    sosyal_baslik: ecAyniHaber ? (ec.sosyal_baslik||ec.site_basligi||selectedHaber.sosyal_baslik||selectedHaber.baslik) : (selectedHaber.sosyal_baslik||selectedHaber.baslik),
+    site_basligi:  ecAyniHaber ? (ec.site_basligi||selectedHaber.site_basligi||selectedHaber.baslik) : (selectedHaber.site_basligi||selectedHaber.baslik),
+    ozet:          ecAyniHaber ? (ec.ozet||selectedHaber.ozet||selectedHaber.icerik?.slice(0,120)) : (selectedHaber.ozet||selectedHaber.icerik?.slice(0,120)),
+    kategori:      ecAyniHaber ? (ec.kategori||selectedHaber.kategori) : selectedHaber.kategori,
     tarih:         selectedHaber.tarih,
   } : null
 
