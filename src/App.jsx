@@ -688,7 +688,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           )}
           {/* Instagram */}
           {hesaplar.instagram?.length > 0 && (
-            <div style={{borderTop: hesaplar.facebook?.length ? '0.5px solid var(--border)' : 'none'}}>
+            <div style={{borderTop:'0.5px solid var(--border)'}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 10px',background:'rgba(225,48,108,.06)',borderBottom:'0.5px solid var(--border)'}}>
                 <span style={{fontSize:11,color:'#E1306C',fontWeight:500}}>Instagram ({secilenIg.length}/{hesaplar.instagram.length})</span>
                 <div style={{display:'flex',gap:6}}>
