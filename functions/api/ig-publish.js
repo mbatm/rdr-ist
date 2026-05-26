@@ -12,9 +12,7 @@ export async function onRequestPost({ request, env }) {
     const pageId    = env.META_PAGE_ID
     const igId      = env.META_IG_ID
 
-    const pageRes   = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=access_token&access_token=${userToken}`)
-    const pageData  = await pageRes.json()
-    const pageToken = pageData.access_token || userToken
+    const pageToken = userToken  // Instagram için sistem kullanıcı tokenı direkt kullan
 
     // Container durumunu kontrol et
     const sRes   = await fetch(`https://graph.facebook.com/v19.0/${container_id}?fields=status_code,status&access_token=${pageToken}`)

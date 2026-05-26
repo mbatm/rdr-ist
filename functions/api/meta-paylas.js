@@ -60,6 +60,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ── INSTAGRAM ─────────────────────────────────────────────────────────
+    // Instagram için sistem kullanıcı tokenını direkt kullan (page token değil)
     if ((platform === 'instagram' || platform === 'her_ikisi') && igId) {
       if (is_video && video_url) {
         // Reels video
@@ -68,9 +69,10 @@ export async function onRequestPost({ request, env }) {
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
             video_url,
-            caption:      metin,
-            media_type:  'REELS',
-            access_token: pageToken,
+            caption:       metin,
+            media_type:   'REELS',
+            share_to_feed: true,
+            access_token:  userToken,
           }),
         })
         const cData = await cRes.json()
@@ -92,7 +94,7 @@ export async function onRequestPost({ request, env }) {
           body:    JSON.stringify({
             image_url:    gorsel_url,
             caption:      metin,
-            access_token: pageToken,
+            access_token: userToken,
           }),
         })
         const cData = await cRes.json()
@@ -103,7 +105,7 @@ export async function onRequestPost({ request, env }) {
           const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ creation_id: cData.id, access_token: pageToken }),
+            body:    JSON.stringify({ creation_id: cData.id, access_token: userToken }),
           })
           const pData = await pRes.json()
           sonuclar.instagram = pData.error
