@@ -992,6 +992,70 @@ function LoginEkrani({ onGiris }) {
   )
 }
 
+
+// ── HESAP YÖNETİMİ ────────────────────────────────────────────────────────
+function HesapYonetimi() {
+  const [hesaplar, setHesaplar] = useState({ facebook:[], instagram:[] })
+  const [yukleniyor, setYukleniyor] = useState(true)
+
+  const yukle = () => {
+    setYukleniyor(true)
+    fetch('/api/hesaplar').then(r=>r.json()).then(d=>{ setHesaplar(d); setYukleniyor(false) }).catch(()=>setYukleniyor(false))
+  }
+
+  useEffect(()=>{ yukle() }, [])
+
+  const sil = async (page_id, page_name) => {
+    if (!confirm(`"${page_name}" hesabı kaldırılsın mı?`)) return
+    const token = localStorage.getItem('cms_token') || ''
+    await fetch('/api/hesaplar', {
+      method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+      body: JSON.stringify({ islem:'sil', page_id })
+    })
+    yukle()
+  }
+
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:13,fontWeight:500}}>Bağlı Hesaplar</span>
+        <a href="/api/meta-auth" target="_blank">
+          <button style={{fontSize:12,background:'rgba(24,119,242,.15)',border:'0.5px solid rgba(24,119,242,.3)',color:'#4dabf7'}}>
+            <Ic n="plus" size={12}/> Hesap Ekle
+          </button>
+        </a>
+      </div>
+      {yukleniyor && <div style={{color:'var(--muted)',fontSize:13}}>Yükleniyor…</div>}
+      {hesaplar.facebook?.map(h => {
+        const ig = hesaplar.instagram?.find(i=>i.page_id===h.page_id)
+        return (
+          <div key={h.page_id} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'12px 14px',marginBottom:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              {h.picture && <img src={h.picture} alt="" style={{width:36,height:36,borderRadius:'50%',flexShrink:0}}/>}
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500}}>{h.page_name}</div>
+                <div style={{fontSize:11,color:'var(--muted)',marginTop:2,display:'flex',gap:8}}>
+                  <span style={{color:'#1877F2'}}>Facebook</span>
+                  {ig && <span style={{color:'#E1306C'}}>Instagram @{ig.username||ig.ig_id}</span>}
+                </div>
+              </div>
+              <button onClick={()=>sil(h.page_id, h.page_name)}
+                style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                <Ic n="unlink" size={11}/> Kaldır
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      {!yukleniyor && !hesaplar.facebook?.length && (
+        <div style={{color:'var(--muted)',fontSize:13}}>
+          Henüz hesap eklenmemiş. <a href="/api/meta-auth" target="_blank" style={{color:'#4dabf7'}}>Hesap Ekle →</a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── ADMIN LOG PANELİ ──────────────────────────────────────────────────────
 function AdminLog({ onKapat }) {
   const [log, setLog] = useState([])
@@ -1269,3 +1333,35 @@ export default function App() {
     </div>
   )
 }
+// ── AUTH HOOK ─────────────────────────────────────────────────────────────
+function useAuth() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const token = localStorage.getItem('cms_token')
+    if (!token) { setLoading(false); return }
+    fetch('/api/auth?token=' + token)
+      .then(r => r.json())
+      .then(d => { if (d.gecerli) setUser({...d, token}); else localStorage.removeItem('cms_token') })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const girisYap = async (kullanici, sifre) => {
+    const res  = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kullanici, sifre}) })
+    const data = await res.json()
+    if (data.hata) throw new Error(data.hata)
+    localStorage.setItem('cms_token', data.token)
+    setUser(data)
+    return data
+  }
+
+  const cikisYap = () => {
+    localStorage.removeItem('cms_token')
+    setUser(null)
+  }
+
+  return { user, loading, girisYap, cikisYap }
+}
+
