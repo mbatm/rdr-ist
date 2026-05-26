@@ -575,9 +575,14 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
                       selectedHaber?.video || ''
       console.log('Paylaş debug:', { kvVideo, videoRenders_dikey: videoRenders?.dikey?.url, video_dikey: selectedHaber?.video_dikey, kullanilan: videoUrl })
 
+      const kullanici = JSON.parse(localStorage.getItem('cms_token')||'""') ? 
+        (await fetch('/api/auth?token='+localStorage.getItem('cms_token')).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
+        : 'editor'
       const res = await fetch('/api/meta-paylas', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
         body: JSON.stringify({
+          source_id: selectedHaber?.source_id,
+          baslik: content?.site_basligi||'',
           gorsel_url: gorselUrl,
           video_url:  videoUrl,
           metin,
@@ -617,6 +622,15 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         setTimeout(poll, 5000)
       } else {
         setSonuc(data)
+        // Paylaşım flag'lerini güncelle
+        if (data.sonuclar?.facebook?.ok) {
+          await fetch('/api/haber-kaydet', {method:'POST',headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({...selectedHaber, paylasildi_fb: new Date().toISOString()})}).catch(()=>{})
+        }
+        if (data.sonuclar?.instagram?.ok) {
+          await fetch('/api/haber-kaydet', {method:'POST',headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({...selectedHaber, paylasildi_ig: new Date().toISOString()})}).catch(()=>{})
+        }
       }
     } catch(e) { setHata(e.message) }
     setGond(false)
@@ -802,7 +816,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
         </button>
       </div>
       <Divider label="Sosyal medya görselleri" ic="photo"/>
-      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
       <Divider label="Paylaş" ic="send"/>
       <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
     </div>
@@ -859,13 +873,132 @@ function Isleme({ content, processing, error, selectedHaber }) {
       )}
 
       <Divider label="Görsel önizleme" ic="photo"/>
-      <OtoGorselUret haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+    </div>
+  )
+}
+
+
+// ── AUTH HOOK ─────────────────────────────────────────────────────────────
+function useAuth() {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const token = localStorage.getItem('cms_token')
+    if (!token) { setLoading(false); return }
+    fetch('/api/auth?token=' + token)
+      .then(r => r.json())
+      .then(d => { if (d.gecerli) setUser({...d, token}); else localStorage.removeItem('cms_token') })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const girisYap = async (kullanici, sifre) => {
+    const res  = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kullanici, sifre}) })
+    const data = await res.json()
+    if (data.hata) throw new Error(data.hata)
+    localStorage.setItem('cms_token', data.token)
+    setUser(data)
+    return data
+  }
+
+  const cikisYap = () => {
+    localStorage.removeItem('cms_token')
+    setUser(null)
+  }
+
+  return { user, loading, girisYap, cikisYap }
+}
+
+// ── LOGIN EKRANI ──────────────────────────────────────────────────────────
+function LoginEkrani({ onGiris }) {
+  const [kullanici, setKullanici] = useState('')
+  const [sifre, setSifre] = useState('')
+  const [hata, setHata] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const giris = async e => {
+    e.preventDefault()
+    setBusy(true); setHata('')
+    try { await onGiris(kullanici, sifre) }
+    catch(e) { setHata(e.message) }
+    setBusy(false)
+  }
+
+  return (
+    <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}>
+      <div style={{width:320,padding:'2rem',background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+        <div style={{fontWeight:700,fontSize:22,color:'#ff7b7b',marginBottom:8,letterSpacing:'-0.02em'}}>rdr.ist</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:'1.5rem'}}>kayserim.net CMS</div>
+        <form onSubmit={giris}>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>KULLANICI ADI</div>
+            <input value={kullanici} onChange={e=>setKullanici(e.target.value)} autoFocus
+              style={{width:'100%',fontSize:13,boxSizing:'border-box'}} placeholder="admin"/>
+          </div>
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>ŞİFRE</div>
+            <input type="password" value={sifre} onChange={e=>setSifre(e.target.value)}
+              style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+          </div>
+          {hata && <div style={{fontSize:12,color:'#ff7b7b',marginBottom:12}}>{hata}</div>}
+          <button type="submit" disabled={busy} style={{width:'100%',background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',fontWeight:600,padding:'10px'}}>
+            {busy ? 'Giriş yapılıyor…' : 'Giriş Yap'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── ADMIN LOG PANELİ ──────────────────────────────────────────────────────
+function AdminLog({ onKapat }) {
+  const [log, setLog] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/paylas-log?admin=1')
+      .then(r=>r.json())
+      .then(d=>{ setLog(Array.isArray(d)?d:[]); setLoading(false) })
+      .catch(()=>setLoading(false))
+  }, [])
+
+  const PLT_COLORS = { facebook:'#1877F2', instagram:'#E1306C', twitter:'#1DA1F2', youtube:'#FF0000' }
+
+  return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',flexShrink:0}}>
+        <button onClick={onKapat} style={{background:'transparent',border:'0.5px solid var(--border)',fontSize:12}}><Ic n="arrow-left" size={12}/> Geri</button>
+        <span style={{fontWeight:600,fontSize:15}}>Paylaşım Logu</span>
+        <span style={{fontSize:12,color:'var(--muted)'}}>{log.length} kayıt</span>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'0.75rem'}}>
+        {loading && <div style={{color:'var(--muted)',fontSize:13}}>Yükleniyor…</div>}
+        {log.map((l,i)=>(
+          <div key={i} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,display:'flex',gap:10,alignItems:'flex-start'}}>
+            <div style={{fontSize:10,background:`${PLT_COLORS[l.platform]||'#666'}22`,color:PLT_COLORS[l.platform]||'#aaa',border:`0.5px solid ${PLT_COLORS[l.platform]||'#666'}44`,borderRadius:4,padding:'2px 6px',flexShrink:0,textTransform:'capitalize'}}>{l.platform}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.baslik||l.source_id}</div>
+              <div style={{fontSize:11,color:'var(--muted)',marginTop:3,display:'flex',gap:8}}>
+                <span>👤 {l.kullanici}</span>
+                <span>{l.tip==='video'?'🎬 Video':'📷 Fotoğraf'}</span>
+                <span>{l.tarih?new Date(l.tarih).toLocaleString('tr-TR'):''}</span>
+                {l.post_id&&<span style={{fontFamily:'var(--mono)',fontSize:10}}>ID: {l.post_id}</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+        {!loading&&log.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Henüz paylaşım yapılmamış.</div>}
+      </div>
     </div>
   )
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
+  const { user, loading, girisYap, cikisYap } = useAuth()
+  const [adminLog, setAdminLog] = useState(false)
   const [tab, setTab] = useState('haberler')
   const [haberler, setHaberler] = useState([])
   const [selectedHaber, setSelectedHaber] = useState(null)
@@ -887,6 +1020,12 @@ export default function App() {
       ])
       const kvListe = kvRes.ok ? await kvRes.json().catch(()=>[]) : []
       const rssHaberler = Array.isArray(kvListe) ? kvListe : []
+      // Tarih_iso'ya göre sırala (en yeni önce), düzenleme zamanı sıralamayı bozmasın
+      rssHaberler.sort((a,b) => {
+        const ta = a.tarih_iso || a.kaydedildi || ''
+        const tb = b.tarih_iso || b.kaydedildi || ''
+        return tb.localeCompare(ta)
+      })
       setHaberler(rssHaberler)
     } catch(e){console.error(e)}
     setYenileniyor(false)
@@ -912,6 +1051,10 @@ export default function App() {
     .filter(h=>filter==='hepsi'||h.durum===filter)
     .filter(h=>!arama||h.baslik?.toLowerCase().includes(arama.toLowerCase())||h.site_basligi?.toLowerCase().includes(arama.toLowerCase()))
 
+  if (loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',background:'var(--bg)'}}>Yükleniyor…</div>
+  if (!user) return <LoginEkrani onGiris={girisYap}/>
+  if (adminLog) return <AdminLog onKapat={()=>setAdminLog(false)}/>
+
   if (gorselEditor) return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
       <GorselEditor onKapat={()=>setGorselEditor(false)} ornek={selectedHaber}/>
@@ -934,9 +1077,18 @@ export default function App() {
           <button onClick={()=>setGorselEditor(true)} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
             <Ic n="adjustments" size={12}/> Şablon
           </button>
+          {user?.rol==='admin'&&<button onClick={()=>setAdminLog(true)} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+            <Ic n="clipboard-list" size={12}/> Log
+          </button>}
           <button onClick={yenile} disabled={yenileniyor} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
             <Ic n={yenileniyor?'loader-2':'refresh'} size={12}/>
           </button>
+          <div style={{display:'flex',alignItems:'center',gap:6,padding:'0 8px',background:'rgba(255,255,255,.04)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
+            <span style={{fontSize:11,color:'var(--muted)'}}>{user?.ad||user?.kullanici}</span>
+            <button onClick={cikisYap} style={{fontSize:11,background:'transparent',border:'none',color:'var(--muted)',padding:'2px 4px'}}>
+              <Ic n="logout" size={11}/>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -969,6 +1121,9 @@ export default function App() {
                       <DurumBadge d={h.durum||'bekliyor'}/>
                       {h.tarih&&<span style={{fontSize:11,color:'var(--muted)'}}>{h.tarih}</span>}
                       {h.video&&<span style={{fontSize:10,background:'rgba(230,57,70,.1)',color:'#ff7b7b',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(230,57,70,.2)'}}>VIDEO</span>}
+                      {h.video_dikey&&<span style={{fontSize:10,background:'rgba(0,212,170,.08)',color:'#00D4AA',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(0,212,170,.2)'}}>🎬</span>}
+                      {h.paylasildi_fb&&<span style={{fontSize:10,background:'rgba(24,119,242,.08)',color:'#4dabf7',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(24,119,242,.2)'}}>FB</span>}
+                      {h.paylasildi_ig&&<span style={{fontSize:10,background:'rgba(225,48,108,.08)',color:'#E1306C',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(225,48,108,.2)'}}>IG</span>}
                     </div>
                   </div>
                   <button onClick={()=>{setSelectedHaber(h);setContent(h.durum==='islendi'?h:null);setTab('isleme')}}

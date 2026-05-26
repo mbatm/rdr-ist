@@ -115,6 +115,25 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // Paylaşım logunu kaydet
+    try {
+      const kullanici = request.headers.get('X-Kullanici') || 'admin'
+      const all = await env.HABERLER.get('paylas_log', 'json') || []
+      for (const [plt, sonuc] of Object.entries(sonuclar)) {
+        if (sonuc.ok || sonuc.bekliyor) {
+          all.unshift({
+            source_id: source_id || '',
+            platform:  plt,
+            post_id:   sonuc.post_id || sonuc.media_id || '',
+            kullanici,
+            tip:       is_video ? 'video' : 'foto',
+            tarih:     new Date().toISOString(),
+          })
+        }
+      }
+      await env.HABERLER.put('paylas_log', JSON.stringify(all.slice(0, 500)))
+    } catch(e) { console.warn('Log hatası:', e.message) }
+
     return Response.json({ basarili: true, sonuclar })
   } catch (e) {
     return Response.json({ hata: e.message }, { status: 500 })
