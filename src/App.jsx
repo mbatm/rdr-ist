@@ -885,6 +885,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
     ozet:          ecAyniHaber ? (ec.ozet||selectedHaber.ozet||selectedHaber.icerik?.slice(0,120)) : (selectedHaber.ozet||selectedHaber.icerik?.slice(0,120)),
     kategori:      ecAyniHaber ? (ec.kategori||selectedHaber.kategori) : selectedHaber.kategori,
     tarih:         selectedHaber.tarih,
+    kayserim_link: link || selectedHaber.kayserim_link || '',
   } : null
 
   const kaydet = async () => {
