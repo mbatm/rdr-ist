@@ -592,6 +592,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     // Instagram: Claude'un ürettiği optimize instagram metni öncelikli
     const temizle = (t='') => t
       .replace(/^[A-ZÇĞİÖŞÜa-zçğışöüı\s]+\s*\([^)]+\)\s*[-–—:]\s*/,'') // KAYSERİ (1HA)- vs kaldır
+      .replace(/\n{3,}/g, '\n\n') // 3+ satır boşluğu → tek satır boşluk
+      .replace(/[ \t]+\n/g, '\n') // satır sonu boşlukları temizle
       .replace(/^\s+/,'').trim()
     const igHam = content?.instagram ? temizle(content.instagram)
                 : temizle(content?.optimize_icerik || content?.ozet || content?.site_basligi || '')
@@ -865,6 +867,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       // Paylaş moduna geç — selectedHaber'ı güncelle
       if (selectedHaber) {
         Object.assign(selectedHaber, {
+          kayserim_link: link,
           video_dikey: body.video_dikey,
           video_yatay: body.video_yatay,
           video_dikey_snapshot: body.video_dikey_snapshot,
@@ -1425,7 +1428,9 @@ export default function App() {
       if (data.hata) throw new Error(data.hata)
       const kv = await fetch('/api/haberler').then(r=>r.json()).catch(()=>[])
       const bulunan = Array.isArray(kv) ? kv.find(x=>x.source_id===h.source_id) : null
-      const merged  = { ...data, kayserim_link: bulunan?.kayserim_link || data.kayserim_link || '' }
+      const merged  = { ...data, kayserim_link: bulunan?.kayserim_link || h.kayserim_link || data.kayserim_link || '' }
+      // selectedHaber'a da kayserim_link ekle
+      Object.assign(h, { kayserim_link: merged.kayserim_link })
       setContent(merged)
       setTab('isleme')
     } catch(e){ setError(e.message) }
