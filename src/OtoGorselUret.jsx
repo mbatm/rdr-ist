@@ -105,6 +105,15 @@ const MANIFEST = {
       "y": 690.0,
       "fontSize": 20.3
     }
+  },
+  "story": {
+    "w": 1080,
+    "h": 1920,
+    "bandH": 130,
+    "pad": 54,
+    "baslik": { "x": 54, "y": 1350, "fontSize": 62 },
+    "spot_baslik": { "x": 54, "y": 1560, "fontSize": 36 },
+    "kategori": { "x": 54, "y": 200, "fontSize": 32 }
   }
 }
 const FORMATLAR = ['instagram','facebook','twitter','youtube']
