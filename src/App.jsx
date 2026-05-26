@@ -544,6 +544,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const [sonuc,    setSonuc]   = useState(null)
   const [hata,     setHata]    = useState(null)
   const [kvVideo,  setKvVideo] = useState({})
+  const [kvStory,  setKvStory] = useState(null) // KV'den story görseli
   const [hesaplar, setHesaplar] = useState({ facebook: [], instagram: [] })
   const [secilenFb, setSecilenFb] = useState([])
   const [secilenIg, setSecilenIg] = useState([])
@@ -567,6 +568,15 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       setSecilenIg([])
     }).catch(()=>{})
   }, [])
+
+  // Story görselini KV'den yükle
+  useEffect(() => {
+    if (!selectedHaber?.source_id) return
+    const key = encodeURIComponent(`gorsel_${selectedHaber.source_id}_story`)
+    fetch(`/api/gorsel-getir?id=${key}`)
+      .then(r => { if (r.ok) setKvStory(`/api/gorsel-getir?id=${key}`) })
+      .catch(() => {})
+  }, [selectedHaber?.source_id])
 
   // Video URL'lerini KV'den yükle + video süresini oku
   useEffect(() => {
@@ -621,7 +631,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-      const storyGorselUrl = gorselUrls?.story || gorselUrl  // story formatı öncelikli
+      const storyGorselUrl = kvStory || gorselUrls?.story || gorselUrl  // KV story öncelikli
       const videoUrl = kvVideo?.dikey ||
                       videoRenders?.dikey?.url ||
                       selectedHaber?.video_dikey ||
