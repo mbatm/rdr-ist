@@ -12,7 +12,9 @@ export async function onRequestPost({ request, env }) {
     if (!hesaplar.length) return Response.json({ hata: 'Bağlı hesap bulunamadı.' }, { status: 401 })
 
     const secilenFbIds = fb_page_ids?.length ? fb_page_ids : (fb_page_id ? [fb_page_id] : [hesaplar[0].page_id])
-    const secilenIgIds = ig_ids?.length ? ig_ids : (reqIgId ? [reqIgId] : hesaplar.filter(h=>h.ig_id).map(h=>h.ig_id).slice(0,1))
+    // ig_id dedup — aynı hesaba iki kez atma
+    const tumIgIds = ig_ids?.length ? ig_ids : (reqIgId ? [reqIgId] : hesaplar.filter(h=>h.ig_id).map(h=>h.ig_id))
+    const secilenIgIds = [...new Set(tumIgIds)]
     const userToken    = meta.longToken || hesaplar[0]?.page_token
 
     const sonuclar = {}

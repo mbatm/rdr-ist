@@ -12,15 +12,20 @@ export async function onRequestGet({ env }) {
     picture:   h.picture || null,
   }))
 
-  const instagram = hesaplar
-    .filter(h => h.ig_id)
-    .map(h => ({
-      ig_id:     h.ig_id,
-      username:  h.ig_username || '',
-      page_id:   h.page_id,
-      page_name: h.page_name,
-      picture:   h.ig_picture || null,
-    }))
+  // Instagram: aynı ig_id'ye sahip birden fazla FB sayfası olabilir — dedup
+  const igMap = new Map()
+  hesaplar.filter(h => h.ig_id).forEach(h => {
+    if (!igMap.has(h.ig_id)) {
+      igMap.set(h.ig_id, {
+        ig_id:    h.ig_id,
+        username: h.ig_username || '',
+        page_id:  h.page_id,
+        page_name: h.page_name,
+        picture:  h.ig_picture || null,
+      })
+    }
+  })
+  const instagram = [...igMap.values()]
 
   return Response.json({ facebook, instagram })
 }
