@@ -665,7 +665,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           const poll = async () => {
             if (attempts++ > 24) { setSonuc(p=>({...p,sonuclar:{...p.sonuclar,instagram:{...p.sonuclar.instagram,[igId]:{hata:'Zaman aşımı'}}}})); return }
             try {
-              const r = await fetch('/api/ig-publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({container_id:igSonuc.container_id, ig_id:igId})})
+              const r = await fetch('/api/ig-publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({container_id:igSonuc.container_id, ig_id:igId.replace('_story','')})})
               const d = await r.json()
               if (d.bekliyor) {
                 setSonuc(p=>({...p,sonuclar:{...p.sonuclar,instagram:{...p.sonuclar.instagram,[igId]:{bekliyor:true,mesaj:`Video işleniyor… (${attempts}/24)`}}}}))
