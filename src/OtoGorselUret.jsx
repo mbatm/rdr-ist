@@ -347,9 +347,11 @@ async function renderFormat(fmt, haber) {
     ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0
   }
 
-  // Story için link etiketi (spot altında)
-  if(fmt === 'story' && (haber.kayserim_link || haber.source_url)){
-    const domain   = 'kayserim.net'
+  // Story için link etiketi — her zaman göster
+  if(fmt === 'story'){
+    const domain   = haber.kayserim_link?.includes('kayserim') ? 'kayserim.net'
+                   : haber.kayserim_link ? haber.kayserim_link.replace(/https?:\/\//,'').split('/')[0]
+                   : 'kayserim.net'
     const linkFont = Math.round(w * 0.034)
     const lbH      = linkFont * 2.2
     const lbY      = bottomY + pad * 0.5
@@ -363,34 +365,25 @@ async function renderFormat(fmt, haber) {
     const ry  = lbY - lbH * 0.8
     const r   = lbH / 2
 
-    // Beyaz pill (roundRect polyfill)
     ctx.beginPath()
     if (ctx.roundRect) {
       ctx.roundRect(rx, ry, lbW, lbH, r)
     } else {
-      ctx.moveTo(rx + r, ry)
-      ctx.lineTo(rx + lbW - r, ry)
-      ctx.quadraticCurveTo(rx + lbW, ry, rx + lbW, ry + r)
-      ctx.lineTo(rx + lbW, ry + lbH - r)
-      ctx.quadraticCurveTo(rx + lbW, ry + lbH, rx + lbW - r, ry + lbH)
-      ctx.lineTo(rx + r, ry + lbH)
-      ctx.quadraticCurveTo(rx, ry + lbH, rx, ry + lbH - r)
-      ctx.lineTo(rx, ry + r)
-      ctx.quadraticCurveTo(rx, ry, rx + r, ry)
-      ctx.closePath()
+      ctx.moveTo(rx+r,ry); ctx.lineTo(rx+lbW-r,ry)
+      ctx.quadraticCurveTo(rx+lbW,ry,rx+lbW,ry+r)
+      ctx.lineTo(rx+lbW,ry+lbH-r)
+      ctx.quadraticCurveTo(rx+lbW,ry+lbH,rx+lbW-r,ry+lbH)
+      ctx.lineTo(rx+r,ry+lbH); ctx.quadraticCurveTo(rx,ry+lbH,rx,ry+lbH-r)
+      ctx.lineTo(rx,ry+r); ctx.quadraticCurveTo(rx,ry,rx+r,ry); ctx.closePath()
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'
-    ctx.shadowColor = 'rgba(0,0,0,0.3)'
-    ctx.shadowBlur  = 8
+    ctx.fillStyle='rgba(255,255,255,0.95)'
+    ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=8
     ctx.fill()
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
-
-    ctx.fillStyle = '#111'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(txt, lbX, ry + lbH / 2)
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'alphabetic'
+    ctx.shadowColor='transparent'; ctx.shadowBlur=0
+    ctx.fillStyle='#111'
+    ctx.textAlign='center'; ctx.textBaseline='middle'
+    ctx.fillText(txt, lbX, ry+lbH/2)
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
   }
 }
 
