@@ -547,15 +547,22 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
   // Bağlı hesapları yükle
   useEffect(() => {
-    fetch('/api/hesaplar')
-      .then(r=>r.json())
-      .then(d => {
-        setHesaplar(d)
-        // Default boş — kullanıcı seçecek
-        setSecilenFb([])
-        setSecilenIg([])
-      })
-      .catch(()=>{})
+    Promise.all([
+      fetch('/api/hesaplar').then(r=>r.json()),
+      fetch('/api/auth?token='+(localStorage.getItem('cms_token')||'')).then(r=>r.json()).catch(()=>({}))
+    ]).then(([h, u]) => {
+      // Kullanıcının yetki verilen sayfaları varsa filtrele
+      const izinliSayfalar = u?.sayfalar || null
+      const fbFiltered = izinliSayfalar
+        ? (h.facebook||[]).filter(p => izinliSayfalar.includes(p.page_id))
+        : (h.facebook||[])
+      const igFiltered = izinliSayfalar
+        ? (h.instagram||[]).filter(p => izinliSayfalar.includes(p.page_id))
+        : (h.instagram||[])
+      setHesaplar({ facebook: fbFiltered, instagram: igFiltered })
+      setSecilenFb([])
+      setSecilenIg([])
+    }).catch(()=>{})
   }, [])
 
   // Video URL'lerini KV'den yükle
@@ -605,9 +612,9 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const kullanici = token
         ? (await fetch('/api/auth?token='+token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
         : 'editor'
+      const metin = platform === 'instagram' ? igMetin : fbMetin
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
-        const metin = platform === 'instagram' ? igMetin : fbMetin
         body: JSON.stringify({
           source_id:  selectedHaber?.source_id,
           baslik:     content?.site_basligi||'',
@@ -1102,7 +1109,8 @@ function AdminLog({ onKapat }) {
   const [loading, setLoading] = useState(true)
   const [sekme, setSekme] = useState('log')
   const [users, setUsers] = useState([])
-  const [yeniK, setYeniK] = useState({ kullanici:'', sifre:'', ad:'', rol:'editor' })
+  const [yeniK, setYeniK] = useState({ kullanici:'', sifre:'', ad:'', rol:'editor', sayfalar:null })
+  const [tumHesaplar, setTumHesaplar] = useState({ facebook:[] })
   const [kayit, setKayit] = useState(false)
   const [siliyor, setSiliyor] = useState('')
   const token = localStorage.getItem('cms_token') || ''
@@ -1140,7 +1148,7 @@ function AdminLog({ onKapat }) {
     try {
       const res = await fetch('/api/kullanicilar', {
         method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
-        body: JSON.stringify({ islem:'ekle', ...yeniK })
+        body: JSON.stringify({ islem:'ekle', ...yeniK, sayfalar: yeniK.sayfalar?.length ? yeniK.sayfalar : null })
       })
       const data = await res.json()
       if (data.ok) {
@@ -1225,6 +1233,24 @@ function AdminLog({ onKapat }) {
                 </select>
               </div>
             </div>
+            {tumHesaplar.facebook?.length > 0 && (
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ (boş = tümü)</div>
+                <div style={{maxHeight:100,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
+                  {tumHesaplar.facebook.map(h=>(
+                    <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'2px 8px',fontSize:11,cursor:'pointer'}}>
+                      <input type="checkbox"
+                        checked={(yeniK.sayfalar||[]).includes(h.page_id)}
+                        onChange={e=>{
+                          const cur = yeniK.sayfalar||[]
+                          setYeniK(p=>({...p, sayfalar: e.target.checked ? [...cur,h.page_id] : cur.filter(x=>x!==h.page_id)}))
+                        }}/>
+                      {h.page_name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <button onClick={kullaniciEkle} disabled={kayit||!yeniK.kullanici||!yeniK.sifre}
               style={{background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',fontSize:12}}>
               <Ic n={kayit?'loader-2':'user-plus'} size={12}/> Ekle

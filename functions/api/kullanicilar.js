@@ -27,12 +27,12 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ hata: 'Yetkisiz erişim' }, { status: 403 })
 
   try {
-    const { islem, kullanici, sifre, rol, ad } = await request.json()
+    const { islem, kullanici, sifre, rol, ad, sayfalar } = await request.json()
     const users = await env.HABERLER.get(USERS_KEY, 'json') || {}
 
     if (islem === 'ekle' || islem === 'guncelle') {
       if (!kullanici || !sifre) return Response.json({ hata: 'kullanici ve sifre zorunlu' }, { status: 400 })
-      users[kullanici] = { sifre, rol: rol||'editor', ad: ad||kullanici }
+      users[kullanici] = { sifre, rol: rol||'editor', ad: ad||kullanici, sayfalar: sayfalar||null }
     } else if (islem === 'sil') {
       if (kullanici === 'admin') return Response.json({ hata: 'Admin silinemez' }, { status: 400 })
       delete users[kullanici]

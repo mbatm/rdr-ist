@@ -23,7 +23,7 @@ export async function onRequestPost({ request, env }) {
     // Basit token: kullanici:timestamp:hash
     const token = btoa(`${kullanici}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
     // Token'ı KV'ye kaydet (24 saat)
-    await env.HABERLER.put(`token:${token}`, JSON.stringify({ kullanici, rol: user.rol, ad: user.ad }), { expirationTtl: 86400 })
+    await env.HABERLER.put(`token:${token}`, JSON.stringify({ kullanici, rol: user.rol, ad: user.ad, sayfalar: user.sayfalar||null }), { expirationTtl: 86400 })
 
     return Response.json({ ok: true, token, kullanici, rol: user.rol, ad: user.ad })
   } catch(e) {
