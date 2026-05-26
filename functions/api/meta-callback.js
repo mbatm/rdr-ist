@@ -30,23 +30,10 @@ export async function onRequestGet({ request, env }) {
   const longData  = await longRes.json()
   const longToken = longData.access_token || tokenData.access_token
 
-  // 3. Kişisel sayfa listesi
+  // 3. Sayfa listesi — limit 100
   const pagesRes  = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${longToken}`)
   const pagesData = await pagesRes.json()
-  let pages = pagesData.data || []
-
-  // 4. Business Manager sayfaları da çek
-  try {
-    const bizRes  = await fetch(`https://graph.facebook.com/v19.0/me/businesses?access_token=${longToken}`)
-    const bizData = await bizRes.json()
-    for (const biz of (bizData.data || [])) {
-      const bPagesRes  = await fetch(`https://graph.facebook.com/v19.0/${biz.id}/owned_pages?fields=id,name,access_token,picture&limit=100&access_token=${longToken}`)
-      const bPagesData = await bPagesRes.json()
-      for (const p of (bPagesData.data || [])) {
-        if (!pages.find(x => x.id === p.id)) pages.push(p)
-      }
-    }
-  } catch(e) { console.warn('Business sayfaları çekilemedi:', e.message) }
+  const pages     = pagesData.data || []
 
   // 4. Her sayfa için IG hesabı + username çek
   const yeniHesaplar = []
