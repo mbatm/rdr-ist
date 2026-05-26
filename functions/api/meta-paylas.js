@@ -89,13 +89,11 @@ export async function onRequestPost({ request, env }) {
           const useVideoStory = is_video && video_url && video_dur !== null && video_dur <= 59
 
           if (useVideoStory) {
-            // Video story
-            const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+            // Video story — /stories endpoint
+            const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/stories`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
                 video_url,
-                media_type: 'VIDEO',
-                ...(kayserim_link ? { link: kayserim_link } : {}),
                 access_token: userToken,
               }),
             })
@@ -107,28 +105,18 @@ export async function onRequestPost({ request, env }) {
             // Görsel story — story formatı görseli öncelikli
             const storyImg = ig_story_gorsel || gorsel_url
             if (storyImg) {
-              const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+              // Photo story — /stories endpoint (doğrudan publish)
+              const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/stories`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({
                   image_url: storyImg,
-                  ...(kayserim_link ? { link: kayserim_link } : {}),
-                  access_token: userToken
+                  access_token: userToken,
                 }),
               })
               const cData = await cRes.json()
-              if (!cData.error) {
-                await new Promise(r=>setTimeout(r,2000))
-                const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
-                  method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ creation_id:cData.id, access_token:userToken }),
-                })
-                const pData = await pRes.json()
-                sonuclar.instagram[storyKey] = pData.error
-                  ? { hata:`Story görsel: ${pData.error.message}` }
-                  : { ok:true, media_id:pData.id, story:true, ig_username:sayfa.ig_username }
-              } else {
-                sonuclar.instagram[storyKey] = { hata:`Story: ${cData.error.message}` }
-              }
+              sonuclar.instagram[storyKey] = cData.error
+                ? { hata:`Story: ${cData.error.message}` }
+                : { ok:true, media_id:cData.id, story:true, ig_username:sayfa.ig_username }
             }
           }
         }
