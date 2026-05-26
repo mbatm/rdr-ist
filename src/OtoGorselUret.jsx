@@ -108,6 +108,7 @@ const MANIFEST = {
   }
 }
 const FORMATLAR = ['instagram','facebook','twitter','youtube']
+const STORY_FORMAT = 'story'
 
 let scReady=false
 function loadSmartCrop(){
@@ -332,12 +333,14 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
   const[items,setItems]=useState({})
   const[urls,setUrls]=useState({})
   const[busy,setBusy]=useState(false)
+  const[storyUrl,setStoryUrl]=useState(null)
 
   useEffect(()=>{
     if(!haber?.source_id)return
-    let stop=false;setItems({});setUrls({});setBusy(true)
+    let stop=false;setItems({});setUrls({});setBusy(true);setStoryUrl(null)
     ;(async()=>{
       const acc={},urlAcc={}
+      // Normal formatlar
       for(const fmt of FORMATLAR){
         if(stop)break
         try{
@@ -349,6 +352,17 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
           }
         }catch(e){console.warn(fmt,e.message)}
         if(!stop){setItems({...acc});setUrls({...urlAcc})}
+      }
+      // Story formatı
+      if(!stop){
+        try{
+          const b64=await renderFormat(STORY_FORMAT,haber)
+          if(b64){
+            acc[STORY_FORMAT]=b64
+            const url=await gorselYukle(b64,haber.source_id,STORY_FORMAT)
+            if(url){ urlAcc[STORY_FORMAT]=url; setStoryUrl(url) }
+          }
+        }catch(e){console.warn('story',e.message)}
       }
       if(!stop){setBusy(false);onGorsellerHazir?.({items:acc,urls:urlAcc})}
     })()
@@ -379,6 +393,23 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
           </div>
         })}
       </div>
+      {/* Story önizleme */}
+      {items[STORY_FORMAT] && (
+        <div style={{marginTop:10}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,display:'flex',justifyContent:'space-between'}}>
+            <span>STORY · 1080×1920</span>
+            {urls[STORY_FORMAT]&&<span style={{color:'#E1306C',fontSize:10}}>✓ Story hazır</span>}
+          </div>
+          <div style={{maxWidth:180}}>
+            <img src={items[STORY_FORMAT]} alt="story" style={{width:'100%',borderRadius:6,border:'0.5px solid rgba(225,48,108,.3)',display:'block',marginBottom:4}}/>
+            <a href={items[STORY_FORMAT]} download="kayserim-story.jpg">
+              <button style={{width:'100%',fontSize:11,background:'rgba(225,48,108,.08)',border:'0.5px solid rgba(225,48,108,.25)',color:'#E1306C'}}>
+                <Ic n="download" sz={11}/>Story İndir
+              </button>
+            </a>
+          </div>
+        </div>
+      )}
       {busy&&<div style={{fontSize:11,color:'var(--muted)',marginTop:8,display:'flex',gap:6,alignItems:'center'}}><Ic n="loader-2" sz={11}/>Devam ediyor…</div>}
     </div>
   )

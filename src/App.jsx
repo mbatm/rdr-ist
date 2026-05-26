@@ -611,6 +611,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
+      const storyGorselUrl = gorselUrls?.story || gorselUrl  // story formatı öncelikli
       const videoUrl = kvVideo?.dikey ||
                       videoRenders?.dikey?.url ||
                       selectedHaber?.video_dikey ||
@@ -635,6 +636,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           fb_page_ids:  secilenFb.length ? secilenFb : undefined,
           ig_ids:       secilenIg.length ? secilenIg : undefined,
           ig_story:     igStory,
+          ig_story_gorsel: igStory ? storyGorselUrl : undefined,
           ig_kolabor:   igKolabor ? igKolabor.split(',').map(s=>s.trim().replace('@','')).filter(Boolean) : undefined,
           kayserim_link: kayserimLink || '',
         }),

@@ -3,7 +3,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json()
     const { gorsel_url, video_url, metin, platform = 'her_ikisi', is_video,
             fb_page_ids, ig_ids, fb_page_id, ig_id: reqIgId,
-            source_id, baslik, ig_story, ig_kolabor, kayserim_link } = body
+            source_id, baslik, ig_story, ig_story_gorsel, ig_kolabor, kayserim_link } = body
 
     if (!gorsel_url && !video_url) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
 
@@ -99,10 +99,11 @@ export async function onRequestPost({ request, env }) {
               ? { hata:`Story: ${cData.error.message}` }
               : { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username, story:true }
           } else if (gorsel_url) {
+            const storyImg = ig_story_gorsel || gorsel_url  // dikey story görseli öncelikli
             const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
-                image_url:gorsel_url, media_type:'STORIES',
+                image_url: storyImg, media_type:'STORIES',
                 ...(kayserim_link ? { sticker_link: kayserim_link } : {}),
                 access_token: userToken
               }),
