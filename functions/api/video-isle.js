@@ -22,11 +22,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     const modifications = {
-      'video.source':     video_url,
-      'baslik.text':      baslikStr,
-      'spot-baslik.text': spotStr,
-      'kategori.text':    katStr,
-      'tarih.text':       tarihStr,
+      'video.source':        video_url,
+      'baslik.text':         baslikStr,
+      'baslikss.text':       baslikStr,
+      'spot-baslik.text':    spotStr,
+      'spot-baslik-ss.text': spotStr,
+      'kategori.text':       katStr,
+      'tarih.text':          tarihStr,
     }
 
     const renders = []
