@@ -544,7 +544,6 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const [sonuc,    setSonuc]   = useState(null)
   const [hata,     setHata]    = useState(null)
   const [kvVideo,  setKvVideo] = useState({})
-  const [kvStory,  setKvStory] = useState(null) // KV'den story görseli
   const [hesaplar, setHesaplar] = useState({ facebook: [], instagram: [] })
   const [secilenFb, setSecilenFb] = useState([])
   const [secilenIg, setSecilenIg] = useState([])
@@ -568,15 +567,6 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       setSecilenIg([])
     }).catch(()=>{})
   }, [])
-
-  // Story görselini KV'den yükle
-  useEffect(() => {
-    if (!selectedHaber?.source_id) return
-    const key = encodeURIComponent(`gorsel_${selectedHaber.source_id}_story`)
-    fetch(`/api/gorsel-getir?id=${key}`)
-      .then(r => { if (r.ok) setKvStory(`/api/gorsel-getir?id=${key}`) })
-      .catch(() => {})
-  }, [selectedHaber?.source_id])
 
   // Video URL'lerini KV'den yükle + video süresini oku
   useEffect(() => {
@@ -631,7 +621,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-      const storyGorselUrl = kvStory || gorselUrls?.story || gorselUrl  // KV story öncelikli
+      const storyGorselUrl = gorselUrls?.story || gorselUrl  // story formatı öncelikli
       const videoUrl = kvVideo?.dikey ||
                       videoRenders?.dikey?.url ||
                       selectedHaber?.video_dikey ||
@@ -777,10 +767,32 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
             ? `Story - Görsel (video ${videoDur}s > 59s)`
             : 'Story - Görsel'
         return (
-          <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#8891a5',marginBottom:6,cursor:'pointer'}}>
-            <input type="checkbox" checked={igStory} onChange={e=>setIgStory(e.target.checked)}/>
-            <span>{storyEtiket}</span>
-          </label>
+          <>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#8891a5',marginBottom:6,cursor:'pointer'}}>
+              <input type="checkbox" checked={igStory} onChange={e=>setIgStory(e.target.checked)}/>
+              <span>{storyEtiket}</span>
+            </label>
+            {igStory && storyTip === 'gorsel' && (
+              <div style={{marginBottom:8,padding:8,background:'rgba(225,48,108,.06)',border:'0.5px solid rgba(225,48,108,.2)',borderRadius:6}}>
+                {storyGorselUrl ? (
+                  <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                    <img src={storyGorselUrl} alt="story"
+                      style={{width:48,borderRadius:4,border:'1px solid rgba(225,48,108,.4)',flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:10,color:'#E1306C',fontWeight:500,marginBottom:5}}>📱 Link etiketi görsel üzerinde</div>
+                      <div style={{display:'flex',gap:4}}>
+                        <a href={storyGorselUrl} download="story.jpg" style={{flex:1}}>
+                          <button style={{width:'100%',fontSize:10,padding:'3px 0',background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>↓ İndir</button>
+                        </a>
+                        <button onClick={()=>window.open('https://www.instagram.com/','_blank')}
+                          style={{flex:1,fontSize:10,padding:'3px 0',background:'rgba(225,48,108,.06)',border:'0.5px solid rgba(225,48,108,.2)',color:'#E1306C'}}>IG Aç</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : <div style={{fontSize:10,color:'#8891a5'}}>⏳ Görsel üretiliyor…</div>}
+              </div>
+            )}
+          </>
         )
       })()}
       {/* Instagram Kolaboratör */}
@@ -969,7 +981,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
         </button>
       </div>
       <Divider label="Sosyal medya görselleri" ic="photo"/>
-      <OtoGorselUret key={`${editedHaber?.source_id}-${link}`} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
       <Divider label="Paylaş" ic="send"/>
       <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
     </div>
@@ -1026,7 +1038,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       )}
 
       <Divider label="Görsel önizleme" ic="photo"/>
-      <OtoGorselUret key={`${editedHaber?.source_id}-${link}`} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
     </div>
   )
 }
