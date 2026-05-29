@@ -125,7 +125,7 @@ async function tweetAt(metin, mediaIds, creds) {
     headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(params).toString(),
   })
-  if (!res.ok) throw new Error(`Tweet: ${await res.text()}`)
+  const tweetText = await res.text(); if (!res.ok) throw new Error(`Tweet(${res.status}): ${tweetText}`)
   return await res.json()
 }
 
