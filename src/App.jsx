@@ -856,6 +856,158 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 }
 
 
+// ── TWITTER PAYLAŞIM ─────────────────────────────────────────────────────────
+function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
+  const isVideo = !!(selectedHaber?.video)
+  const [metin,      setMetin]     = useState('')
+  const [medyaTip,   setMedyaTip]  = useState('gorsel') // 'gorsel' | 'video' | 'yok'
+  const [gonderiyor, setGond]      = useState(false)
+  const [sonuc,      setSonuc]     = useState(null)
+  const [hata,       setHata]      = useState(null)
+
+  // Metin otomatik doldur
+  useEffect(() => {
+    if (!content && !selectedHaber) return
+    const baslik  = content?.x_twitter || content?.sosyal_baslik || content?.site_basligi || selectedHaber?.baslik || ''
+    const link    = kayserimLink ? `\n\n🔗 ${kayserimLink}` : ''
+    const kat     = content?.kategori || selectedHaber?.kategori || ''
+    const tag     = kat ? `\n\n#Kayseri #${kat.replace(/\s+/g,'')} #KayseriHaber` : '\n\n#Kayseri #KayseriHaber'
+    const tam     = (baslik + link + tag).slice(0, 280)
+    setMetin(tam)
+  }, [content?.url_slug, kayserimLink])
+
+  // Medya tipi: video haberde video, yoksa gorsel
+  useEffect(() => {
+    setMedyaTip(isVideo ? 'video' : 'gorsel')
+  }, [selectedHaber?.source_id])
+
+  const karKalan = 280 - metin.length
+  const karRenk  = karKalan < 0 ? '#E63946' : karKalan < 20 ? '#FFB700' : 'var(--muted)'
+
+  // Kullanılacak URL'ler
+  const gorselUrl  = gorselUrls?.twitter || gorselUrls?.facebook || selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
+  const videoUrl   = videoRenders?.yatay?.url || selectedHaber?.video_yatay || selectedHaber?.video || ''
+
+  const paylas = async () => {
+    if (!metin.trim() || karKalan < 0) return
+    setGond(true); setSonuc(null); setHata(null)
+    try {
+      const token     = localStorage.getItem('cms_token') || ''
+      const kullanici = token
+        ? (await fetch('/api/auth?token=' + token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
+        : 'editor'
+
+      const payload = { metin }
+      if (medyaTip === 'gorsel' && gorselUrl) {
+        // OtoGorselUret'ten gelen data URL ise base64 olarak gönder
+        if (gorselUrl.startsWith('data:')) {
+          const [meta, b64] = gorselUrl.split(',')
+          const mime = meta.match(/:(.*?);/)?.[1] || 'image/png'
+          payload.gorselBase64   = b64
+          payload.gorselMimeType = mime
+        } else {
+          payload.gorselUrl = gorselUrl
+        }
+      } else if (medyaTip === 'video' && videoUrl) {
+        payload.videoUrl = videoUrl
+      }
+
+      const res  = await fetch('/api/twitter-paylas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5'), 'X-Kullanici': kullanici },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data)
+      // paylasildi_tw flag
+      if (data.basarili && selectedHaber) {
+        await fetch('/api/haber-kaydet', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...selectedHaber, paylasildi_tw: new Date().toISOString() }),
+        }).catch(() => {})
+      }
+    } catch(e) { setHata(e.message) }
+    setGond(false)
+  }
+
+  return (
+    <div style={{marginBottom:'0.875rem'}}>
+      {/* Karakter sayacı + metin */}
+      <div style={{marginBottom:8}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+          <div style={{fontSize:11,color:'#8899a6'}}>X / Twitter metni</div>
+          <div style={{fontSize:12,fontWeight:600,color:karRenk}}>{karKalan}</div>
+        </div>
+        <textarea value={metin} onChange={e=>setMetin(e.target.value.slice(0,280))} rows={4}
+          style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box',
+            border:`0.5px solid ${karKalan<0?'#E63946':'var(--border)'}`}}/>
+      </div>
+
+      {/* Medya tipi seçimi */}
+      <div style={{display:'flex',gap:4,marginBottom:8}}>
+        <span style={{fontSize:11,color:'var(--muted)',marginRight:4}}>Medya:</span>
+        {[['gorsel','Görsel'],['video','Video'],['yok','Yok']].map(([v,l])=>(
+          <button key={v} onClick={()=>setMedyaTip(v)}
+            disabled={v==='video'&&!isVideo}
+            style={{fontSize:11,
+              background:medyaTip===v?'rgba(29,161,242,.2)':'transparent',
+              border:`0.5px solid ${medyaTip===v?'rgba(29,161,242,.5)':'var(--border)'}`,
+              color:medyaTip===v?'#1da1f2':'var(--muted)',
+              opacity:v==='video'&&!isVideo?0.4:1}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Medya önizleme */}
+      {medyaTip==='gorsel' && gorselUrl && (
+        <div style={{marginBottom:8,padding:6,background:'rgba(29,161,242,.05)',border:'0.5px solid rgba(29,161,242,.2)',borderRadius:6}}>
+          <img src={gorselUrl} alt="twitter" style={{width:'100%',borderRadius:4,maxHeight:120,objectFit:'cover'}}/>
+          <div style={{fontSize:10,color:'#1da1f2',marginTop:4}}>𝕏 {gorselUrls?.twitter?'1600×900 Twitter görseli':'Orijinal görsel'}</div>
+        </div>
+      )}
+      {medyaTip==='gorsel' && !gorselUrl && (
+        <div style={{marginBottom:8,fontSize:11,color:'rgba(255,180,0,.8)',padding:'5px 8px',background:'rgba(255,180,0,.06)',border:'0.5px solid rgba(255,180,0,.2)',borderRadius:4}}>
+          ⚠ Görsel bulunamadı — yalnızca metin paylaşılacak
+        </div>
+      )}
+      {medyaTip==='video' && videoUrl && (
+        <div style={{marginBottom:8,fontSize:10,color:'#00D4AA',wordBreak:'break-all'}}>
+          ✓ Yatay video: {videoUrl.slice(0,60)}…
+        </div>
+      )}
+      {medyaTip==='video' && !videoUrl && (
+        <div style={{marginBottom:8,fontSize:11,color:'rgba(255,180,0,.8)',padding:'5px 8px',background:'rgba(255,180,0,.06)',border:'0.5px solid rgba(255,180,0,.2)',borderRadius:4}}>
+          ⚠ Yatay video yok — Video İşle bölümünden oluşturun
+        </div>
+      )}
+
+      {/* Paylaş butonu */}
+      <button onClick={paylas} disabled={gonderiyor||!metin.trim()||karKalan<0}
+        style={{fontSize:12,background:'rgba(29,161,242,.15)',border:'0.5px solid rgba(29,161,242,.4)',color:'#1da1f2'}}>
+        <Ic n={gonderiyor?'loader-2':'brand-x'} size={13}/> {gonderiyor?'Paylaşılıyor…':'𝕏 Tweet At'}
+      </button>
+
+      {/* Hata / Sonuç */}
+      {hata && (
+        <div style={{marginTop:8,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:12,color:'rgba(230,57,70,.9)'}}>
+          <Ic n="alert-circle" size={13}/> {hata}
+        </div>
+      )}
+      {sonuc?.basarili && (
+        <div style={{marginTop:8,background:'rgba(29,161,242,.08)',border:'0.5px solid rgba(29,161,242,.3)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:12,color:'#1da1f2'}}>
+          <Ic n="check" size={13}/> Tweet paylaşıldı!{' '}
+          <a href={sonuc.tweet_url} target="_blank" rel="noreferrer" style={{color:'#1da1f2',fontWeight:600}}>
+            Tweeti gör →
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 // ── SHARED FORM COMPONENTS — Isleme dışında tanımlı (focus korunması için) ──
 const Divider = ({label,ic}) => (
   <div style={{display:'flex',alignItems:'center',gap:8,borderTop:'0.5px solid var(--border)',paddingTop:'0.875rem',marginTop:'1rem',marginBottom:'0.75rem'}}>
@@ -984,6 +1136,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
       <Divider label="Paylaş" ic="send"/>
       <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
+      <Divider label="X / Twitter" ic="brand-x"/>
+      <TwitterPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
     </div>
   )
 
@@ -1592,6 +1746,7 @@ export default function App() {
                       {h.video_dikey&&<span style={{fontSize:10,background:'rgba(0,212,170,.08)',color:'#00D4AA',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(0,212,170,.2)'}}>🎬</span>}
                       {h.paylasildi_fb&&<span style={{fontSize:10,background:'rgba(24,119,242,.08)',color:'#4dabf7',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(24,119,242,.2)'}}>FB</span>}
                       {h.paylasildi_ig&&<span style={{fontSize:10,background:'rgba(225,48,108,.08)',color:'#E1306C',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(225,48,108,.2)'}}>IG</span>}
+                      {h.paylasildi_tw&&<span style={{fontSize:10,background:'rgba(29,161,242,.08)',color:'#1da1f2',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(29,161,242,.2)'}}>𝕏</span>}
                     </div>
                   </div>
                   <button onClick={()=>{setSelectedHaber(h);setContent(h.durum==='islendi'?h:null);setTab('isleme')}}
