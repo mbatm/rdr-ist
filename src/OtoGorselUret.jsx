@@ -8,12 +8,12 @@ const MANIFEST = {
     "bandH": 64.0,
     "pad": 46,
     "baslik": {
-      "x": 64.7,
+      "x": 90,
       "y": 481.1,
       "fontSize": 54.6
     },
     "spot_baslik": {
-      "x": 66.1,
+      "x": 90,
       "y": 580.1,
       "fontSize": 25.5
     },
@@ -23,7 +23,7 @@ const MANIFEST = {
       "fontSize": 19.1
     },
     "kategori": {
-      "x": 66.0,
+      "x": 90,
       "y": 611.5,
       "fontSize": 19.1
     }
@@ -34,12 +34,12 @@ const MANIFEST = {
     "bandH": 91.2,
     "pad": 41,
     "baslik": {
-      "x": 72.3,
+      "x": 108,
       "y": 795.4,
       "fontSize": 72.5
     },
     "spot_baslik": {
-      "x": 74.5,
+      "x": 108,
       "y": 940.4,
       "fontSize": 39.1
     },
@@ -49,7 +49,7 @@ const MANIFEST = {
       "fontSize": 22.5
     },
     "kategori": {
-      "x": 74.5,
+      "x": 108,
       "y": 1027.5,
       "fontSize": 22.5
     }
@@ -60,12 +60,12 @@ const MANIFEST = {
     "bandH": 85.2,
     "pad": 61,
     "baslik": {
-      "x": 88.4,
+      "x": 110,
       "y": 684.3,
       "fontSize": 60.0
     },
     "spot_baslik": {
-      "x": 90.3,
+      "x": 110,
       "y": 822.2,
       "fontSize": 34.0
     },
@@ -75,7 +75,7 @@ const MANIFEST = {
       "fontSize": 25.4
     },
     "kategori": {
-      "x": 90.3,
+      "x": 110,
       "y": 859.0,
       "fontSize": 25.4
     }
@@ -91,7 +91,7 @@ const MANIFEST = {
       "fontSize": 60.0
     },
     "spot_baslik": {
-      "x": 72.4,
+      "x": 100,
       "y": 669.6,
       "fontSize": 27.2
     },
@@ -101,7 +101,7 @@ const MANIFEST = {
       "fontSize": 20.3
     },
     "kategori": {
-      "x": 72.4,
+      "x": 100,
       "y": 690.0,
       "fontSize": 20.3
     }
