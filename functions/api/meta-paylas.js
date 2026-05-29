@@ -20,13 +20,7 @@ export async function onRequestPost({ request, env }) {
     const secilenIgIds = [...new Set(tumIgIds.map(String))].filter(id => {
       const h = hesaplar.find(x=>String(x.ig_id)===String(id))
       const uname = h?.ig_username || null
-      if (!h) return false        // hesaplar listesinde yoksa atla
-      if (!uname) {
-        // username yoksa ig_id bazlı dedup
-        if (gorulmusUsernames.has(id)) return false
-        gorulmusUsernames.add(id)
-        return true
-      }
+      if (!uname) return true
       if (gorulmusUsernames.has(uname)) return false
       gorulmusUsernames.add(uname)
       return true
@@ -42,19 +36,40 @@ export async function onRequestPost({ request, env }) {
         const sayfa  = hesaplar.find(h=>h.page_id===pid) || hesaplar[0]
         const pToken = sayfa.page_token
         if (is_video && video_url) {
+          const vBody = { file_url:video_url, description:metin, published:true, access_token:pToken }
+          if (kayserim_link) {
+            vBody.call_to_action = JSON.stringify({ type:'LEARN_MORE', value:{ link:kayserim_link } })
+          }
           const res  = await fetch(`https://graph.facebook.com/v19.0/${pid}/videos`, {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ file_url:video_url, description:metin, published:true, access_token:pToken }),
+            body: JSON.stringify(vBody),
           })
           const data = await res.json()
           sonuclar.facebook[pid] = data.error ? { hata:data.error.message } : { ok:true, post_id:data.id, page_name:sayfa.page_name }
         } else if (gorsel_url) {
-          const res  = await fetch(`https://graph.facebook.com/v19.0/${pid}/photos`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ url:gorsel_url, caption:metin, published:true, access_token:pToken }),
-          })
-          const data = await res.json()
-          sonuclar.facebook[pid] = data.error ? { hata:data.error.message } : { ok:true, post_id:data.post_id||data.id, page_name:sayfa.page_name }
+          let data
+          if (kayserim_link) {
+            // Link post: resim + başlık tıklanınca kayserim.net'e gider
+            const res = await fetch(`https://graph.facebook.com/v19.0/${pid}/feed`, {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                message: metin,
+                link: kayserim_link,
+                picture: gorsel_url,
+                name: (baslik||'').slice(0,100),
+                access_token: pToken,
+              }),
+            })
+            data = await res.json()
+            sonuclar.facebook[pid] = data.error ? { hata:data.error.message } : { ok:true, post_id:data.id, page_name:sayfa.page_name }
+          } else {
+            const res = await fetch(`https://graph.facebook.com/v19.0/${pid}/photos`, {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ url:gorsel_url, caption:metin, published:true, access_token:pToken }),
+            })
+            data = await res.json()
+            sonuclar.facebook[pid] = data.error ? { hata:data.error.message } : { ok:true, post_id:data.post_id||data.id, page_name:sayfa.page_name }
+          }
         }
       }
     }
@@ -108,7 +123,7 @@ export async function onRequestPost({ request, env }) {
           const useVideoStory = is_video && video_url && video_dur !== null && Number(video_dur) <= 59
 
           if (useVideoStory) {
-            // Video story: REELS yöntemi (güvenilir)
+            // Video story: REELS yöntemi (çalışan yöntem)
             const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({ video_url, media_type:'REELS', access_token:userToken }),
@@ -118,7 +133,7 @@ export async function onRequestPost({ request, env }) {
               ? { hata:`Story video: ${cData.error.message}` }
               : { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username, story:true }
           } else {
-            // Görsel story: /stories endpoint — desteklemeyen hesaplarda sessizce atla
+            // Görsel story: /stories endpoint dene
             const storyImg = ig_story_gorsel || gorsel_url
             if (storyImg) {
               const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/stories`, {
@@ -126,18 +141,9 @@ export async function onRequestPost({ request, env }) {
                 body: JSON.stringify({ image_url:storyImg, access_token:userToken }),
               })
               const cData = await cRes.json()
-              if (cData.error) {
-                const kod = cData.error.code
-                // 100, 10, 200 = izin yok — bu hesap için story desteklenmiyor, sessizce geç
-                if (kod===100||kod===10||kod===200) {
-                  // Log'a ekle ama hata olarak gösterme
-                  sonuclar.instagram[storyKey] = { atlandı:true, ig_username:sayfa.ig_username, sebep:'Story API bu hesapta desteklenmiyor' }
-                } else {
-                  sonuclar.instagram[storyKey] = { hata:`Story: ${cData.error.message} (${kod})`, ig_username:sayfa.ig_username }
-                }
-              } else {
-                sonuclar.instagram[storyKey] = { ok:true, media_id:cData.id, story:true, ig_username:sayfa.ig_username }
-              }
+              sonuclar.instagram[storyKey] = cData.error
+                ? { hata:`Story: ${cData.error.message} (${cData.error.code})` }
+                : { ok:true, media_id:cData.id, story:true, ig_username:sayfa.ig_username }
             }
           }
         }
