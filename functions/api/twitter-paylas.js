@@ -1,8 +1,7 @@
 // functions/api/twitter-paylas.js
-// Twitter/X OAuth 1.0a (HMAC-SHA1) + v1.1 medya yükleme + v2 tweet
-// Web Crypto API kullanır — node:crypto bağımlılığı yok
+// Twitter/X OAuth 1.0a (HMAC-SHA1, Web Crypto) + v1.1 medya + v1.1 tweet
 
-// ── OAuth 1.0a imzalayıcı (HMAC-SHA1, Web Crypto) ───────────────────────────
+// ── OAuth 1.0a imzalayıcı ────────────────────────────────────────────────────
 async function oauthSign(method, url, extraParams = {}, creds) {
   const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
   const ts    = Math.floor(Date.now() / 1000).toString()
@@ -17,21 +16,18 @@ async function oauthSign(method, url, extraParams = {}, creds) {
     ...extraParams,
   }
 
-  // Parametre string — tüm params birleşik sıralı
   const paramStr = Object.keys(oaParams).sort()
     .map(k => `${pct(k)}=${pct(oaParams[k])}`).join('&')
 
-  const base = `${method.toUpperCase()}&${pct(url)}&${pct(paramStr)}`
+  const base       = `${method.toUpperCase()}&${pct(url)}&${pct(paramStr)}`
   const signingKey = `${pct(creds.apiSecret)}&${pct(creds.accessTokenSecret)}`
 
-  // HMAC-SHA1 via Web Crypto
-  const encoder  = new TextEncoder()
-  const keyData  = encoder.encode(signingKey)
-  const msgData  = encoder.encode(base)
+  const encoder   = new TextEncoder()
   const cryptoKey = await crypto.subtle.importKey(
-    'raw', keyData, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+    'raw', encoder.encode(signingKey),
+    { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
   )
-  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, msgData)
+  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(base))
   const sig    = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
 
   oaParams.oauth_signature = sig
@@ -52,23 +48,23 @@ async function mediaYukle(buffer, mimeType, creds) {
   const uploadUrl = 'https://upload.twitter.com/1.1/media/upload.json'
   const isVideo   = mimeType.startsWith('video')
 
-  // INIT
-  const initBody = new URLSearchParams({
+  // INIT — body parametreleri imzaya dahil
+  const initParams = {
     command:        'INIT',
     total_bytes:    buffer.byteLength.toString(),
     media_type:     mimeType,
     media_category: isVideo ? 'tweet_video' : 'tweet_image',
-  })
-  const initAuth = await oauthSign('POST', uploadUrl, {}, creds)
+  }
+  const initAuth = await oauthSign('POST', uploadUrl, initParams, creds)
   const initRes  = await fetch(uploadUrl, {
     method: 'POST',
     headers: { Authorization: initAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: initBody.toString(),
+    body: new URLSearchParams(initParams).toString(),
   })
   if (!initRes.ok) throw new Error(`INIT: ${await initRes.text()}`)
   const { media_id_string } = await initRes.json()
 
-  // APPEND — 5 MB chunk
+  // APPEND — multipart/form-data, binary var, imzaya dahil edilmez
   const CHUNK = 5 * 1024 * 1024
   let seg = 0
   for (let off = 0; off < buffer.byteLength; off += CHUNK) {
@@ -84,29 +80,30 @@ async function mediaYukle(buffer, mimeType, creds) {
     seg++
   }
 
-  // FINALIZE
-  const finBody = new URLSearchParams({ command: 'FINALIZE', media_id: media_id_string })
-  const finAuth = await oauthSign('POST', uploadUrl, {}, creds)
-  const finRes  = await fetch(uploadUrl, {
+  // FINALIZE — body parametreleri imzaya dahil
+  const finParams = { command: 'FINALIZE', media_id: media_id_string }
+  const finAuth   = await oauthSign('POST', uploadUrl, finParams, creds)
+  const finRes    = await fetch(uploadUrl, {
     method: 'POST',
     headers: { Authorization: finAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: finBody.toString(),
+    body: new URLSearchParams(finParams).toString(),
   })
   if (!finRes.ok) throw new Error(`FINALIZE: ${await finRes.text()}`)
   const finData = await finRes.json()
 
-  // Video işlenme bekleme
   if (finData.processing_info) {
     await bekleVideo(media_id_string, creds)
   }
   return media_id_string
 }
 
+// ── Video işlenme bekleme ────────────────────────────────────────────────────
 async function bekleVideo(mediaId, creds) {
   const base = 'https://upload.twitter.com/1.1/media/upload.json'
   for (let i = 0; i < 30; i++) {
-    const url  = `${base}?command=STATUS&media_id=${mediaId}`
-    const auth = await oauthSign('GET', base, { command: 'STATUS', media_id: mediaId }, creds)
+    const statusParams = { command: 'STATUS', media_id: mediaId }
+    const url  = `${base}?${new URLSearchParams(statusParams)}`
+    const auth = await oauthSign('GET', base, statusParams, creds)
     const res  = await fetch(url, { headers: { Authorization: auth } })
     if (!res.ok) break
     const d = await res.json()
@@ -123,11 +120,10 @@ async function tweetAt(metin, mediaIds, creds) {
   const params = { status: metin }
   if (mediaIds?.length) params.media_ids = mediaIds.join(',')
   const auth = await oauthSign('POST', url, params, creds)
-  const body = new URLSearchParams(params)
   const res  = await fetch(url, {
     method: 'POST',
     headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    body: new URLSearchParams(params).toString(),
   })
   if (!res.ok) throw new Error(`Tweet: ${await res.text()}`)
   return await res.json()
