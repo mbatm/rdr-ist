@@ -3480,6 +3480,376 @@ function ReklamModul({ user, onGeri }) {
   )
 }
 
+
+// ── YÖNETİM MODÜLÜ ───────────────────────────────────────────────────────────
+function YonetimModul({ user, onGeri }) {
+  const [sekme,      setSekme]    = useState('log')
+  const [log,        setLog]      = useState([])
+  const [logYuk,     setLogYuk]   = useState(true)
+  const [users,      setUsers]    = useState([])
+  const [tumHesaplar,setTumH]     = useState({ facebook:[], instagram:[] })
+  const [kayit,      setKayit]    = useState(false)
+  const [siliyor,    setSiliyor]  = useState('')
+  const [duzenleK,   setDuzenleK] = useState(null)
+  const [yeniK,      setYeniK]    = useState({ kullanici:'', sifre:'', ad:'', rol:'editor', sayfalar:[] })
+  const [firmalar,   setFirmalar] = useState([])
+  const [firmaDetay, setFirmaD]   = useState(null)
+  const [logFiltre,  setLogF]     = useState('hepsi')
+  const token = localStorage.getItem('cms_token') || ''
+
+  const PLT = { facebook:'#1877F2', instagram:'#E1306C', twitter:'#1DA1F2', youtube:'#FF0000', sistem:'#666', radar:'#E63946', reklam:'#FFB700' }
+
+  useEffect(() => {
+    fetch('/api/paylas-log?admin=1', { headers:{'X-Token':token} })
+      .then(r=>r.json()).then(d=>{ setLog(Array.isArray(d)?d:[]); setLogYuk(false) }).catch(()=>setLogYuk(false))
+    fetch('/api/kullanicilar?token='+token, { headers:{'X-Token':token} })
+      .then(r=>r.json()).then(d=>{ if(Array.isArray(d)) setUsers(d) }).catch(()=>{})
+    fetch('/api/hesaplar')
+      .then(r=>r.json()).then(d=>setTumH(d)).catch(()=>{})
+    fetch('/api/reklam-firma', { headers:{'X-Token':token} })
+      .then(r=>r.json()).then(d=>{ if(Array.isArray(d)) setFirmalar(d) }).catch(()=>{})
+  }, [])
+
+  // Log filtrele
+  const logFiltreli = logFiltre === 'hepsi' ? log : log.filter(l=>l.tip===logFiltre||l.platform===logFiltre)
+
+  // Paylaşım sil
+  const paylasSil = async (l) => {
+    if (!l.post_id) return alert('Post ID yok')
+    if (!confirm(`${l.platform} paylaşımı silinsin mi?`)) return
+    setSiliyor(l.post_id)
+    try {
+      const res  = await fetch('/api/paylas-sil', {
+        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+        body: JSON.stringify({ platform:l.platform, post_id:l.post_id, page_id:l.page_id }),
+      })
+      const data = await res.json()
+      if (data.ok || data.log_silindi) {
+        setLog(p=>p.filter(x=>x.post_id!==l.post_id))
+        if (data.post_url) window.open(data.post_url, '_blank')
+      } else { alert('Hata: ' + data.hata) }
+    } catch(e) { alert(e.message) }
+    setSiliyor('')
+  }
+
+  // Kullanıcı ekle/güncelle
+  const kullaniciKaydet = async (form) => {
+    if (!form.kullanici || !form.sifre) return
+    setKayit(true)
+    try {
+      const res  = await fetch('/api/kullanicilar', {
+        method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+        body: JSON.stringify({ islem:'guncelle', ...form, sayfalar: form.sayfalar?.length ? form.sayfalar : null }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setUsers(p => p.some(u=>u.kullanici===form.kullanici)
+          ? p.map(u=>u.kullanici===form.kullanici ? {...u,...form} : u)
+          : [...p, form])
+        setYeniK({ kullanici:'', sifre:'', ad:'', rol:'editor', sayfalar:[] })
+        setDuzenleK(null)
+      }
+    } catch(e) {}
+    setKayit(false)
+  }
+
+  const kullaniciSil = async (k) => {
+    if (!confirm(`"${k}" silinsin mi?`)) return
+    await fetch('/api/kullanicilar', {
+      method:'POST', headers:{'Content-Type':'application/json','X-Token':token},
+      body: JSON.stringify({ islem:'sil', kullanici:k }),
+    })
+    setUsers(p=>p.filter(u=>u.kullanici!==k))
+  }
+
+  // Firma raporu hesapla
+  const firmaRapor = (firma) => {
+    const kampanyalar = firma.kampanyalar || []
+    const toplamGun   = kampanyalar.reduce((acc, k) => {
+      if (!k.baslangic) return acc
+      const bas = new Date(k.baslangic)
+      const bit = k.bitis ? new Date(k.bitis) : new Date()
+      return acc + Math.max(0, Math.ceil((bit-bas)/(1000*60*60*24)))
+    }, 0)
+    const toplamGonderi  = kampanyalar.reduce((acc,k)=>acc+(k.gonderiler||[]).length, 0)
+    const toplamPaylasim = kampanyalar.reduce((acc,k)=>acc+(k.gonderiler||[]).reduce((a,g)=>a+(g.paylasimlar||[]).length,0), 0)
+    return { toplamGun, toplamGonderi, toplamPaylasim, kampanyaSayisi: kampanyalar.length }
+  }
+
+  // Modül yetki checkboxları
+  const ModulYetkiler = ({ form, setForm }) => (
+    form.rol !== 'admin' ? (
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Modül Yetkileri</div>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {[
+            ['modul_kayserim','kayserim.net Haber Girişi'],
+            ['modul_kayseradar','Kayseradar Veri Girişi'],
+            ['modul_reklam','Reklam Girişi'],
+            ['modul_manuel','Manuel Haber Girişi'],
+          ].map(([key,label])=>(
+            <label key={key} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,cursor:'pointer',padding:'3px 0'}}>
+              <input type="checkbox" checked={form[key]!==false}
+                onChange={e=>setForm(p=>({...p,[key]:e.target.checked}))}/>
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+    ) : null
+  )
+
+  const SayfaSecici = ({ form, setForm }) => (
+    tumHesaplar.facebook?.length > 0 ? (
+      <div style={{marginBottom:8}}>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>SAYFA YETKİLERİ <span style={{opacity:.6}}>(boş = tümü)</span></div>
+        <div style={{maxHeight:110,overflowY:'auto',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'4px 0'}}>
+          {tumHesaplar.facebook.map(h=>(
+            <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 8px',cursor:'pointer'}}>
+              <input type="checkbox"
+                checked={(form.sayfalar||[]).includes(h.page_id)}
+                onChange={e=>setForm(p=>({...p,sayfalar:e.target.checked?[...(p.sayfalar||[]),h.page_id]:(p.sayfalar||[]).filter(x=>x!==h.page_id)}))}/>
+              <span style={{fontSize:11}}>{h.page_name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    ) : null
+  )
+
+  return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+      {/* Header */}
+      <div style={{padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',display:'flex',alignItems:'center',gap:6,background:'var(--surface)',flexShrink:0}}>
+        <button onClick={onGeri} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+          <Ic n="arrow-left" size={11}/> Menü
+        </button>
+        <div style={{width:1,height:16,background:'var(--border)'}}/>
+        <Ic n="settings" size={15} style={{color:'#8899a6'}}/>
+        <div style={{fontSize:14,fontWeight:600}}>Yönetim</div>
+        <div style={{marginLeft:'auto',display:'flex',gap:4}}>
+          {[
+            ['log','clipboard-list','Log'],
+            ['kullanicilar','users','Kullanıcılar'],
+            ['reklam_rapor','chart-bar','Reklam Raporu'],
+            ['hesaplar','link','Hesaplar'],
+          ].map(([s,ic,l])=>(
+            <button key={s} onClick={()=>setSekme(s)}
+              style={{fontSize:11,background:sekme===s?'rgba(255,255,255,.08)':'transparent',
+                border:sekme===s?'0.5px solid rgba(255,255,255,.2)':'0.5px solid transparent',
+                fontWeight:sekme===s?500:400,color:sekme===s?'var(--text)':'var(--muted)'}}>
+              <Ic n={ic} size={11}/> {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{flex:1,overflowY:'auto',padding:'1rem'}}>
+
+        {/* ── PAYLAŞIM LOGU ── */}
+        {sekme==='log' && (
+          <div style={{maxWidth:900}}>
+            {/* Filtre */}
+            <div style={{display:'flex',gap:5,marginBottom:'1rem',flexWrap:'wrap'}}>
+              {[['hepsi','Tümü'],['facebook','Facebook'],['instagram','Instagram'],['twitter','Twitter'],['youtube','YouTube'],['radar','Kayseradar'],['reklam','Reklam']].map(([v,l])=>(
+                <button key={v} onClick={()=>setLogF(v)}
+                  style={{fontSize:11,background:logFiltre===v?'rgba(255,255,255,.08)':'transparent',
+                    border:logFiltre===v?'0.5px solid rgba(255,255,255,.2)':'0.5px solid var(--border)',
+                    fontWeight:logFiltre===v?500:400}}>
+                  {l} {v==='hepsi'?`(${log.length})`:''}
+                </button>
+              ))}
+            </div>
+
+            {logYuk && <div style={{color:'var(--muted)',fontSize:13}}>Yükleniyor…</div>}
+            {logFiltreli.map((l,i)=>(
+              <div key={i} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,display:'flex',gap:10,alignItems:'flex-start'}}>
+                <div style={{fontSize:10,background:`${PLT[l.platform]||'#666'}22`,color:PLT[l.platform]||'#aaa',
+                  border:`0.5px solid ${PLT[l.platform]||'#666'}44`,borderRadius:4,padding:'2px 7px',flexShrink:0,textTransform:'capitalize',minWidth:60,textAlign:'center'}}>
+                  {l.tip==='radar'?'Radar':l.tip==='reklam'?'Reklam':l.platform}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.baslik||l.source_id}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginTop:3,display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <span>👤 {l.kullanici}</span>
+                    <span>{l.tip==='video'?'🎬':'📷'} {l.tip||'foto'}</span>
+                    <span>🕐 {l.tarih?new Date(l.tarih).toLocaleString('tr-TR'):''}</span>
+                    {l.sablon&&<span>📋 {l.sablon}</span>}
+                    {l.post_id&&<span style={{fontFamily:'monospace',fontSize:10,color:'var(--muted)'}}>#{l.post_id.slice(0,12)}</span>}
+                  </div>
+                </div>
+                {l.post_id && l.tip!=='radar_sil' && (
+                  <button onClick={()=>paylasSil(l)} disabled={siliyor===l.post_id}
+                    style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',flexShrink:0}}>
+                    <Ic n={siliyor===l.post_id?'loader-2':'trash'} size={11}/> Sil
+                  </button>
+                )}
+              </div>
+            ))}
+            {!logYuk&&logFiltreli.length===0&&<div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:'2rem'}}>Kayıt yok</div>}
+          </div>
+        )}
+
+        {/* ── KULLANICILAR ── */}
+        {sekme==='kullanicilar' && (
+          <div style={{maxWidth:700}}>
+            {/* Yeni kullanıcı */}
+            <div style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1rem',marginBottom:'1rem'}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Yeni Kullanıcı Ekle</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                {[['kullanici','Kullanıcı Adı','text'],['sifre','Şifre','password'],['ad','Ad Soyad','text']].map(([k,l,t])=>(
+                  <div key={k} style={{gridColumn:k==='ad'?'1/-1':undefined}}>
+                    <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{l}</div>
+                    <input type={t} value={yeniK[k]||''} onChange={e=>setYeniK(p=>({...p,[k]:e.target.value}))} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                  </div>
+                ))}
+                <div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Rol</div>
+                  <select value={yeniK.rol} onChange={e=>setYeniK(p=>({...p,rol:e.target.value}))}
+                    style={{width:'100%',fontSize:13,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'6px 8px'}}>
+                    <option value="editor">Editör</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+              <ModulYetkiler form={yeniK} setForm={setYeniK}/>
+              <SayfaSecici form={yeniK} setForm={setYeniK}/>
+              <button onClick={()=>kullaniciKaydet(yeniK)} disabled={kayit||!yeniK.kullanici||!yeniK.sifre}
+                style={{fontSize:12,background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                <Ic n={kayit?'loader-2':'user-plus'} size={12}/> Ekle
+              </button>
+            </div>
+
+            {/* Mevcut kullanıcılar */}
+            {users.map(u=>(
+              <div key={u.kullanici} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 14px',marginBottom:8}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:32,height:32,background:'rgba(68,136,255,.15)',border:'0.5px solid rgba(68,136,255,.3)',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:600,color:'#4488FF',flexShrink:0}}>
+                    {(u.ad||u.kullanici)[0].toUpperCase()}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500}}>{u.ad||u.kullanici}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',display:'flex',gap:6,flexWrap:'wrap'}}>
+                      <span>@{u.kullanici}</span>
+                      <span>· {u.rol==='admin'?'Admin':'Editör'}</span>
+                      {u.rol!=='admin' && [
+                        u.modul_kayserim!==false&&'Kayserim',
+                        u.modul_kayseradar!==false&&'Radar',
+                        u.modul_reklam!==false&&'Reklam',
+                        u.modul_manuel!==false&&'Manuel',
+                      ].filter(Boolean).map(m=>(
+                        <span key={m} style={{background:'rgba(68,136,255,.1)',color:'#4488FF',padding:'0 5px',borderRadius:8,fontSize:10}}>{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={()=>setDuzenleK(duzenleK===u.kullanici?null:u.kullanici)}
+                    style={{fontSize:11,background:'rgba(255,255,255,.06)',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+                    <Ic n="edit" size={11}/> {duzenleK===u.kullanici?'Kapat':'Düzenle'}
+                  </button>
+                  {u.kullanici!=='admin' && (
+                    <button onClick={()=>kullaniciSil(u.kullanici)}
+                      style={{fontSize:11,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                      <Ic n="trash" size={11}/>
+                    </button>
+                  )}
+                </div>
+                {duzenleK===u.kullanici && (
+                  <DuzenleForm u={u} token={token} tumHesaplar={tumHesaplar}
+                    onKaydet={guncellenen=>{ setUsers(p=>p.map(x=>x.kullanici===u.kullanici?{...x,...guncellenen}:x)); setDuzenleK(null) }}/>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── REKLAM RAPORU ── */}
+        {sekme==='reklam_rapor' && (
+          <div style={{maxWidth:900}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'0.75rem',marginBottom:'1.5rem'}}>
+              {firmalar.map(f=>{
+                const r = firmaRapor(f)
+                return (
+                  <div key={f.id} onClick={async()=>{
+                    const res = await fetch(`/api/reklam-firma?id=${f.id}`,{headers:{'X-Token':token}})
+                    setFirmaD(await res.json())
+                  }}
+                    style={{background:'var(--surface)',border:`0.5px solid ${firmaDetay?.id===f.id?'rgba(255,183,0,.4)':'var(--border)'}`,borderRadius:'var(--radius-lg)',padding:'1rem',cursor:'pointer'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                      <div style={{width:32,height:32,background:'rgba(255,183,0,.1)',border:'0.5px solid rgba(255,183,0,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <Ic n="building-store" size={16} style={{color:'#FFB700'}}/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600}}>{f.ad}</div>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>{f.sektor||'—'}</div>
+                      </div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                      {[
+                        ['Kampanya',r.kampanyaSayisi,'briefcase'],
+                        ['Toplam Gün',r.toplamGun,'calendar'],
+                        ['Gönderi',r.toplamGonderi,'photo'],
+                        ['Paylaşım',r.toplamPaylasim,'send'],
+                      ].map(([l,v,ic])=>(
+                        <div key={l} style={{background:'rgba(255,255,255,.03)',borderRadius:'var(--radius-sm)',padding:'6px 8px'}}>
+                          <div style={{fontSize:10,color:'var(--muted)'}}>{l}</div>
+                          <div style={{fontSize:18,fontWeight:600,color:'var(--text)'}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+              {firmalar.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Henüz firma yok</div>}
+            </div>
+
+            {/* Firma detay raporu */}
+            {firmaDetay && (
+              <div style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1rem'}}>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>{firmaDetay.ad} — Kampanya Detayları</div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {(firmaDetay.kampanyalar||[]).map(k=>{
+                    const bas = k.baslangic ? new Date(k.baslangic) : null
+                    const bit = k.bitis ? new Date(k.bitis) : new Date()
+                    const gun = bas ? Math.max(0,Math.ceil((bit-bas)/(1000*60*60*24))) : 0
+                    const paylasimSayisi = (k.gonderiler||[]).reduce((a,g)=>a+(g.paylasimlar||[]).length,0)
+                    const bitti = k.bitis && new Date(k.bitis) < new Date()
+                    return (
+                      <div key={k.id} style={{padding:'10px 12px',background:'rgba(255,255,255,.02)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{flex:1}}>
+                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                            <span style={{fontSize:13,fontWeight:500}}>{k.ad}</span>
+                            {bitti && <span style={{fontSize:10,color:'var(--muted)',background:'rgba(255,255,255,.05)',padding:'1px 6px',borderRadius:8}}>Bitti</span>}
+                          </div>
+                          <div style={{fontSize:11,color:'var(--muted)',display:'flex',gap:10}}>
+                            {k.baslangic&&<span>📅 {new Date(k.baslangic).toLocaleDateString('tr-TR')}</span>}
+                            {k.bitis&&<span>→ {new Date(k.bitis).toLocaleDateString('tr-TR')}</span>}
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:8,fontSize:12}}>
+                          <span style={{color:'#FFB700'}}>{gun} gün</span>
+                          <span style={{color:'var(--muted)'}}>·</span>
+                          <span style={{color:'var(--text)'}}>{(k.gonderiler||[]).length} gönderi</span>
+                          <span style={{color:'var(--muted)'}}>·</span>
+                          <span style={{color:'#00D4AA'}}>{paylasimSayisi} paylaşım</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {(firmaDetay.kampanyalar||[]).length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Kampanya yok</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── HESAPLAR ── */}
+        {sekme==='hesaplar' && <HesapYonetimi/>}
+
+      </div>
+    </div>
+  )
+}
+
 // ── MODÜL SEÇİCİ ANA EKRAN ───────────────────────────────────────────────────
 function ModulSecici({ user, onModul }) {
   const moduller = [
@@ -3668,6 +4038,7 @@ export default function App() {
   if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'reklam') return <ReklamModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>setAktifModul(null)}/>
+  if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
   if (aktifModul !== 'kayserim') return (
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
