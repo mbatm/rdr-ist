@@ -1,5 +1,5 @@
 // functions/api/manuel-isle.js
-// Manuel haber girişi — metin + medya al, Claude + Ahrefs ile işle
+// Manuel haber girişi — oto-isle ile aynı Claude prompt formatı
 
 export async function onRequestPost({ request, env }) {
   const token = request.headers.get('X-Token')
@@ -14,78 +14,70 @@ export async function onRequestPost({ request, env }) {
 
     const ilkGorsel = gorsel_url || medyalar.find(m=>m.tip==='gorsel')?.url || ''
     const ilkVideo  = video_url  || medyalar.find(m=>m.tip==='video')?.url  || ''
+    const isVideo   = !!ilkVideo
 
-    // ── Ahrefs ───────────────────────────────────────────────────────────────
-    let ahrefsVeri = ''
+    // ── Ahrefs kelime stratejisi (KV'den — oto-isle ile aynı mantık) ─────────
+    let katKw = 'kayseri haber, kayseri son dakika'
     try {
-      const kelimeler = (baslik||metin||'').split(' ').slice(0,4).join(' ')
-      const ahRes = await fetch('https://apiv3.ahrefs.com/v3/keywords-explorer/matching-terms', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${env.AHREFS_API_KEY||''}` },
-        body: JSON.stringify({ country:'tr', keywords:kelimeler, limit:5, order_by:'volume:desc', select:'keyword,volume,difficulty' }),
-      })
-      if (ahRes.ok) {
-        const d = await ahRes.json()
-        ahrefsVeri = JSON.stringify(d?.terms?.slice(0,5)||[])
-      }
-    } catch(e) { console.warn('Ahrefs:', e.message) }
+      const strateji = await env.HABERLER.get('ahrefs_strateji', 'json')
+      if (strateji?.[kategori]) katKw = strateji[kategori]
+    } catch(e) {}
 
-    // ── Claude — sadece kısa alanlar (JSON güvenli) ───────────────────────────
-    const metinKisa = (metin||'').slice(0, 2000) // token limitini aşmamak için kırp
+    // ── Claude — oto-isle ile aynı prompt ────────────────────────────────────
+    const metinKisa = (metin||'').slice(0, 3000)
+    const prompt = `Sen kayserim.net için çalışan kıdemli bir SEO editörüsün.
+
+## KRİTİK KURAL — GERÇEK HABER DİLİ
+Optimize içeriği gerçek haber ajansı dilinde yaz. KAYSERİ(1HA)- gibi kaynak önekleri kaldır.
+
+## HABER BİLGİSİ
+Başlık: ${baslik||''}
+İçerik: ${metinKisa}
+Kategori: ${kategori}
+${isVideo ? 'İçerik Tipi: VİDEO HABER — sosyal medya metinlerine "izle", "videolu haber" ekle' : ''}
+
+## SEO STRATEJİSİ
+Hedef kelimeler: ${katKw}
+- "Kayseri" ilk 3 kelimede geçmeli
+- Başlık 55-65 karakter
+- URL slug "kayseri-" ile başlamalı
+
+SADECE şu JSON formatını döndür:
+{
+  "site_basligi": "55-65 karakter, Kayseri içeren SEO başlık",
+  "h1_basligi": "H1 başlık",
+  "sosyal_baslik": "max 7 kelime, Kayseri ile başlayan sosyal medya başlığı",
+  "meta_description": "max 155 karakter",
+  "url_slug": "kayseri-ile-baslayan-slug",
+  "optimize_icerik": "250-400 kelime, Türk haber ajansı dilinde, H2 başlıklı HTML",
+  "ozet": "1 cümle, haberin özü",
+  "instagram": "Haberi Instagram için yeniden yaz. 1) Kaynak öneklerini kaldır 2) Doğal akıcı dil 3) Konuya uygun emoji 4) 1200-2000 karakter 5) Sondan önce 'Haber detayları kayserim.net\\'te 🔗' 6) Son satırda 6-10 hashtag (#kayseri #kayserihaber ve konuya özel) 7) URL ekleme",
+  "facebook": "Haber başlığı + özet + 1-2 cümle. Konuya uygun emoji. Max 300 karakter. Sonuna #kayseri #kayserihaber",
+  "x_twitter": "Başlık + kısa spot. Max 230 karakter. 1-2 emoji. #KayseriSonDakika #Kayseri ve 1-2 hashtag",
+  "youtube_baslik": "max 80 karakter, arama odaklı",
+  "youtube_aciklama": "250-300 karakter özet. Sonuna 'Detaylar için: [LINK]'",
+  "hedef_kelimeler": ["kelime1","kelime2","kelime3"],
+  "kategori": "${kategori}",
+  "gorsel_prompt": "realistic Turkish news photo, Kayseri Turkey, max 12 words"
+}`
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'x-api-key':env.ANTHROPIC_API_KEY, 'anthropic-version':'2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
-        messages: [{
-          role: 'user',
-          content: `Sen kayserim.net SEO editörüsün. Aşağıdaki haberi işle ve SADECE JSON döndür, başka hiçbir şey yazma.
-
-BAŞLIK: ${baslik||''}
-METİN: ${metinKisa}
-KATEGORİ: ${kategori}
-${ahrefsVeri?`AHREFS: ${ahrefsVeri}`:''}
-
-JSON formatı (tüm değerler string, Türkçe):
-{"site_basligi":"max 70 karakter SEO başlık","h1_basligi":"H1 başlık","meta_description":"max 155 karakter","url_slug":"kisa-slug-tr","sosyal_baslik":"merak uyandıran başlık","instagram_metni":"IG metni emoji hashtag ile","facebook_metni":"FB metni","x_twitter":"max 280 karakter tweet","whatsapp_basligi":"whatsapp başlık","hedef_kelimeler":["kelime1","kelime2","kelime3"]}`,
-        }],
+        model:      'claude-sonnet-4-20250514',
+        max_tokens: 3000,
+        messages:   [{ role:'user', content: prompt }],
       }),
     })
     const cd  = await claudeRes.json()
     const txt = (cd.content?.[0]?.text || '{}').replace(/```json|```/g,'').trim()
+
     let icerik = {}
     try {
-      // JSON başlangıcını bul
-      const jsonStart = txt.indexOf('{')
-      const jsonEnd   = txt.lastIndexOf('}')
-      if (jsonStart >= 0 && jsonEnd > jsonStart) {
-        icerik = JSON.parse(txt.slice(jsonStart, jsonEnd+1))
-      }
-    } catch(e) { console.warn('JSON parse:', e.message, txt.slice(0,200)) }
-
-    // ── Claude — optimize içerik (ayrı çağrı) ───────────────────────────────
-    let optimizeIcerik = metin || ''
-    try {
-      const icerikRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'x-api-key':env.ANTHROPIC_API_KEY, 'anthropic-version':'2023-06-01' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 2000,
-          messages: [{
-            role: 'user',
-            content: `Aşağıdaki haber metnini kayserim.net için SEO uyumlu HTML'e dönüştür. H2 başlıklar kullan, "Kayseri" kelimesini doğal yerleştir. Sadece HTML içerik döndür, başka hiçbir şey yazma.
-
-BAŞLIK: ${icerik.site_basligi||baslik||''}
-METİN: ${metinKisa}`,
-          }],
-        }),
-      })
-      const id = await icerikRes.json()
-      optimizeIcerik = id.content?.[0]?.text?.replace(/```html|```/g,'').trim() || metin || ''
-    } catch(e) { console.warn('Optimize içerik:', e.message) }
+      const s = txt.indexOf('{'), e = txt.lastIndexOf('}')
+      if (s >= 0 && e > s) icerik = JSON.parse(txt.slice(s, e+1))
+    } catch(err) { console.warn('JSON parse:', err.message, txt.slice(0,300)) }
 
     // ── Creatomate video ─────────────────────────────────────────────────────
     let creatomateRenders = []
@@ -119,9 +111,10 @@ METİN: ${metinKisa}`,
       source_id,
       baslik:           baslik||icerik.site_basligi||'',
       icerik:           metin||'',
-      kategori,
+      kategori:         icerik.kategori||kategori,
       gorsel_url:       ilkGorsel,
       gorsel:           ilkGorsel,
+      video:            ilkVideo,
       video_url:        ilkVideo,
       medyalar,
       durum:            'islendi',
@@ -134,23 +127,25 @@ METİN: ${metinKisa}`,
       creatomate:       creatomateRenders,
       video_dikey:      creatomateRenders.find(r=>r.format==='dikey')||null,
       video_yatay:      creatomateRenders.find(r=>r.format==='yatay')||null,
-      // Claude SEO çıktısı
-      site_basligi:     icerik.site_basligi     || baslik || '',
-      h1_basligi:       icerik.h1_basligi       || baslik || '',
-      meta_description: icerik.meta_description || '',
-      url_slug:         icerik.url_slug          || '',
-      optimize_icerik:  optimizeIcerik,
-      sosyal_baslik:    icerik.sosyal_baslik     || icerik.instagram_metni || '',
-      instagram_metni:  icerik.instagram_metni   || '',
-      facebook_metni:   icerik.facebook_metni    || '',
-      x_twitter:        icerik.x_twitter         || '',
-      whatsapp_basligi: icerik.whatsapp_basligi  || '',
-      hedef_kelimeler:  icerik.hedef_kelimeler   || [],
+      // Claude SEO çıktısı — oto-isle ile aynı alan adları
+      site_basligi:     icerik.site_basligi      || baslik || '',
+      h1_basligi:       icerik.h1_basligi         || baslik || '',
+      sosyal_baslik:    icerik.sosyal_baslik      || '',
+      meta_description: icerik.meta_description   || '',
+      url_slug:         icerik.url_slug            || '',
+      optimize_icerik:  icerik.optimize_icerik    || metin || '',
+      ozet:             icerik.ozet                || '',
+      instagram:        icerik.instagram           || '',
+      facebook:         icerik.facebook            || '',
+      x_twitter:        icerik.x_twitter           || '',
+      youtube_baslik:   icerik.youtube_baslik      || '',
+      youtube_aciklama: icerik.youtube_aciklama    || '',
+      hedef_kelimeler:  icerik.hedef_kelimeler     || [],
+      gorsel_prompt:    icerik.gorsel_prompt        || '',
     }
 
     await env.HABERLER.put(`haber:${source_id}`, JSON.stringify(kayit))
 
-    // Ana listeye ekle
     const liste = await env.HABERLER.get('HABERLER', 'json') || []
     liste.unshift(kayit)
     await env.HABERLER.put('HABERLER', JSON.stringify(liste.slice(0,500)))
