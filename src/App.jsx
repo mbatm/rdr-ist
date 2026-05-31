@@ -2109,6 +2109,8 @@ function KayseradarModul({ user, onGeri }) {
             setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'succeeded', url: renderUrl } }))
             // Listedeki kaydı da güncelle
             setListe(prev => prev.map(li => li.render_id === r.render_id ? { ...li, render_url: renderUrl } : li))
+            // Detay ekranındaki kaydı güncelle
+            setSecili(prev => prev ? { ...prev, creatomate: (prev.creatomate||[]).map(cr => cr.render_id===r.render_id ? {...cr, url:renderUrl, status:'succeeded'} : cr) } : prev)
             // KV kaydını güncelle
             setOnayKayit(p => p ? {
               ...p,
@@ -2208,12 +2210,17 @@ function KayseradarModul({ user, onGeri }) {
                 setSecili(d); setOnayKayit(null); setEkran('detay'); setPSonuc(null); setHata(null)
               }}
                 style={{background:on?'rgba(230,57,70,.06)':'var(--surface)',border:`0.5px solid ${on?'rgba(230,57,70,.3)':'var(--border)'}`,borderRadius:'var(--radius-md)',marginBottom:6,cursor:'pointer',overflow:'hidden'}}>
-                {/* Render görseli — hazırsa göster */}
+                {/* Render önizleme — görsel veya video */}
                 {item.render_url ? (
-                  <img src={item.render_url} alt="" style={{width:'100%',height:120,objectFit:'cover',display:'block'}}
-                    onError={e=>e.target.style.display='none'}/>
+                  item.render_url.match(/\.mp4/i) ? (
+                    <video src={item.render_url} muted playsInline
+                      style={{width:'100%',height:120,objectFit:'cover',display:'block'}}/>
+                  ) : (
+                    <img src={item.render_url} alt="" style={{width:'100%',height:120,objectFit:'cover',display:'block'}}
+                      onError={e=>e.target.style.display='none'}/>
+                  )
                 ) : item.gorsel_url ? (
-                  <img src={item.gorsel_url} alt="" style={{width:'100%',height:100,objectFit:'cover',display:'block',opacity:0.6}}
+                  <img src={item.gorsel_url} alt="" style={{width:'100%',height:100,objectFit:'cover',display:'block',opacity:0.5}}
                     onError={e=>e.target.style.display='none'}/>
                 ) : null}
                 <div style={{padding:'8px 10px'}}>
@@ -2454,26 +2461,47 @@ function KayseradarModul({ user, onGeri }) {
                 </span>
               </div>
 
-              {/* Medyalar */}
-              {seciliKayit.medyalar?.length > 0 && (
-                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-                  {seciliKayit.medyalar.map((m,i)=>(
-                    m.tip==='gorsel'
-                      ? <img key={i} src={m.url} alt="" style={{height:80,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
-                      : <div key={i} style={{height:80,width:120,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#ff7b7b'}}><Ic n="player-play" size={18}/></div>
+              {/* Render önizleme — creatomate çıktısı */}
+              {seciliKayit.creatomate?.length > 0 && (
+                <div style={{marginBottom:12}}>
+                  {seciliKayit.creatomate.map(r=>(
+                    <div key={r.format} style={{marginBottom:8}}>
+                      {r.url ? (
+                        r.url.match(/\.mp4/i) ? (
+                          <video src={r.url} controls style={{width:'100%',maxHeight:400,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
+                        ) : (
+                          <img src={r.url} alt="render" style={{width:'100%',maxHeight:400,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
+                            onError={e=>e.target.style.display='none'}/>
+                        )
+                      ) : (
+                        <div style={{padding:'8px 12px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)',fontSize:12,color:'#FFB700',display:'flex',alignItems:'center',gap:8}}>
+                          <Ic n="loader-2" size={13}/> {r.format==='dikey'?'Dikey':'Yatay'} işleniyor…
+                        </div>
+                      )}
+                      {r.url && (
+                        <div style={{display:'flex',gap:6,marginTop:4}}>
+                          <a href={r.url} target="_blank" rel="noreferrer"
+                            style={{fontSize:10,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'2px 8px',borderRadius:4}}>
+                            Aç →
+                          </a>
+                          <a href={r.url} download={r.url.match(/\.mp4/i)?'radar.mp4':'radar.jpg'} target="_blank"
+                            style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>
+                            ↓ İndir
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
 
-              {/* Video render durumu */}
-              {seciliKayit.creatomate?.length > 0 && (
-                <div style={{marginBottom:12,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
-                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Creatomate Videoları</div>
-                  {seciliKayit.creatomate.map(r=>(
-                    <div key={r.format} style={{fontSize:12,marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{color:'var(--muted)',minWidth:50}}>{r.format==='dikey'?'⬆ Dikey':'↔ Yatay'}</span>
-                      <span style={{color:r.status==='succeeded'?'#00D4AA':'#FFB700'}}>{r.status==='succeeded'?'✓ Hazır':'⏳ İşleniyor'}</span>
-                    </div>
+              {/* Orijinal medyalar — render yoksa göster */}
+              {(!seciliKayit.creatomate?.length) && seciliKayit.medyalar?.length > 0 && (
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                  {seciliKayit.medyalar.map((m,i)=>(
+                    m.tip==='gorsel'
+                      ? <img key={i} src={m.url} alt="" style={{height:80,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                      : <video key={i} src={m.url} controls style={{height:120,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}}/>
                   ))}
                 </div>
               )}
