@@ -120,8 +120,10 @@ Sadece JSON döndür:
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
           body: JSON.stringify({
             template_id:  templateId,
-            output_format: isVideo ? 'mp4' : 'png',
-            frame_rate:   isVideo ? 30 : undefined,
+            output_format: isVideo ? 'mp4' : 'jpg',
+            width:         isVideo ? undefined : 1350,
+            height:        isVideo ? undefined : 1080,
+            frame_rate:    isVideo ? 30 : undefined,
             modifications,
           }),
         })
