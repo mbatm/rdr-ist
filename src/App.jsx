@@ -2208,6 +2208,9 @@ function KayseradarModul({ user, onGeri }) {
                 const res  = await fetch(`/api/kayseradar-isle?id=${item.id}`,{headers:{'X-Token':token}})
                 const d    = await res.json()
                 setSecili(d); setOnayKayit(null); setEkran('detay'); setPSonuc(null); setHata(null)
+                // Henüz hazır olmayan render'ları takip et
+                const bekleyenler = (d.creatomate||[]).filter(r => !r.url && r.render_id && r.status !== 'failed')
+                if (bekleyenler.length) takipBaslat(bekleyenler, d.id)
               }}
                 style={{background:on?'rgba(230,57,70,.06)':'var(--surface)',border:`0.5px solid ${on?'rgba(230,57,70,.3)':'var(--border)'}`,borderRadius:'var(--radius-md)',marginBottom:6,cursor:'pointer',overflow:'hidden'}}>
                 {/* Render önizleme — görsel veya video */}
@@ -2351,16 +2354,16 @@ function KayseradarModul({ user, onGeri }) {
                 <div style={{marginBottom:12}}>
                   {Object.entries(videoRenders).map(([fmt,r])=>(
                     <div key={fmt} style={{marginBottom:8}}>
-                      {r.status==='succeeded' && r.url ? (
+                      {r.url && (r.status==='succeeded' || r.url.length > 10) ? (
                         <div style={{position:'relative'}}>
-                          {(r.tip==='gorsel' || (!r.tip && r.url && /\.(jpg|jpeg|png|webp)/i.test(r.url))) ? (
+                          {/\.(jpg|jpeg|png|webp)/i.test(r.url) ? (
                             // Görsel önizleme
                             <img src={r.url} alt="render"
                               style={{width:'100%',maxHeight:300,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
                               onError={e=>e.target.style.display='none'}/>
                           ) : (
-                            // Video önizleme
-                            <video src={r.url} controls
+                            // Video önizleme — hazır olunca yükle
+                            <video src={r.url} controls preload="metadata"
                               style={{width:'100%',maxHeight:300,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
                           )}
                           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4,gap:6}}>
@@ -2465,29 +2468,37 @@ function KayseradarModul({ user, onGeri }) {
               {seciliKayit.creatomate?.length > 0 && (
                 <div style={{marginBottom:12}}>
                   {seciliKayit.creatomate.map(r=>(
-                    <div key={r.format} style={{marginBottom:8}}>
-                      {r.url ? (
-                        r.url.match(/\.mp4/i) ? (
-                          <video src={r.url} controls style={{width:'100%',maxHeight:400,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
-                        ) : (
-                          <img src={r.url} alt="render" style={{width:'100%',maxHeight:400,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
-                            onError={e=>e.target.style.display='none'}/>
-                        )
-                      ) : (
-                        <div style={{padding:'8px 12px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)',fontSize:12,color:'#FFB700',display:'flex',alignItems:'center',gap:8}}>
-                          <Ic n="loader-2" size={13}/> {r.format==='dikey'?'Dikey':'Yatay'} işleniyor…
+                    <div key={r.format||r.render_id} style={{marginBottom:8}}>
+                      {r.url && r.url.length > 10 ? (
+                        // Render hazır — göster
+                        <>
+                          {/\.mp4/i.test(r.url) ? (
+                            <video src={r.url} controls preload="metadata"
+                              style={{width:'100%',maxHeight:400,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
+                          ) : (
+                            <img src={r.url} alt="render"
+                              style={{width:'100%',maxHeight:400,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
+                              onError={e=>e.target.style.display='none'}/>
+                          )}
+                          <div style={{display:'flex',gap:6,marginTop:4}}>
+                            <a href={r.url} target="_blank" rel="noreferrer"
+                              style={{fontSize:10,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'2px 8px',borderRadius:4}}>Aç →</a>
+                            <a href={r.url} download={/\.mp4/i.test(r.url)?'radar.mp4':'radar.jpg'} target="_blank"
+                              style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>↓ İndir</a>
+                          </div>
+                        </>
+                      ) : r.status==='failed' ? (
+                        <div style={{padding:'8px 12px',background:'rgba(230,57,70,.06)',border:'0.5px solid rgba(230,57,70,.2)',borderRadius:'var(--radius-md)',fontSize:12,color:'#ff7b7b'}}>
+                          ✗ Render başarısız
                         </div>
-                      )}
-                      {r.url && (
-                        <div style={{display:'flex',gap:6,marginTop:4}}>
-                          <a href={r.url} target="_blank" rel="noreferrer"
-                            style={{fontSize:10,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'2px 8px',borderRadius:4}}>
-                            Aç →
-                          </a>
-                          <a href={r.url} download={r.url.match(/\.mp4/i)?'radar.mp4':'radar.jpg'} target="_blank"
-                            style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>
-                            ↓ İndir
-                          </a>
+                      ) : (
+                        // Henüz hazır değil — bekle
+                        <div style={{padding:'10px 14px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8}}>
+                          <Ic n="loader-2" size={14} style={{color:'#FFB700'}}/>
+                          <div>
+                            <div style={{fontSize:12,color:'#FFB700',fontWeight:500}}>İşleniyor…</div>
+                            <div style={{fontSize:10,color:'rgba(255,183,0,.6)',marginTop:2}}>Hazır olunca otomatik görünecek</div>
+                          </div>
                         </div>
                       )}
                     </div>
