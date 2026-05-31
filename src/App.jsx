@@ -2275,6 +2275,231 @@ function KayseradarModul({ user, onGeri }) {
 }
 
 
+
+// ── MANUEL HABER GİRİŞİ MODÜLÜ ───────────────────────────────────────────────
+function ManuelHaberModul({ user, onGeri }) {
+  const [ekran,      setEkran]    = useState('giris') // 'giris' | 'isleme' | 'sonuc'
+  const [baslik,     setBaslik]   = useState('')
+  const [metin,      setMetin]    = useState('')
+  const [kategori,   setKategori] = useState('Güncel')
+  const [medyalar,   setMedyalar] = useState([])
+  const [yukleniyorM,setYukM]     = useState(false)
+  const [isleniyor,  setIsleniyor]= useState(false)
+  const [sonuc,      setSonuc]    = useState(null) // işlenmiş kayit
+  const [hata,       setHata]     = useState(null)
+  const [videoRenders,setVideoR]  = useState({})
+  const fileRef = useRef(null)
+  const token   = localStorage.getItem('cms_token') || ''
+
+  const KATEGORILER = ['Güncel','Asayiş','Spor','Ekonomi','Sağlık','Eğitim','Siyaset','Kültür','Turizm','Belediye Haberleri']
+
+  // Dosya yükle
+  const dosyaSec = async (files) => {
+    setYukM(true); setHata(null)
+    const sid = `manuel_${Date.now()}`
+    const yeni = []
+    for (const file of Array.from(files)) {
+      try {
+        const reader = new FileReader()
+        await new Promise((res,rej) => {
+          reader.onload = async (e) => {
+            try {
+              const b64  = e.target.result.split(',')[1]
+              const tip  = file.type.startsWith('video') ? 'video' : 'gorsel'
+              const r    = await fetch('/api/gorsel-yukle', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ data:b64, source_id:sid, format:`${tip}_${Date.now()}` }),
+              })
+              const d = await r.json()
+              if (d.url) yeni.push({ url:d.url, tip, adi:file.name, mime:file.type })
+              else setHata(`${file.name}: ${d.hata||'Yükleme hatası'}`)
+              res()
+            } catch(err) { setHata(err.message); res() }
+          }
+          reader.onerror = () => { setHata('Dosya okunamadı'); res() }
+          reader.readAsDataURL(file)
+        })
+      } catch(e) { setHata(e.message) }
+    }
+    setMedyalar(p => [...p, ...yeni])
+    setYukM(false)
+  }
+
+  // İşle
+  const isle = async () => {
+    if (!metin.trim() && !baslik.trim()) { setHata('Başlık veya metin girin'); return }
+    setIsleniyor(true); setHata(null); setEkran('isleme')
+    try {
+      const ilkGorsel = medyalar.find(m=>m.tip==='gorsel')?.url || ''
+      const ilkVideo  = medyalar.find(m=>m.tip==='video')?.url  || ''
+      const res  = await fetch('/api/manuel-isle', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ baslik, metin, kategori, gorsel_url:ilkGorsel, video_url:ilkVideo, medyalar }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data.kayit)
+      // Video render takibi
+      if (data.kayit.creatomate?.length) {
+        const rv = {}
+        for (const r of data.kayit.creatomate) rv[r.format] = { render_id:r.render_id, status:r.status, url:null }
+        setVideoR(rv)
+        const interval = setInterval(async () => {
+          let tamam = true
+          for (const r of data.kayit.creatomate) {
+            if (videoRenders[r.format]?.status === 'succeeded') continue
+            try {
+              const vr = await fetch(`/api/video-durum?render_id=${r.render_id}`).then(x=>x.json())
+              if (vr.status === 'succeeded') setVideoR(p=>({...p,[r.format]:{...p[r.format],status:'succeeded',url:vr.url}}))
+              else if (vr.status === 'failed') setVideoR(p=>({...p,[r.format]:{...p[r.format],status:'failed'}}))
+              else tamam = false
+            } catch(e) { tamam = false }
+          }
+          if (tamam) clearInterval(interval)
+        }, 3000)
+        setTimeout(()=>clearInterval(interval), 5*60*1000)
+      }
+      setEkran('sonuc')
+    } catch(e) { setHata(e.message); setEkran('giris') }
+    setIsleniyor(false)
+  }
+
+  const sifirla = () => {
+    setBaslik(''); setMetin(''); setMedyalar([]); setSonuc(null)
+    setHata(null); setVideoR({}); setEkran('giris')
+  }
+
+  return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+      {/* Header */}
+      <div style={{padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--surface)',flexShrink:0}}>
+        <button onClick={onGeri} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+          <Ic n="arrow-left" size={11}/> Menü
+        </button>
+        <div style={{width:1,height:16,background:'var(--border)'}}/>
+        <Ic n="pencil" size={15} style={{color:'#4488FF'}}/>
+        <div style={{fontSize:14,fontWeight:600}}>Manuel Haber Girişi</div>
+        <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+          {ekran!=='giris' && (
+            <button onClick={sifirla} style={{fontSize:12,background:'rgba(68,136,255,.12)',border:'0.5px solid rgba(68,136,255,.3)',color:'#4488FF'}}>
+              <Ic n="plus" size={12}/> Yeni Haber
+            </button>
+          )}
+        </div>
+      </div>
+
+      {hata && (
+        <div style={{padding:'8px 1rem',background:'rgba(230,57,70,.08)',borderBottom:'0.5px solid rgba(230,57,70,.2)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
+          {hata} <span style={{cursor:'pointer'}} onClick={()=>setHata(null)}>×</span>
+        </div>
+      )}
+
+      <div style={{flex:1,overflow:'hidden',display:'flex'}}>
+
+        {/* ── GİRİŞ EKRANI ── */}
+        {(ekran==='giris'||ekran==='isleme') && (
+          <div style={{flex:1,overflowY:'auto',padding:'1.25rem'}}>
+            <div style={{maxWidth:700}}>
+
+              {/* Kategori */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Kategori</div>
+                <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                  {KATEGORILER.map(k=>(
+                    <button key={k} onClick={()=>setKategori(k)}
+                      style={{fontSize:11,padding:'4px 10px',
+                        background:kategori===k?'rgba(68,136,255,.15)':'transparent',
+                        border:`0.5px solid ${kategori===k?'rgba(68,136,255,.4)':'var(--border)'}`,
+                        color:kategori===k?'#4488FF':'var(--muted)',fontWeight:kategori===k?600:400}}>
+                      {k}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Başlık */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
+                <input value={baslik} onChange={e=>setBaslik(e.target.value)}
+                  placeholder="Haber başlığı..." style={{width:'100%',fontSize:14,boxSizing:'border-box'}}/>
+              </div>
+
+              {/* Metin */}
+              <div style={{marginBottom:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                  <div style={{fontSize:11,color:'var(--muted)'}}>Haber Metni</div>
+                  <div style={{fontSize:11,color:'var(--muted)'}}>{metin.length} karakter</div>
+                </div>
+                <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={10}
+                  placeholder="Haber metnini buraya yazın veya yapıştırın..."
+                  style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
+              </div>
+
+              {/* Medya yükleme */}
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Görsel / Video</div>
+                <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:'none'}}
+                  onChange={e=>dosyaSec(e.target.files)}/>
+                <div onClick={()=>fileRef.current?.click()}
+                  onDragOver={e=>e.preventDefault()}
+                  onDrop={e=>{e.preventDefault();dosyaSec(e.dataTransfer.files)}}
+                  style={{border:'1px dashed var(--border)',borderRadius:'var(--radius-md)',padding:'1rem',textAlign:'center',cursor:'pointer',background:'var(--surface)',marginBottom:8}}>
+                  {yukleniyorM
+                    ? <span style={{fontSize:12,color:'var(--muted)'}}>Yükleniyor…</span>
+                    : <span style={{fontSize:12,color:'var(--muted)'}}>📎 Görsel veya video seç / sürükle bırak</span>
+                  }
+                </div>
+                {medyalar.length > 0 && (
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {medyalar.map((m,i)=>(
+                      <div key={i} style={{position:'relative'}}>
+                        {m.tip==='gorsel'
+                          ? <img src={m.url} alt="" style={{width:80,height:60,objectFit:'cover',borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                          : <div style={{width:80,height:60,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              <Ic n="player-play" size={18} style={{color:'#ff7b7b'}}/>
+                            </div>
+                        }
+                        <div style={{fontSize:9,color:'var(--muted)',textAlign:'center',marginTop:2,width:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.adi}</div>
+                        <button onClick={()=>setMedyalar(p=>p.filter((_,j)=>j!==i))}
+                          style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#E63946',border:'none',color:'#fff',fontSize:9,cursor:'pointer',padding:0}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button onClick={isle} disabled={isleniyor||(!metin.trim()&&!baslik.trim())}
+                style={{fontSize:13,fontWeight:600,background:'rgba(68,136,255,.15)',border:'0.5px solid rgba(68,136,255,.4)',color:'#4488FF'}}>
+                <Ic n={isleniyor?'loader-2':'bolt'} size={14}/> {isleniyor?'Claude işliyor…':'Haberi İşle (Claude + Ahrefs)'}
+              </button>
+
+              {isleniyor && (
+                <div style={{marginTop:10,padding:'10px 14px',background:'rgba(68,136,255,.06)',border:'0.5px solid rgba(68,136,255,.2)',borderRadius:'var(--radius-md)'}}>
+                  <div style={{fontSize:13,color:'#4488FF',fontWeight:500,marginBottom:3}}>SEO paketi hazırlanıyor…</div>
+                  <div style={{fontSize:12,color:'rgba(68,136,255,.7)'}}>Başlık · Meta · Slug · İçerik · Sosyal medya metinleri</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── SONUÇ & PAYLAŞIM — kayserim.net Isleme bileşenini kullan ── */}
+        {ekran==='sonuc' && sonuc && (
+          <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+            <Isleme
+              content={sonuc}
+              processing={false}
+              error={null}
+              selectedHaber={sonuc}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── REKLAM MODÜLÜ ─────────────────────────────────────────────────────────────
 function ReklamModul({ user, onGeri }) {
   const [ekran,       setEkran]     = useState('firmalar') // firmalar | firma_detay | kampanya_detay
@@ -3373,6 +3598,7 @@ export default function App() {
   if (!aktifModul) return <ModulSecici user={user} onModul={setAktifModul}/>
   if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'reklam') return <ReklamModul user={user} onGeri={()=>setAktifModul(null)}/>
+  if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
   if (aktifModul !== 'kayserim') return (
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
