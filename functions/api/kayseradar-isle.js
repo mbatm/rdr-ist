@@ -100,40 +100,60 @@ Sadece JSON döndür:
       const templateId = radarTpl?.dikey || HABER_TEMPLATES.dikey
 
       // Modifikasyonlar — radar şablonu için
+      const baslikMetni = (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120)
       const modifications = {
-        'video.source':   mediaUrl,  // görsel veya video — Creatomate ikisini de kabul eder
-        'baslik.text':    (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120),
-        'baslik-X6C.text': (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120),
-        'tarih.text':     tarihStr,
-      }
-
-      // Görsel ise fit:cover ile ortadan kadrajla
-      if (!isVideo) {
-        modifications['video.fit'] = 'cover'
-        modifications['video.x'] = '50%'
-        modifications['video.y'] = '50%'
+        'video.source':    mediaUrl,
+        'baslik.text':     baslikMetni,
+        'baslik-X6C.text': baslikMetni,
+        'tarih.text':      tarihStr,
+        // Görsel ise fit:cover ortadan kadraj
+        ...(isVideo ? {} : {
+          'video.fit':       'cover',
+          'video.x_anchor':  '50%',
+          'video.y_anchor':  '50%',
+          'video.x':         '50%',
+          'video.y':         '50%',
+        }),
       }
 
       try {
-        const res = await fetch('https://api.creatomate.com/v2/renders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-          body: JSON.stringify({
-            template_id:  templateId,
-            output_format: isVideo ? 'mp4' : 'jpg',
-            width:         isVideo ? undefined : 1350,
-            height:        isVideo ? undefined : 1080,
-            frame_rate:    isVideo ? 30 : undefined,
-            modifications,
-          }),
-        })
-        const data = await res.json()
+        // Görsel → jpg snapshot (v1 API), Video → mp4 render (v2 API)
+        let res, data
+        if (!isVideo) {
+          // Görsel için v1 snapshot — çok daha az kredi, anında JPG
+          res = await fetch('https://api.creatomate.com/v1/renders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+            body: JSON.stringify({
+              template_id:   templateId,
+              output_format: 'jpg',
+              width:         1350,
+              height:        1080,
+              modifications,
+            }),
+          })
+        } else {
+          // Video için v2 render
+          res = await fetch('https://api.creatomate.com/v2/renders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+            body: JSON.stringify({
+              template_id:   templateId,
+              output_format: 'mp4',
+              frame_rate:    30,
+              modifications,
+            }),
+          })
+        }
+
+        data = await res.json()
         if (res.ok) {
           const render = Array.isArray(data) ? data[0] : data
           creatomateRenders.push({
             format:    'dikey',
             render_id: render.id,
-            status:    render.status,
+            status:    render.status || (render.url ? 'succeeded' : 'planned'),
+            url:       render.url || null, // jpg snapshot anında URL dönebilir
             tip:       isVideo ? 'video' : 'gorsel',
             sablon:    sablon,
           })
