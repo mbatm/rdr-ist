@@ -137,30 +137,17 @@ Sadece JSON döndür, başka hiçbir şey yazma:
           // sadece image render yapılacak, aşağıya devam
         }
         let res, data
-        if (!isVideo || sablon === 'kan') {
-          // Görsel için v1 snapshot — çok daha az kredi, anında JPG
-          res = await fetch('https://api.creatomate.com/v1/renders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-            body: JSON.stringify({
-              template_id:   templateId,
-              output_format: 'jpg',
-              modifications,
-            }),
-          })
-        } else {
-          // Video için v2 render
-          res = await fetch('https://api.creatomate.com/v2/renders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-            body: JSON.stringify({
-              template_id:   templateId,
-              output_format: 'mp4',
-              frame_rate:    30,
-              modifications,
-            }),
-          })
-        }
+        // Tüm render'lar için v2 API kullan — v1'de source override çalışmıyor
+        res = await fetch('https://api.creatomate.com/v2/renders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+          body: JSON.stringify({
+            template_id:   templateId,
+            output_format: isVideo ? 'mp4' : 'jpg',
+            ...(isVideo ? { frame_rate: 30 } : {}),
+            modifications,
+          }),
+        })
 
         data = await res.json()
         if (res.ok) {
