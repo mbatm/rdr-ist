@@ -118,42 +118,6 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         'baslik.text':     baslikMetni,
         'baslik-X6C.text': baslikMetni,
         'tarih.text':      tarihStr,
-        // Kadraj kuralı:
-        // Şablon: 720x1280px (dikey)
-        // Kural 1: Yükseklik >= 1350px → genişliği 720px sabitle, yükseklik orantılı, ortala
-        // Kural 2: Yükseklik < 1350px  → yüksekliği 1350px'e getir, genişlik büyür, taşan kesilir, ortala
-        ...(() => {
-          const medya = medyalar.find(m => m.tip === (isVideo ? 'video' : 'gorsel'))
-          const gw = medya?.genislik  || 1
-          const gh = medya?.yukseklik || 1
-          const oran = gw / gh // en/boy oranı
-
-          let wPct, hPct
-
-          if (gh >= 1350) {
-            // Kural 1: genişliği 720px'e sabitle
-            // orantılı yükseklik = 720 / oran
-            const olcekliH = 720 / oran
-            wPct = '100%'
-            hPct = `${((olcekliH / 1280) * 100).toFixed(2)}%`
-          } else {
-            // Kural 2: yüksekliği 1350px'e getir
-            // gereken genişlik = 1350 * oran
-            const gerekliW = 1350 * oran
-            wPct = `${((gerekliW / 720) * 100).toFixed(2)}%`
-            hPct = `${((1350 / 1280) * 100).toFixed(2)}%` // ~105.47%
-          }
-
-          return {
-            'video.width':    wPct,
-            'video.height':   hPct,
-            'video.x':        '50%',
-            'video.y':        '50%',
-            'video.x_anchor': '50%',
-            'video.y_anchor': '50%',
-            'video.fit':      'none',  // boyutları biz belirliyoruz
-          }
-        })(),
       }
 
       try {
@@ -167,8 +131,6 @@ Sadece JSON döndür, başka hiçbir şey yazma:
             body: JSON.stringify({
               template_id:   templateId,
               output_format: 'jpg',
-              width:         1350,
-              height:        1080,
               modifications,
             }),
           })
