@@ -92,7 +92,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' }, // sadece image, video yok
       // Henüz özel şablonu olmayan — fallback
       'genel':        { video: '348bec91-f26e-4184-92df-4b34d51c461d', gorsel: '7586e1f4-d6ab-409a-9995-c9a03d2647d1' },
-      'kan':          { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' },
     }
     // Kayserim.net haber şablonları (fallback)
     const HABER_TEMPLATES = {
@@ -108,9 +108,11 @@ Sadece JSON döndür, başka hiçbir şey yazma:
 
       // Şablonu belirle — görsel/video ayrı template
       const radarTpl   = RADAR_TEMPLATES[sablon]
-      const templateId = isVideo
-        ? (radarTpl?.video  || HABER_TEMPLATES.dikey)
-        : (radarTpl?.gorsel || HABER_TEMPLATES.dikey)
+      const templateId = (sablon === 'kan')
+        ? radarTpl?.gorsel                              // kan: her zaman gorsel template
+        : isVideo
+          ? (radarTpl?.video  || HABER_TEMPLATES.dikey)
+          : (radarTpl?.gorsel || HABER_TEMPLATES.dikey)
 
       // Modifikasyonlar — radar şablonu için
       const baslikMetni = (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120)
