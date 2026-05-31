@@ -1139,6 +1139,52 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
 }
 
 
+
+// ── RSS'E EKLE BUTONU ────────────────────────────────────────────────────────
+function RssEkleButon({ sourceId }) {
+  const [durum,  setDurum]  = useState('bekliyor') // bekliyor | yukleniyor | tamam | hata
+  const [mesaj,  setMesaj]  = useState('')
+  const token = localStorage.getItem('cms_token') || ''
+
+  const ekle = async () => {
+    setDurum('yukleniyor')
+    try {
+      const res  = await fetch('/api/rss-ekle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body: JSON.stringify({ source_id: sourceId }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setDurum('tamam')
+      setMesaj('RSS'e eklendi — kayserim.net'te görünecek')
+    } catch(e) {
+      setDurum('hata')
+      setMesaj(e.message)
+    }
+  }
+
+  if (durum === 'tamam') return (
+    <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#00D4AA',
+      padding:'4px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',
+      borderRadius:'var(--radius-sm)',whiteSpace:'nowrap'}}>
+      <Ic n="rss" size={12}/> {mesaj}
+    </div>
+  )
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:3}}>
+      <button onClick={ekle} disabled={durum==='yukleniyor'}
+        style={{fontSize:12,background:'rgba(255,183,0,.1)',border:'0.5px solid rgba(255,183,0,.3)',
+          color:'#FFB700',whiteSpace:'nowrap',flexShrink:0}}>
+        <Ic n={durum==='yukleniyor'?'loader-2':'rss'} size={12}/>
+        {durum==='yukleniyor'?'Ekleniyor…':'RSS'e Ekle'}
+      </button>
+      {durum==='hata' && <div style={{fontSize:10,color:'#ff7b7b'}}>{mesaj}</div>}
+    </div>
+  )
+}
+
 // ── SHARED FORM COMPONENTS — Isleme dışında tanımlı (focus korunması için) ──
 const Divider = ({label,ic}) => (
   <div style={{display:'flex',alignItems:'center',gap:8,borderTop:'0.5px solid var(--border)',paddingTop:'0.875rem',marginTop:'1rem',marginBottom:'0.75rem'}}>
@@ -1286,6 +1332,10 @@ function Isleme({ content, processing, error, selectedHaber }) {
           <Ic n={kaydediliyor?'loader-2':'device-floppy'} size={14}/>
           {kaydediliyor?'Kaydediliyor…':'Kaydet & Paylaşıma Geç →'}
         </button>
+        {/* RSS'e Ekle — sadece manuel haberler için */}
+        {selectedHaber?.kaynak==='manuel' && (
+          <RssEkleButon sourceId={selectedHaber.source_id}/>
+        )}
       </div>
 
       <Divider label="SEO & web içeriği" ic="world"/>
