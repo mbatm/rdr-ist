@@ -556,6 +556,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
   const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
   const [igStory,    setIgStory]    = useState(false)
+  // story görseli — bileşen seviyesinde hesapla
+  const storyGorselUrl = gorselUrls?.story ||
+                         gorselUrls?.instagram || gorselUrls?.facebook ||
+                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
   const [igKolabor,  setIgKolabor]  = useState('')
   const [videoDur,   setVideoDur]   = useState(null) // saniye cinsinden video süresi
   const [fbMetin,  setFbMetin]  = useState('')
@@ -641,7 +645,6 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-      const storyGorselUrl = gorselUrls?.story || gorselUrl  // story formatı öncelikli
       const videoUrl = kvVideo?.dikey ||
                       videoRenders?.dikey?.url ||
                       selectedHaber?.video_dikey ||
