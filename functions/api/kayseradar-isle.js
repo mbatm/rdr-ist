@@ -71,37 +71,102 @@ Sadece JSON döndür:
     const ilkGorsel = gorseller[0]?.url || ''
     const ilkVideo  = videolar[0]?.url  || ''
 
-    // ── Video varsa Creatomate'e gönder ──────────────────────────────────────
+    // ── Creatomate render ─────────────────────────────────────────────────────
+    // Şablon haritası — sablon adına göre template ID
+    const RADAR_TEMPLATES = {
+      // Kayseradar özel şablonlar (sablon_adi: { dikey, yatay, gorsel })
+      'sikayet':      { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      'kaza':         { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      'son_dakika':   { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      'yangin':       { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      'acil':         { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      'trafik':       { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      'genel':        { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+    }
+    // Kayserim.net haber şablonları (fallback)
+    const HABER_TEMPLATES = {
+      dikey: 'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
+      yatay: '438ee267-ad53-4627-8126-e50ffb30f395',
+    }
+
     let creatomateRenders = []
-    if (ilkVideo && env.CREATOMATE_API_KEY) {
-      const tarihStr = new Date().toLocaleDateString('tr-TR')
-      const katStr   = sablon.toUpperCase()
+    if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel)) {
+      const tarihStr  = new Date().toLocaleDateString('tr-TR')
+      const mediaUrl  = ilkVideo || ilkGorsel
+      const isVideo   = !!ilkVideo
+
+      // Şablonu belirle
+      const radarTpl  = RADAR_TEMPLATES[sablon]
+      const templateId = radarTpl?.dikey || HABER_TEMPLATES.dikey
+
+      // Modifikasyonlar — radar şablonu için
       const modifications = {
-        'video.source':        ilkVideo,
-        'baslik.text':         duzeltilmis.duzeltilmis_baslik || baslik || '',
-        'baslikss.text':       duzeltilmis.duzeltilmis_baslik || baslik || '',
-        'spot-baslik.text':    duzeltilmis.spot || '',
-        'spot-baslik-ss.text': duzeltilmis.spot || '',
-        'kategori.text':       katStr,
-        'tarih.text':          tarihStr,
+        'video.source':   mediaUrl,  // görsel veya video — Creatomate ikisini de kabul eder
+        'baslik.text':    (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120),
+        'baslik-X6C.text': (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120),
+        'tarih.text':     tarihStr,
       }
-      const TEMPLATES = {
-        dikey: 'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
-        yatay: '438ee267-ad53-4627-8126-e50ffb30f395',
+
+      // Görsel ise fit:cover ile ortadan kadrajla
+      if (!isVideo) {
+        modifications['video.fit'] = 'cover'
+        modifications['video.x'] = '50%'
+        modifications['video.y'] = '50%'
       }
-      for (const fmt of ['dikey', 'yatay']) {
+
+      try {
+        const res = await fetch('https://api.creatomate.com/v2/renders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+          body: JSON.stringify({
+            template_id:  templateId,
+            output_format: isVideo ? 'mp4' : 'png',
+            frame_rate:   isVideo ? 30 : undefined,
+            modifications,
+          }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          const render = Array.isArray(data) ? data[0] : data
+          creatomateRenders.push({
+            format:    'dikey',
+            render_id: render.id,
+            status:    render.status,
+            tip:       isVideo ? 'video' : 'gorsel',
+            sablon:    sablon,
+          })
+        } else {
+          console.warn('Creatomate hata:', JSON.stringify(data))
+        }
+      } catch(e) { console.warn('Creatomate:', e.message) }
+
+      // Video varsa kayserim şablonuyla yatay da üret
+      if (isVideo) {
         try {
           const res = await fetch('https://api.creatomate.com/v2/renders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-            body: JSON.stringify({ template_id: TEMPLATES[fmt], output_format: 'mp4', frame_rate: 30, modifications }),
+            body: JSON.stringify({
+              template_id:  HABER_TEMPLATES.yatay,
+              output_format: 'mp4',
+              frame_rate:   30,
+              modifications: {
+                'video.source':        mediaUrl,
+                'baslik.text':         (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0,120),
+                'baslikss.text':       (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0,120),
+                'spot-baslik.text':    duzeltilmis.spot || '',
+                'spot-baslik-ss.text': duzeltilmis.spot || '',
+                'kategori.text':       sablon.toUpperCase(),
+                'tarih.text':          tarihStr,
+              },
+            }),
           })
           const data = await res.json()
           if (res.ok) {
             const render = Array.isArray(data) ? data[0] : data
-            creatomateRenders.push({ format: fmt, render_id: render.id, status: render.status })
+            creatomateRenders.push({ format:'yatay', render_id:render.id, status:render.status, tip:'video' })
           }
-        } catch(e) { console.warn('Creatomate', fmt, e.message) }
+        } catch(e) { console.warn('Creatomate yatay:', e.message) }
       }
     }
 
