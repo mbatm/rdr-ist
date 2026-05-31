@@ -770,43 +770,16 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       <TipSec val={fbTip} onChange={setFbTip} label="Facebook" />
 
       <TipSec val={igTip} onChange={setIgTip} label="Instagram" />
-      {/* Instagram Story */}
-      {(() => {
-        const storyTip = isVideo && videoDur !== null && videoDur <= 59 ? 'video' : 'gorsel'
-        const storyEtiket = storyTip === 'video'
-          ? `Story - Video (${videoDur}s)`
-          : isVideo && videoDur > 59
-            ? `Story - Görsel (video ${videoDur}s > 59s)`
-            : 'Story - Görsel'
-        return (
-          <>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#8891a5',marginBottom:6,cursor:'pointer'}}>
-              <input type="checkbox" checked={igStory} onChange={e=>setIgStory(e.target.checked)}/>
-              <span>{storyEtiket}</span>
-            </label>
-            {igStory && storyTip === 'gorsel' && (
-              <div style={{marginBottom:8,padding:8,background:'rgba(225,48,108,.06)',border:'0.5px solid rgba(225,48,108,.2)',borderRadius:6}}>
-                {storyGorselUrl ? (
-                  <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
-                    <img src={storyGorselUrl} alt="story"
-                      style={{width:48,borderRadius:4,border:'1px solid rgba(225,48,108,.4)',flexShrink:0}}/>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:10,color:'#E1306C',fontWeight:500,marginBottom:5}}>📱 Link etiketi görsel üzerinde</div>
-                      <div style={{display:'flex',gap:4}}>
-                        <a href={storyGorselUrl} download="story.jpg" style={{flex:1}}>
-                          <button style={{width:'100%',fontSize:10,padding:'3px 0',background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>↓ İndir</button>
-                        </a>
-                        <button onClick={()=>window.open('https://www.instagram.com/','_blank')}
-                          style={{flex:1,fontSize:10,padding:'3px 0',background:'rgba(225,48,108,.06)',border:'0.5px solid rgba(225,48,108,.2)',color:'#E1306C'}}>IG Aç</button>
-                      </div>
-                    </div>
-                  </div>
-                ) : <div style={{fontSize:10,color:'#8891a5'}}>⏳ Görsel üretiliyor…</div>}
-              </div>
-            )}
-          </>
-        )
-      })()}
+      {/* Instagram Story — indir + link kopyala + IG aç */}
+      <StoryPaylasButon
+        storyGorselUrl={storyGorselUrl}
+        kayserimLink={kayserimLink}
+        isVideo={isVideo}
+        videoDur={videoDur}
+        kvVideo={kvVideo}
+        videoRenders={videoRenders}
+        selectedHaber={selectedHaber}
+      />
       {/* Instagram Kolaboratör */}
       <div style={{marginBottom:8}}>
         <div style={{fontSize:11,color:'#8891a5',marginBottom:3}}>
@@ -1140,6 +1113,135 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
 
 
 
+
+// ── MANUEL GÖRSEL EKLE (Kayserim.net modülü için) ────────────────────────────
+function ManuelGorselEkle({ selectedHaber, onGorselEklendi }) {
+  const [gorselUrl,  setGorselUrl]  = useState(selectedHaber?.gorsel_url || selectedHaber?.gorsel || '')
+  const [yukleniyor, setYukleniyor] = useState(false)
+  const [hata,       setHata]       = useState(null)
+  const fileRef = useRef(null)
+
+  useEffect(() => {
+    setGorselUrl(selectedHaber?.gorsel_url || selectedHaber?.gorsel || '')
+  }, [selectedHaber?.source_id])
+
+  const dosyaSec = async (file) => {
+    setYukleniyor(true); setHata(null)
+    try {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const b64 = e.target.result.split(',')[1]
+        const res = await fetch('/api/gorsel-yukle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: b64, source_id: selectedHaber?.source_id || 'manuel', format: `gorsel_${Date.now()}` }),
+        })
+        const data = await res.json()
+        if (data.url) {
+          setGorselUrl(data.url)
+          onGorselEklendi?.(data.url)
+          // selectedHaber'ı güncelle
+          if (selectedHaber) {
+            selectedHaber.gorsel_url = data.url
+            selectedHaber.gorsel     = data.url
+          }
+        } else { setHata(data.hata || 'Yükleme hatası') }
+        setYukleniyor(false)
+      }
+      reader.readAsDataURL(file)
+    } catch(e) { setHata(e.message); setYukleniyor(false) }
+  }
+
+  return (
+    <div style={{marginBottom:'0.75rem'}}>
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+        Manuel Görsel
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}}
+        onChange={e=>e.target.files[0]&&dosyaSec(e.target.files[0])}/>
+      <div style={{display:'flex',gap:6,alignItems:'flex-start'}}>
+        {gorselUrl && (
+          <img src={gorselUrl} alt="" style={{width:72,height:50,objectFit:'cover',borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)',flexShrink:0}}
+            onError={e=>e.target.style.display='none'}/>
+        )}
+        <div style={{flex:1}}>
+          <input value={gorselUrl} onChange={e=>{ setGorselUrl(e.target.value); onGorselEklendi?.(e.target.value); if(selectedHaber){ selectedHaber.gorsel_url=e.target.value; selectedHaber.gorsel=e.target.value } }}
+            placeholder="https://... veya aşağıdan yükle"
+            style={{width:'100%',fontSize:12,boxSizing:'border-box',marginBottom:4}}/>
+          <button onClick={()=>fileRef.current?.click()} disabled={yukleniyor}
+            style={{fontSize:11,background:'rgba(255,255,255,.06)',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+            <Ic n={yukleniyor?'loader-2':'upload'} size={11}/> {yukleniyor?'Yükleniyor…':'Görsel Yükle'}
+          </button>
+          {hata && <div style={{fontSize:10,color:'#ff7b7b',marginTop:3}}>{hata}</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── STORY PAYLAŞ BUTONU ───────────────────────────────────────────────────────
+function StoryPaylasButon({ storyGorselUrl, kayserimLink, isVideo, videoDur, kvVideo, videoRenders, selectedHaber }) {
+  const [sonuc, setSonuc] = useState(null)
+
+  const storyTip    = isVideo && videoDur !== null && videoDur <= 59 ? 'video' : 'gorsel'
+  const storyVarMi  = storyGorselUrl || (storyTip === 'video' && (kvVideo?.dikey || videoRenders?.dikey?.url || selectedHaber?.video_dikey))
+
+  const igAc = async () => {
+    // 1) Kaydedilecek içerik: görsel veya link
+    const indirUrl = storyGorselUrl || ''
+    const kopyaMetin = kayserimLink || ''
+
+    // 2) Görsel indir
+    if (indirUrl) {
+      try {
+        const a = document.createElement('a')
+        a.href = indirUrl
+        a.download = 'story.jpg'
+        a.click()
+      } catch(e) {}
+    }
+
+    // 3) Link panoya kopyala
+    if (kopyaMetin) {
+      try { await navigator.clipboard.writeText(kopyaMetin) } catch(e) {}
+    }
+
+    // 4) Instagram aç
+    setTimeout(() => { window.location.href = 'instagram://' }, 800)
+
+    setSonuc(`✓ ${indirUrl?'Görsel indirildi':''}${indirUrl&&kopyaMetin?' · ':''}${kopyaMetin?'Link kopyalandı':''} — Instagram açılıyor…`)
+  }
+
+  return (
+    <div style={{marginBottom:8}}>
+      <div style={{fontSize:11,color:'#8891a5',marginBottom:6}}>Instagram Story</div>
+      <div style={{padding:8,background:'rgba(225,48,108,.05)',border:'0.5px solid rgba(225,48,108,.15)',borderRadius:6}}>
+        {storyGorselUrl ? (
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <img src={storyGorselUrl} alt="story"
+              style={{width:40,height:60,objectFit:'cover',borderRadius:4,border:'0.5px solid rgba(225,48,108,.3)',flexShrink:0}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,color:'#E1306C',marginBottom:5}}>
+                📱 {storyTip==='video'?'Video Story':'Görsel Story'} hazır
+              </div>
+              <button onClick={igAc}
+                style={{fontSize:11,background:'rgba(225,48,108,.15)',border:'0.5px solid rgba(225,48,108,.4)',color:'#E1306C',width:'100%'}}>
+                <Ic n="download" size={11}/> İndir {kayserimLink?'· Link Kopyala':''} · Instagram Aç
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{fontSize:10,color:'#8891a5',textAlign:'center',padding:'6px 0'}}>
+            ⏳ Story görseli üretiliyor…
+            {!storyVarMi && <span style={{display:'block',marginTop:3,color:'rgba(225,48,108,.5)'}}>Görsel önizleme bölümünden story formatını bekleyin</span>}
+          </div>
+        )}
+        {sonuc && <div style={{fontSize:10,color:'#00D4AA',marginTop:5}}>{sonuc}</div>}
+      </div>
+    </div>
+  )
+}
+
 // ── RSS'E EKLE BUTONU ────────────────────────────────────────────────────────
 function RssEkleButon({ sourceId }) {
   const [durum,  setDurum]  = useState('bekliyor') // bekliyor | yukleniyor | tamam | hata
@@ -1355,6 +1457,11 @@ function Isleme({ content, processing, error, selectedHaber }) {
           placeholder="https://www.kayserim.net/haber/28040684/..."
           style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
       </div>
+
+      {/* Manuel görsel ekleme */}
+      <ManuelGorselEkle selectedHaber={selectedHaber} onGorselEklendi={url=>{
+        if(selectedHaber) selectedHaber.gorsel_url = url
+      }}/>
 
       <Divider label="Sosyal medya metinleri" ic="share"/>
       <EField ec={ec} set={set} label="Instagram" field="instagram" multi rows={3}/>
