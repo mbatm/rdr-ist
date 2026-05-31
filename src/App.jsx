@@ -3083,12 +3083,14 @@ function ReklamModul({ user, onGeri }) {
               )}
             </div>
 
-            {/* Alt metin */}
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Alt Metin / Açıklama</div>
-              <textarea value={gonForm.alt_metin} onChange={e=>setGonForm(p=>({...p,alt_metin:e.target.value}))} rows={3}
-                style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="Paylaşım metni..."/>
-            </div>
+            {/* Alt metin — sadece gönderi tipinde */}
+            {(gonForm.gonderi_tipi||'gonderi')==='gonderi' && (
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Alt Metin / Açıklama</div>
+                <textarea value={gonForm.alt_metin} onChange={e=>setGonForm(p=>({...p,alt_metin:e.target.value}))} rows={3}
+                  style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="Paylaşım metni..."/>
+              </div>
+            )}
 
             {/* Gönderi metni — sadece gönderi tipinde */}
             {(gonForm.gonderi_tipi||'gonderi')==='gonderi' && (
