@@ -2262,32 +2262,52 @@ function KayseradarModul({ user, onGeri }) {
                   style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
               </div>
 
-              {/* Video render durumu */}
+              {/* Render önizleme — görsel veya video */}
               {Object.keys(videoRenders).length > 0 && (
-                <div style={{marginBottom:12,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
-                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Video İşleme Durumu</div>
+                <div style={{marginBottom:12}}>
                   {Object.entries(videoRenders).map(([fmt,r])=>(
-                    <div key={fmt} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,marginBottom:4}}>
-                      <span style={{color:'var(--muted)',minWidth:50}}>{fmt==='dikey'?'⬆ Dikey':'↔ Yatay'}</span>
-                      {r.status==='succeeded'
-                        ? <><span style={{color:'#00D4AA'}}>✓ Hazır</span>
-                            <a href={r.url} target="_blank" rel="noreferrer" style={{color:'#00D4AA',fontSize:11}}>İndir →</a></>
-                        : r.status==='failed'
-                          ? <span style={{color:'#ff7b7b'}}>✗ Başarısız</span>
-                          : <span style={{color:'#FFB700'}}>⏳ İşleniyor…</span>
-                      }
+                    <div key={fmt} style={{marginBottom:8}}>
+                      {r.status==='succeeded' && r.url ? (
+                        <div style={{position:'relative'}}>
+                          {r.tip==='gorsel' || (!r.tip && fmt==='dikey' && r.url?.match(/\.(jpg|jpeg|png|webp)/i)) ? (
+                            // Görsel önizleme
+                            <img src={r.url} alt="render"
+                              style={{width:'100%',maxHeight:300,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
+                              onError={e=>e.target.style.display='none'}/>
+                          ) : (
+                            // Video önizleme
+                            <video src={r.url} controls
+                              style={{width:'100%',maxHeight:300,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
+                          )}
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4}}>
+                            <span style={{fontSize:10,color:'#00D4AA'}}>✓ {fmt==='dikey'?'Dikey':'Yatay'} hazır</span>
+                            <a href={r.url} target="_blank" rel="noreferrer"
+                              style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>
+                              İndir →
+                            </a>
+                          </div>
+                        </div>
+                      ) : r.status==='failed' ? (
+                        <div style={{fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>
+                          ✗ {fmt==='dikey'?'Dikey':'Yatay'} render başarısız
+                        </div>
+                      ) : (
+                        <div style={{fontSize:12,color:'#FFB700',padding:'8px 12px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8}}>
+                          <Ic n="loader-2" size={13}/> {fmt==='dikey'?'Dikey':'Yatay'} işleniyor…
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Medya önizleme */}
-              {onayKayit.medyalar?.length > 0 && (
+              {/* Orijinal medya önizleme — render yoksa */}
+              {Object.keys(videoRenders).length === 0 && onayKayit.medyalar?.length > 0 && (
                 <div style={{marginBottom:12,display:'flex',gap:8,flexWrap:'wrap'}}>
                   {onayKayit.medyalar.map((m,i)=>(
                     <div key={i}>
                       {m.tip==='gorsel'
-                        ? <img src={m.url} alt="" style={{height:80,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                        ? <img src={m.url} alt="" style={{height:100,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
                         : <div style={{height:80,width:120,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#ff7b7b'}}>
                             <Ic n="player-play" size={18}/> Video
                           </div>
