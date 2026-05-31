@@ -2287,10 +2287,14 @@ function ReklamModul({ user, onGeri }) {
   // Firma formu
   const [firmaForm,   setFirmaForm] = useState({ ad:'', sektor:'', notlar:'', fb_page_ids:[], ig_ids:[] })
   const [firmaModal,  setFirmaModal]= useState(false)
+  const [firmaDuzModal, setFirmaDuzModal] = useState(false)
+  const [firmaDuzForm,  setFirmaDuzForm]  = useState(null)
 
   // Kampanya formu
   const [kampForm,    setKampForm]  = useState({ ad:'', baslangic:'', bitis:'', notlar:'' })
   const [kampModal,   setKampModal] = useState(false)
+  const [kampDuzModal, setKampDuzModal] = useState(false)
+  const [kampDuzForm,  setKampDuzForm]  = useState(null)
 
   // Gönderi formu
   const [gonForm,     setGonForm]   = useState({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', fb_page_ids:[], ig_ids:[] })
@@ -2361,6 +2365,71 @@ function ReklamModul({ user, onGeri }) {
       if (data.hata) throw new Error(data.hata)
       setFirmaModal(false); setFirmaForm({ ad:'', sektor:'', notlar:'', fb_page_ids:[], ig_ids:[] })
       firmalariYukle()
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Firma düzenle
+  const firmaDuz = async () => {
+    if (!firmaDuzForm?.ad?.trim()) return
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'firma_guncelle', id: firmaDuzForm.id, ad: firmaDuzForm.ad, sektor: firmaDuzForm.sektor, notlar: firmaDuzForm.notlar, fb_page_ids: firmaDuzForm.fb_page_ids, ig_ids: firmaDuzForm.ig_ids }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setFirmaDuzModal(false)
+      const f = await firmaYukle(firmaDuzForm.id)
+      setFirma(f)
+      firmalariYukle()
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Firma sil
+  const firmaSil = async (id) => {
+    if (!confirm('Bu firmayı silmek istediğinizden emin misiniz? Tüm kampanya kayıtları silinecek.')) return
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'firma_sil', id }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setEkran('firmalar'); setFirma(null)
+      firmalariYukle()
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Kampanya düzenle
+  const kampDuz = async () => {
+    if (!kampDuzForm?.ad?.trim()) return
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'kampanya_guncelle', firma_id: seciliFirma.id, kampanya_id: kampDuzForm.id, ad: kampDuzForm.ad, baslangic: kampDuzForm.baslangic, bitis: kampDuzForm.bitis, notlar: kampDuzForm.notlar }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setKampDuzModal(false)
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f)
+      setKamp(f.kampanyalar?.find(k=>k.id===kampDuzForm.id))
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Kampanya sil
+  const kampSil = async (kampanya_id) => {
+    if (!confirm('Bu kampanyayı silmek istediğinizden emin misiniz?')) return
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'kampanya_sil', firma_id: seciliFirma.id, kampanya_id }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setEkran('firma_detay'); setKamp(null)
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f)
     } catch(e) { setHata(e.message) }
   }
 
@@ -2561,8 +2630,16 @@ function ReklamModul({ user, onGeri }) {
                       <div style={{fontSize:11,color:'var(--muted)'}}>{f.sektor||'—'}</div>
                     </div>
                   </div>
-                  <div style={{display:'flex',gap:10,fontSize:11,color:'var(--muted)'}}>
-                    <span>{f.aktif_kampanya||0} aktif kampanya</span>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+                    <span style={{fontSize:11,color:'var(--muted)',flex:1}}>{f.aktif_kampanya||0} aktif kampanya</span>
+                    <button onClick={e=>{e.stopPropagation();setFirmaDuzForm({...f,fb_page_ids:f.fb_page_ids||[],ig_ids:f.ig_ids||[]});setFirmaDuzModal(true)}}
+                      style={{fontSize:10,padding:'2px 7px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+                      <Ic n="edit" size={10}/> Düzenle
+                    </button>
+                    {user?.rol==='admin'&&<button onClick={e=>{e.stopPropagation();firmaSil(f.id)}}
+                      style={{fontSize:10,padding:'2px 7px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.2)',color:'#ff7b7b'}}>
+                      <Ic n="trash" size={10}/>
+                    </button>}
                   </div>
                 </div>
               ))}
@@ -2604,6 +2681,14 @@ function ReklamModul({ user, onGeri }) {
                     {k.son_paylasim && (
                       <span style={{fontSize:10,color:'#00D4AA'}}>{sonPaylasimEtiketi(k.son_paylasim)}</span>
                     )}
+                    <button onClick={e=>{e.stopPropagation();setKampDuzForm({...k});setKampDuzModal(true)}}
+                      style={{fontSize:10,padding:'3px 8px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+                      <Ic n="edit" size={10}/> Düzenle
+                    </button>
+                    {user?.rol==='admin'&&<button onClick={e=>{e.stopPropagation();kampSil(k.id)}}
+                      style={{fontSize:10,padding:'3px 8px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.2)',color:'#ff7b7b'}}>
+                      <Ic n="trash" size={10}/>
+                    </button>}
                     <Ic n="chevron-right" size={14} style={{color:'var(--muted)'}}/>
                   </div>
                 )
@@ -2747,6 +2832,86 @@ function ReklamModul({ user, onGeri }) {
                 style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
                 İptal
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FİRMA DÜZENLEME MODAL ── */}
+      {firmaDuzModal && firmaDuzForm && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100,padding:'1rem'}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:420,maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Firma Düzenle — {firmaDuzForm.ad}</div>
+            {[['ad','Firma Adı *'],['sektor','Sektör'],['notlar','Notlar']].map(([k,l])=>(
+              <div key={k} style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{l}</div>
+                {k==='notlar'
+                  ? <textarea value={firmaDuzForm[k]||''} onChange={e=>setFirmaDuzForm(p=>({...p,[k]:e.target.value}))} rows={2} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                  : <input value={firmaDuzForm[k]||''} onChange={e=>setFirmaDuzForm(p=>({...p,[k]:e.target.value}))} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                }
+              </div>
+            ))}
+            {hesaplar.facebook?.length > 0 && (
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Facebook Sayfaları</div>
+                <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:160,overflowY:'auto'}}>
+                  {hesaplar.facebook.map(h=>(
+                    <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer',
+                      padding:'6px 8px',borderRadius:'var(--radius-sm)',
+                      background:(firmaDuzForm.fb_page_ids||[]).includes(h.page_id)?'rgba(77,171,247,.08)':'transparent',
+                      border:`0.5px solid ${(firmaDuzForm.fb_page_ids||[]).includes(h.page_id)?'rgba(77,171,247,.3)':'var(--border)'}`}}>
+                      <input type="checkbox" style={{width:14,height:14,cursor:'pointer'}}
+                        checked={(firmaDuzForm.fb_page_ids||[]).includes(h.page_id)}
+                        onChange={e=>setFirmaDuzForm(p=>({...p, fb_page_ids: e.target.checked ? [...(p.fb_page_ids||[]),h.page_id] : (p.fb_page_ids||[]).filter(i=>i!==h.page_id)}))}/>
+                      <span style={{color:(firmaDuzForm.fb_page_ids||[]).includes(h.page_id)?'#4dabf7':'var(--text)'}}>{h.page_name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            {hesaplar.instagram?.length > 0 && (
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Instagram Hesapları</div>
+                <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:160,overflowY:'auto'}}>
+                  {hesaplar.instagram.map(h=>(
+                    <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer',
+                      padding:'6px 8px',borderRadius:'var(--radius-sm)',
+                      background:(firmaDuzForm.ig_ids||[]).includes(h.ig_id)?'rgba(225,48,108,.08)':'transparent',
+                      border:`0.5px solid ${(firmaDuzForm.ig_ids||[]).includes(h.ig_id)?'rgba(225,48,108,.3)':'var(--border)'}`}}>
+                      <input type="checkbox" style={{width:14,height:14,cursor:'pointer'}}
+                        checked={(firmaDuzForm.ig_ids||[]).includes(h.ig_id)}
+                        onChange={e=>setFirmaDuzForm(p=>({...p, ig_ids: e.target.checked ? [...(p.ig_ids||[]),h.ig_id] : (p.ig_ids||[]).filter(i=>i!==h.ig_id)}))}/>
+                      <span style={{color:(firmaDuzForm.ig_ids||[]).includes(h.ig_id)?'#E1306C':'var(--text)'}}>@{h.username}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{display:'flex',gap:8,marginTop:12,paddingTop:12,borderTop:'0.5px solid var(--border)'}}>
+              <button onClick={firmaDuz} style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>Kaydet</button>
+              <button onClick={()=>setFirmaDuzModal(false)} style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>İptal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KAMPANYA DÜZENLEME MODAL ── */}
+      {kampDuzModal && kampDuzForm && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100,padding:'1rem'}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:380}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Kampanya Düzenle</div>
+            {[['ad','Kampanya Adı *'],['baslangic','Başlangıç Tarihi'],['bitis','Bitiş Tarihi'],['notlar','Notlar']].map(([k,l])=>(
+              <div key={k} style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{l}</div>
+                {k==='notlar'
+                  ? <textarea value={kampDuzForm[k]||''} onChange={e=>setKampDuzForm(p=>({...p,[k]:e.target.value}))} rows={2} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                  : <input type={k==='baslangic'||k==='bitis'?'date':'text'} value={kampDuzForm[k]||''} onChange={e=>setKampDuzForm(p=>({...p,[k]:e.target.value}))} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                }
+              </div>
+            ))}
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <button onClick={kampDuz} style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>Kaydet</button>
+              <button onClick={()=>setKampDuzModal(false)} style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>İptal</button>
             </div>
           </div>
         </div>

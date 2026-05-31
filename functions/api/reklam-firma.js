@@ -136,6 +136,18 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true })
     }
 
+    // ── Kampanya güncelle ────────────────────────────────────────────────────
+    if (islem === 'kampanya_guncelle') {
+      const { firma_id, kampanya_id, ad, baslangic, bitis, notlar } = body
+      const firma = await env.HABERLER.get(`firma:${firma_id}`, 'json')
+      if (!firma) return Response.json({ hata: 'Firma bulunamadı' }, { status: 404 })
+      firma.kampanyalar = (firma.kampanyalar||[]).map(k =>
+        k.id === kampanya_id ? { ...k, ad: ad||k.ad, baslangic: baslangic||k.baslangic, bitis: bitis||k.bitis, notlar: notlar||k.notlar } : k
+      )
+      await env.HABERLER.put(`firma:${firma_id}`, JSON.stringify(firma))
+      return Response.json({ ok: true })
+    }
+
     // ── Kampanya sil ─────────────────────────────────────────────────────────
     if (islem === 'kampanya_sil') {
       if (kul.rol !== 'admin') return Response.json({ hata: 'Admin yetkisi gerekli' }, { status: 403 })
@@ -144,6 +156,38 @@ export async function onRequestPost({ request, env }) {
       if (!firma) return Response.json({ hata: 'Firma bulunamadı' }, { status: 404 })
       firma.kampanyalar = (firma.kampanyalar||[]).filter(k=>k.id!==kampanya_id)
       await env.HABERLER.put(`firma:${firma_id}`, JSON.stringify(firma))
+      return Response.json({ ok: true })
+    }
+
+    // ── Firma sil ─────────────────────────────────────────────────────────────
+    if (islem === 'firma_sil') {
+      if (kul.rol !== 'admin') return Response.json({ hata: 'Admin yetkisi gerekli' }, { status: 403 })
+      const { id } = body
+      await env.HABERLER.delete(`firma:${id}`)
+      const liste = await env.HABERLER.get('firma_liste', 'json') || []
+      await env.HABERLER.put('firma_liste', JSON.stringify(liste.filter(f=>f.id!==id)))
+      return Response.json({ ok: true })
+    }
+
+    // ── Firma güncelle (hesaplar dahil) ───────────────────────────────────────
+    if (islem === 'firma_guncelle') {
+      const { id, ad, sektor, notlar, fb_page_ids, ig_ids } = body
+      const firma = await env.HABERLER.get(`firma:${id}`, 'json')
+      if (!firma) return Response.json({ hata: 'Firma bulunamadı' }, { status: 404 })
+      const guncellendi = {
+        ...firma,
+        ad:         ad         ?? firma.ad,
+        sektor:     sektor     ?? firma.sektor,
+        notlar:     notlar     ?? firma.notlar,
+        fb_page_ids: fb_page_ids ?? firma.fb_page_ids,
+        ig_ids:     ig_ids     ?? firma.ig_ids,
+        guncellendi: new Date().toISOString()
+      }
+      await env.HABERLER.put(`firma:${id}`, JSON.stringify(guncellendi))
+      const liste = await env.HABERLER.get('firma_liste', 'json') || []
+      const idx = liste.findIndex(f=>f.id===id)
+      if (idx>=0) { liste[idx].ad = guncellendi.ad; liste[idx].sektor = guncellendi.sektor }
+      await env.HABERLER.put('firma_liste', JSON.stringify(liste))
       return Response.json({ ok: true })
     }
 
