@@ -1157,7 +1157,7 @@ function RssEkleButon({ sourceId }) {
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
       setDurum('tamam')
-      setMesaj('RSS'e eklendi — kayserim.net'te görünecek')
+        setMesaj("RSS'e eklendi — kayserim.net'te görünecek")
     } catch(e) {
       setDurum('hata')
       setMesaj(e.message)
@@ -1178,7 +1178,7 @@ function RssEkleButon({ sourceId }) {
         style={{fontSize:12,background:'rgba(255,183,0,.1)',border:'0.5px solid rgba(255,183,0,.3)',
           color:'#FFB700',whiteSpace:'nowrap',flexShrink:0}}>
         <Ic n={durum==='yukleniyor'?'loader-2':'rss'} size={12}/>
-        {durum==='yukleniyor'?'Ekleniyor…':'RSS'e Ekle'}
+        {durum==='yukleniyor'?'Ekleniyor…':"RSS'e Ekle"}
       </button>
       {durum==='hata' && <div style={{fontSize:10,color:'#ff7b7b'}}>{mesaj}</div>}
     </div>
