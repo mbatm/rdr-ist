@@ -174,34 +174,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         }
       } catch(e) { console.warn('Creatomate:', e.message) }
 
-      // Video varsa kayserim şablonuyla yatay da üret
-      if (isVideo) {
-        try {
-          const res = await fetch('https://api.creatomate.com/v2/renders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-            body: JSON.stringify({
-              template_id:  HABER_TEMPLATES.yatay,
-              output_format: 'mp4',
-              frame_rate:   30,
-              modifications: {
-                'video.source':        mediaUrl,
-                'baslik.text':         (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0,120),
-                'baslikss.text':       (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0,120),
-                'spot-baslik.text':    duzeltilmis.spot || '',
-                'spot-baslik-ss.text': duzeltilmis.spot || '',
-                'kategori.text':       sablon.toUpperCase(),
-                'tarih.text':          tarihStr,
-              },
-            }),
-          })
-          const data = await res.json()
-          if (res.ok) {
-            const render = Array.isArray(data) ? data[0] : data
-            creatomateRenders.push({ format:'yatay', render_id:render.id, status:render.status, tip:'video' })
-          }
-        } catch(e) { console.warn('Creatomate yatay:', e.message) }
-      }
+      // Radar şablonları sadece dikey — yatay üretilmiyor
     }
 
     // ── KV'ye kaydet ─────────────────────────────────────────────────────────
