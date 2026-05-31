@@ -114,19 +114,20 @@ async function bekleVideo(mediaId, creds) {
   }
 }
 
-// ── Tweet at (v1.1) — standalone app uyumlu ─────────────────────────────────
+// ── Tweet at (v2) ────────────────────────────────────────────────────────────
 async function tweetAt(metin, mediaIds, creds) {
-  const url    = 'https://api.twitter.com/1.1/statuses/update.json'
-  const params = { status: metin }
-  if (mediaIds?.length) params.media_ids = mediaIds.join(',')
-  const auth = await oauthSign('POST', url, params, creds)
+  const url  = 'https://api.twitter.com/2/tweets'
+  const body = { text: metin }
+  if (mediaIds?.length) body.media = { media_ids: mediaIds }
+  const auth = await oauthSign('POST', url, {}, creds)
   const res  = await fetch(url, {
     method: 'POST',
-    headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(params).toString(),
+    headers: { Authorization: auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   })
-  const tweetText = await res.text(); if (!res.ok) throw new Error(`Tweet(${res.status}): ${tweetText}`)
-  return await res.json()
+  const tweetText = await res.text()
+  if (!res.ok) throw new Error(`Tweet(${res.status}): ${tweetText}`)
+  return JSON.parse(tweetText)
 }
 
 // ── Ana handler ──────────────────────────────────────────────────────────────
@@ -170,7 +171,7 @@ export async function onRequestPost({ request, env }) {
       const all = await env.HABERLER.get('paylas_log', 'json') || []
       all.unshift({
         platform:  'twitter',
-        post_id:   sonuc.id_str || '',
+        post_id:   sonuc.data?.id || '',
         baslik:    metin.slice(0, 80),
         kullanici: request.headers.get('X-Kullanici') || 'admin',
         tip:       mediaIds.length ? (videoUrl ? 'video' : 'foto') : 'metin',
@@ -181,8 +182,8 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({
       basarili:  true,
-      tweet_id:  sonuc.id_str,
-      tweet_url: `https://twitter.com/i/web/status/${sonuc.id_str}`,
+      tweet_id:  sonuc.data?.id,
+      tweet_url: `https://twitter.com/i/web/status/${sonuc.data?.id}`,
       media_ids: mediaIds,
     })
   } catch(e) {
