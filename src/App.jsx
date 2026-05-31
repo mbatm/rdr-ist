@@ -1945,20 +1945,56 @@ const RADAR_SABLONLAR = [
 ]
 
 // Dosyayı base64'e çevirip yükle, public URL döndür
+// Medya boyutlarını oku — görsel ve video için
+async function medyaBoyutOku(file, dataUrl) {
+  return new Promise((resolve) => {
+    if (file.type.startsWith('video')) {
+      const video = document.createElement('video')
+      video.onloadedmetadata = () => {
+        const dikey = video.videoHeight >= video.videoWidth
+        resolve({ genislik: video.videoWidth, yukseklik: video.videoHeight, dikey })
+      }
+      video.onerror = () => resolve({ genislik: 0, yukseklik: 0, dikey: true })
+      video.src = dataUrl
+    } else {
+      const img = new Image()
+      img.onload = () => {
+        const dikey = img.naturalHeight >= img.naturalWidth
+        resolve({ genislik: img.naturalWidth, yukseklik: img.naturalHeight, dikey })
+      }
+      img.onerror = () => resolve({ genislik: 0, yukseklik: 0, dikey: true })
+      img.src = dataUrl
+    }
+  })
+}
+
 async function dosyaYukle(file, sourceId) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = async (e) => {
       try {
-        const base64 = e.target.result.split(',')[1]
-        const format = file.type.startsWith('video') ? 'video' : 'gorsel'
-        const res    = await fetch('/api/gorsel-yukle', {
+        const dataUrl = e.target.result
+        const base64  = dataUrl.split(',')[1]
+        const format  = file.type.startsWith('video') ? 'video' : 'gorsel'
+
+        // Boyut bilgisini paralel al
+        const boyut = await medyaBoyutOku(file, dataUrl)
+
+        const res  = await fetch('/api/gorsel-yukle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: base64, source_id: sourceId, format: `${format}_${Date.now()}` }),
         })
         const data = await res.json()
-        if (data.url) resolve({ url: data.url, tip: format, adi: file.name, mime: file.type })
+        if (data.url) resolve({
+          url:       data.url,
+          tip:       format,
+          adi:       file.name,
+          mime:      file.type,
+          dikey:     boyut.dikey,
+          genislik:  boyut.genislik,
+          yukseklik: boyut.yukseklik,
+        })
         else reject(new Error(data.hata || 'Yükleme hatası'))
       } catch(err) { reject(err) }
     }

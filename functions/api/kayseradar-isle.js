@@ -66,10 +66,12 @@ Sadece JSON döndür:
     }
 
     // ── Medyaları ayır ───────────────────────────────────────────────────────
-    const gorseller = medyalar.filter(m => m.tip === 'gorsel')
-    const videolar  = medyalar.filter(m => m.tip === 'video')
-    const ilkGorsel = gorseller[0]?.url || ''
-    const ilkVideo  = videolar[0]?.url  || ''
+    const gorseller  = medyalar.filter(m => m.tip === 'gorsel')
+    const videolar   = medyalar.filter(m => m.tip === 'video')
+    const ilkGorsel  = gorseller[0]?.url || ''
+    const ilkVideo   = videolar[0]?.url  || ''
+    const ilkMedya   = videolar[0] || gorseller[0] || null
+    const mediaDikey = ilkMedya?.dikey !== false // undefined da dikey sayılır
 
     // ── Creatomate render ─────────────────────────────────────────────────────
     // Şablon haritası — sablon adına göre template ID
@@ -108,16 +110,18 @@ Sadece JSON döndür:
         'baslik.text':     baslikMetni,
         'baslik-X6C.text': baslikMetni,
         'tarih.text':      tarihStr,
-        // Görsel ise tam alan, ortadan kadraj
-        ...(isVideo ? {} : {
-          'video.fit':       'cover',
-          'video.width':     '100%',
-          'video.height':    '100%',
-          'video.x':         '50%',
-          'video.y':         '50%',
-          'video.x_anchor':  '50%',
-          'video.y_anchor':  '50%',
-        }),
+        // Kadraj kuralı:
+        // Dikey medya → üstten hizala (yüzler genelde üstte)
+        // Yatay medya → genişliği esas al, ortaya yerleştir
+        ...{
+          'video.fit':      'cover',
+          'video.width':    '100%',
+          'video.height':   '100%',
+          'video.x':        '50%',
+          'video.y':        mediaDikey ? '35%' : '50%', // dikey → biraz üstten, yatay → tam orta
+          'video.x_anchor': '50%',
+          'video.y_anchor': '50%',
+        },
       }
 
       try {
