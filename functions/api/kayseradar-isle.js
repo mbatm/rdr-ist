@@ -120,8 +120,10 @@ Sadece JSON döndür, başka hiçbir şey yazma:
 
       // Kan ilanı için özel modifikasyonlar
       const isKan = sablon === 'kan'
+      const kanMetni = metinMetni || baslikMetni || 'Kan ilanı metni girilmedi'
+      console.log('Kan modif:', JSON.stringify({ isKan, kanMetni: kanMetni.slice(0,50) }))
       const modifications = isKan ? {
-        'kan-ilan.text': metinMetni || baslikMetni,
+        'kan-ilan.text': kanMetni,
       } : {
         'video.source':    mediaUrl,
         'baslik.text':     baslikMetni,
@@ -162,6 +164,13 @@ Sadece JSON döndür, başka hiçbir şey yazma:
           })
         } else {
           console.warn('Creatomate hata:', JSON.stringify(data))
+          // Hata detayını kayite ekle
+          creatomateRenders.push({
+            format: 'dikey', render_id: null,
+            status: 'failed', url: null,
+            hata: data?.message || JSON.stringify(data),
+            tip: isVideo ? 'video' : 'gorsel', sablon,
+          })
         }
       } catch(e) { console.warn('Creatomate:', e.message) }
 
