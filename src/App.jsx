@@ -427,10 +427,18 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
     setHatalar(p => { const n={...p}; formatlar.forEach(f=>delete n[f]); return n })
 
     try {
+      // Medya boyutunu belirle — video yoksa görsel boyutlarını al
+      const mediaUrl  = haber.video || haber.gorsel_url || haber.gorsel || ''
+      const isVideo   = !!haber.video
+      const medyaBilgi = haber.medyalar?.find(m=>m.tip===(isVideo?'video':'gorsel')) || haber.medyalar?.[0]
+
       const res = await fetch('/api/video-isle', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          video_url: haber.video,
+          video_url:  isVideo ? mediaUrl : undefined,
+          gorsel_url: !isVideo ? mediaUrl : undefined,
+          genislik:   medyaBilgi?.genislik,
+          yukseklik:  medyaBilgi?.yukseklik,
           baslik: baslik||haber.baslik,
           spot: spot||haber.ozet||'',
           kategori: kategori||haber.kategori,

@@ -79,28 +79,59 @@ SADECE şu JSON formatını döndür:
       if (s >= 0 && e > s) icerik = JSON.parse(txt.slice(s, e+1))
     } catch(err) { console.warn('JSON parse:', err.message, txt.slice(0,300)) }
 
-    // ── Creatomate video ─────────────────────────────────────────────────────
+    // ── Creatomate render — video veya görsel ────────────────────────────────
     let creatomateRenders = []
-    if (ilkVideo && env.CREATOMATE_API_KEY) {
-      const TEMPLATES = { dikey:'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36', yatay:'438ee267-ad53-4627-8126-e50ffb30f395' }
+    if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel)) {
+      const mediaUrl  = ilkVideo || ilkGorsel
+      const isVideo   = !!ilkVideo
+      const ilkMedya  = medyalar.find(m=>m.tip===(isVideo?'video':'gorsel'))
+      const gw = ilkMedya?.genislik  || 1
+      const gh = ilkMedya?.yukseklik || 1
+
+      // Kadraj hesaplama
+      const oran = gw / gh
+      let wPct, hPct
+      if (gh >= 1350) {
+        hPct = `${((720/oran)/1280*100).toFixed(2)}%`; wPct = '100%'
+      } else {
+        wPct = `${((1350*oran)/720*100).toFixed(2)}%`; hPct = `${(1350/1280*100).toFixed(2)}%`
+      }
+      const kadraj = { 'video.width':wPct,'video.height':hPct,'video.x':'50%','video.y':'50%','video.x_anchor':'50%','video.y_anchor':'50%','video.fit':'none' }
+
+      const TEMPLATES = {
+        dikey_video:  'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
+        yatay_video:  '438ee267-ad53-4627-8126-e50ffb30f395',
+        dikey_gorsel: 'd8655c6b-e08d-45e4-8277-64b074164ac6',
+      }
+      const baslikStr = (icerik.site_basligi||baslik||'').slice(0,120)
       const mods = {
-        'video.source':        ilkVideo,
-        'baslik.text':         (icerik.site_basligi||baslik||'').slice(0,120),
-        'baslikss.text':       (icerik.site_basligi||baslik||'').slice(0,120),
+        'video.source':        mediaUrl,
+        'baslik.text':         baslikStr,
+        'baslikss.text':       baslikStr,
         'spot-baslik.text':    (icerik.meta_description||'').slice(0,100),
         'spot-baslik-ss.text': (icerik.meta_description||'').slice(0,100),
         'kategori.text':       (kategori||'GÜNCEL').toUpperCase(),
         'tarih.text':          new Date().toLocaleDateString('tr-TR'),
+        ...kadraj,
       }
-      for (const fmt of ['dikey','yatay']) {
+
+      const formatlar = isVideo ? ['dikey','yatay'] : ['dikey']
+      for (const fmt of formatlar) {
+        const templateId = isVideo
+          ? (fmt==='dikey' ? TEMPLATES.dikey_video : TEMPLATES.yatay_video)
+          : TEMPLATES.dikey_gorsel
         try {
-          const r = await fetch('https://api.creatomate.com/v2/renders', {
+          const apiUrl = isVideo ? 'https://api.creatomate.com/v2/renders' : 'https://api.creatomate.com/v1/renders'
+          const r = await fetch(apiUrl, {
             method:'POST',
             headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${env.CREATOMATE_API_KEY}` },
-            body: JSON.stringify({ template_id:TEMPLATES[fmt], output_format:'mp4', frame_rate:30, modifications:mods }),
+            body: JSON.stringify({ template_id:templateId, output_format:isVideo?'mp4':'jpg', ...(isVideo?{frame_rate:30}:{}), modifications:mods }),
           })
           const d = await r.json()
-          if (r.ok) { const rnd=Array.isArray(d)?d[0]:d; creatomateRenders.push({ format:fmt, render_id:rnd.id, status:rnd.status }) }
+          if (r.ok) {
+            const rnd=Array.isArray(d)?d[0]:d
+            creatomateRenders.push({ format:fmt, render_id:rnd.id, status:rnd.status||(rnd.url?'succeeded':'planned'), url:rnd.url||null, tip:isVideo?'video':'gorsel' })
+          }
         } catch(e) { console.warn('Creatomate',fmt,e.message) }
       }
     }
