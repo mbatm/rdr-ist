@@ -49,7 +49,7 @@ SADECE şu JSON formatını döndür:
   "sosyal_baslik": "max 7 kelime, Kayseri ile başlayan sosyal medya başlığı",
   "meta_description": "max 155 karakter",
   "url_slug": "kayseri-ile-baslayan-slug",
-  "optimize_icerik": "250-400 kelime, Türk haber ajansı dilinde, H2 başlıklı HTML",
+  "optimize_icerik": "250-400 kelime, Türk haber ajansı dilinde düz metin, başlık veya HTML tag kullanma",
   "ozet": "1 cümle, haberin özü",
   "instagram": "Haberi Instagram için yeniden yaz. 1) Kaynak öneklerini kaldır 2) Doğal akıcı dil 3) Konuya uygun emoji 4) 1200-2000 karakter 5) Sondan önce 'Haber detayları kayserim.net\\'te 🔗' 6) Son satırda 6-10 hashtag (#kayseri #kayserihaber ve konuya özel) 7) URL ekleme",
   "facebook": "Haber başlığı + özet + 1-2 cümle. Konuya uygun emoji. Max 300 karakter. Sonuna #kayseri #kayserihaber",
