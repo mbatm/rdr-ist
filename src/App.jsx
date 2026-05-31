@@ -1786,21 +1786,46 @@ const RADAR_SABLONLAR = [
   { id:'radar_yardim',label:'Radar Yardım',  ic:'heart-handshake',renk:'#4488FF' },
 ]
 
-function KayseradarModul({ user, onGeri }) {
-  const [ekran,      setEkran]     = useState('liste') // 'liste' | 'yeni' | 'detay'
-  const [seciliSablon, setSablon]  = useState(null)
-  const [baslik,     setBaslik]    = useState('')
-  const [metin,      setMetin]     = useState('')
-  const [gorselUrl,  setGorselUrl] = useState('')
-  const [isleniyor,  setIsleniyor] = useState(false)
-  const [onayKayit,  setOnayKayit] = useState(null) // işleme sonucu onay ekranı
-  const [liste,      setListe]     = useState([])
-  const [seciliKayit,setSecili]    = useState(null)
-  const [paylasiyor, setPaylasiyor]= useState(false)
-  const [hata,       setHata]      = useState(null)
-  const [pSonuc,     setPSonuc]    = useState(null)
+// Dosyayı base64'e çevirip yükle, public URL döndür
+async function dosyaYukle(file, sourceId) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      try {
+        const base64 = e.target.result.split(',')[1]
+        const format = file.type.startsWith('video') ? 'video' : 'gorsel'
+        const res    = await fetch('/api/gorsel-yukle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: base64, source_id: sourceId, format: `${format}_${Date.now()}` }),
+        })
+        const data = await res.json()
+        if (data.url) resolve({ url: data.url, tip: format, adi: file.name, mime: file.type })
+        else reject(new Error(data.hata || 'Yükleme hatası'))
+      } catch(err) { reject(err) }
+    }
+    reader.onerror = () => reject(new Error('Dosya okunamadı'))
+    reader.readAsDataURL(file)
+  })
+}
 
-  const token = localStorage.getItem('cms_token') || ''
+function KayseradarModul({ user, onGeri }) {
+  const [ekran,        setEkran]      = useState('liste')
+  const [seciliSablon, setSablon]     = useState(null)
+  const [baslik,       setBaslik]     = useState('')
+  const [metin,        setMetin]      = useState('')
+  const [medyalar,     setMedyalar]   = useState([]) // { url, tip, adi, mime }
+  const [yukleniyorM,  setYukleniyorM]= useState(false)
+  const [isleniyor,    setIsleniyor]  = useState(false)
+  const [onayKayit,    setOnayKayit]  = useState(null)
+  const [liste,        setListe]      = useState([])
+  const [seciliKayit,  setSecili]     = useState(null)
+  const [paylasiyor,   setPaylasiyor] = useState(false)
+  const [hata,         setHata]       = useState(null)
+  const [pSonuc,       setPSonuc]     = useState(null)
+  const [videoRenders, setVideoRenders] = useState({})
+  const fileRef = useRef(null)
+  const token   = localStorage.getItem('cms_token') || ''
 
   const listeYukle = async () => {
     try {
@@ -1812,47 +1837,95 @@ function KayseradarModul({ user, onGeri }) {
 
   useEffect(() => { listeYukle() }, [])
 
-  // Metin işle ve onaya sun
+  // Dosya seç ve yükle
+  const dosyaSec = async (files) => {
+    setYukleniyorM(true); setHata(null)
+    const sourceId = `radar_${Date.now()}`
+    const yeniMedyalar = []
+    for (const file of Array.from(files)) {
+      try {
+        const m = await dosyaYukle(file, sourceId)
+        yeniMedyalar.push(m)
+      } catch(e) { setHata(`${file.name}: ${e.message}`) }
+    }
+    setMedyalar(p => [...p, ...yeniMedyalar])
+    setYukleniyorM(false)
+  }
+
+  const medyaSil = (idx) => setMedyalar(p => p.filter((_, i) => i !== idx))
+
+  // İşle
   const isle = async () => {
-    if (!seciliSablon) { setHata('Şablon seçin'); return }
+    if (!seciliSablon)  { setHata('Şablon seçin'); return }
     if (!baslik.trim() && !metin.trim()) { setHata('Başlık veya metin girin'); return }
     setIsleniyor(true); setHata(null)
     try {
       const res  = await fetch('/api/kayseradar-isle', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({ sablon: seciliSablon.id, baslik, metin, gorsel_url: gorselUrl }),
+        body:    JSON.stringify({ sablon: seciliSablon.id, baslik, metin, medyalar }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
       setOnayKayit(data.kayit)
+      // Video render takibi başlat
+      if (data.kayit.creatomate?.length) {
+        const rv = {}
+        for (const r of data.kayit.creatomate) rv[r.format] = { render_id: r.render_id, status: r.status, url: null }
+        setVideoRenders(rv)
+        takipBaslat(data.kayit.creatomate, data.kayit.id)
+      }
       setEkran('onay')
     } catch(e) { setHata(e.message) }
     setIsleniyor(false)
   }
 
-  // Onay sonrası düzenlenmiş metni güncelle
+  // Creatomate render takibi
+  const takipBaslat = (renders, kadasId) => {
+    const bekleyenler = renders.filter(r => r.status !== 'succeeded')
+    if (!bekleyenler.length) return
+    const interval = setInterval(async () => {
+      let tumTamam = true
+      for (const r of bekleyenler) {
+        try {
+          const res  = await fetch(`/api/video-durum?render_id=${r.render_id}`)
+          const data = await res.json()
+          if (data.status === 'succeeded') {
+            setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'succeeded', url: data.url } }))
+            // KV kaydını güncelle
+            setOnayKayit(p => p ? {
+              ...p,
+              [`video_${r.format}`]: { render_id: r.render_id, status: 'succeeded', url: data.url },
+            } : p)
+          } else if (data.status === 'failed') {
+            setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'failed' } }))
+          } else {
+            tumTamam = false
+          }
+        } catch(e) { tumTamam = false }
+      }
+      if (tumTamam) clearInterval(interval)
+    }, 3000)
+    setTimeout(() => clearInterval(interval), 5 * 60 * 1000) // 5 dk timeout
+  }
+
   const onayGuncelle = (alan, deger) => setOnayKayit(p => ({ ...p, [alan]: deger }))
 
   // Paylaş
   const paylas = async (kayit, platformlar, fbIds=[], igIds=[]) => {
-    setPaylasiyor(true); setPSonuc(null)
+    setPaylasiyor(true); setPSonuc(null); setHata(null)
     try {
       const res  = await fetch('/api/kayseradar-paylas', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({
-          id: kayit.id,
-          platformlar,
-          fb_page_ids: fbIds,
-          ig_ids: igIds,
-          tw: platformlar.includes('twitter'),
-        }),
+        body:    JSON.stringify({ id: kayit.id, platformlar, fb_page_ids: fbIds, ig_ids: igIds, tw: platformlar.includes('twitter') }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
       setPSonuc(data.sonuclar)
       listeYukle()
+      // Onay kaydını güncelle
+      setOnayKayit(p => p ? { ...p, durum: 'yayinda', paylasimlar: data.sonuclar } : p)
     } catch(e) { setHata(e.message) }
     setPaylasiyor(false)
   }
@@ -1862,15 +1935,23 @@ function KayseradarModul({ user, onGeri }) {
     if (!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return
     try {
       const res  = await fetch('/api/kayseradar-sil', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({ id, sosyal_medyadan_da_sil: sosyaldan }),
+        body:    JSON.stringify({ id, sosyal_medyadan_da_sil: sosyaldan }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
       listeYukle()
-      if (seciliKayit?.id === id) setSecili(null)
+      if (seciliKayit?.id === id) { setSecili(null); setEkran('liste') }
+      if (onayKayit?.id  === id) { setOnayKayit(null); setEkran('liste') }
     } catch(e) { setHata(e.message) }
+  }
+
+  // Sıfırla
+  const sifirla = () => {
+    setSablon(null); setBaslik(''); setMetin(''); setMedyalar([])
+    setOnayKayit(null); setHata(null); setPSonuc(null); setVideoRenders({})
+    setEkran('yeni')
   }
 
   return (
@@ -1884,7 +1965,7 @@ function KayseradarModul({ user, onGeri }) {
         <Ic n="radar" size={15} style={{color:'#E63946'}}/>
         <div style={{fontSize:14,fontWeight:600}}>Kayseradar</div>
         <div style={{marginLeft:'auto',display:'flex',gap:6}}>
-          <button onClick={()=>{setEkran('yeni');setSablon(null);setBaslik('');setMetin('');setGorselUrl('');setOnayKayit(null);setHata(null)}}
+          <button onClick={sifirla}
             style={{fontSize:12,background:'rgba(230,57,70,.12)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
             <Ic n="plus" size={12}/> Yeni Giriş
           </button>
@@ -1895,55 +1976,53 @@ function KayseradarModul({ user, onGeri }) {
       </div>
 
       <div style={{flex:1,overflow:'hidden',display:'flex'}}>
-
         {/* Sol — Liste */}
-        <div style={{width:320,borderRight:'0.5px solid var(--border)',overflowY:'auto',padding:'0.75rem',flexShrink:0}}>
+        <div style={{width:300,borderRight:'0.5px solid var(--border)',overflowY:'auto',padding:'0.75rem',flexShrink:0}}>
           {liste.length === 0 && (
-            <div style={{textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:13}}>
-              Henüz kayıt yok
-            </div>
+            <div style={{textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:13}}>Henüz kayıt yok</div>
           )}
           {liste.map(item => {
             const sbl = RADAR_SABLONLAR.find(s=>s.id===item.sablon) || RADAR_SABLONLAR[8]
-            const on  = seciliKayit?.id === item.id
+            const on  = seciliKayit?.id === item.id || onayKayit?.id === item.id
             return (
               <div key={item.id} onClick={async()=>{
-                  const res = await fetch(`/api/kayseradar-isle?id=${item.id}`,{headers:{'X-Token':token}})
-                  const d   = await res.json()
-                  setSecili(d); setEkran('detay')
-                }}
+                const res  = await fetch(`/api/kayseradar-isle?id=${item.id}`,{headers:{'X-Token':token}})
+                const d    = await res.json()
+                setSecili(d); setOnayKayit(null); setEkran('detay'); setPSonuc(null); setHata(null)
+              }}
                 style={{background:on?'rgba(230,57,70,.06)':'var(--surface)',border:`0.5px solid ${on?'rgba(230,57,70,.3)':'var(--border)'}`,borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                  <span style={{fontSize:10,fontWeight:600,color:sbl.renk,background:`${sbl.renk}18`,padding:'2px 8px',borderRadius:10,border:`0.5px solid ${sbl.renk}33`}}>{sbl.label}</span>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                  <span style={{fontSize:10,fontWeight:600,color:sbl.renk,background:`${sbl.renk}18`,padding:'2px 7px',borderRadius:10,border:`0.5px solid ${sbl.renk}33`}}>{sbl.label}</span>
+                  {item.medya_sayisi > 0 && <span style={{fontSize:10,color:'var(--muted)'}}>📎 {item.medya_sayisi}</span>}
                   <span style={{fontSize:10,color:item.durum==='yayinda'?'#00D4AA':'#FFB700',marginLeft:'auto'}}>{item.durum==='yayinda'?'✓ Yayında':'⏳ Bekliyor'}</span>
                 </div>
-                <div style={{fontSize:13,fontWeight:500,lineHeight:1.4,marginBottom:3}}>{item.baslik}</div>
+                <div style={{fontSize:12,fontWeight:500,lineHeight:1.4,marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.baslik}</div>
                 <div style={{fontSize:11,color:'var(--muted)'}}>{new Date(item.tarih).toLocaleString('tr-TR')}</div>
               </div>
             )
           })}
         </div>
 
-        {/* Sağ — Yeni Giriş / Onay / Detay */}
+        {/* Sağ panel */}
         <div style={{flex:1,overflowY:'auto',padding:'1.25rem'}}>
 
-          {/* YENİ GİRİŞ */}
-          {ekran==='yeni' && !onayKayit && (
-            <div style={{maxWidth:640}}>
+          {/* ── YENİ GİRİŞ ── */}
+          {(ekran==='yeni'||ekran==='liste') && !onayKayit && (
+            <div style={{maxWidth:660}}>
               <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Yeni Kayseradar Girişi</div>
 
-              {/* Şablon seçimi */}
+              {/* Şablon */}
               <div style={{marginBottom:'1rem'}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Şablon Seç</div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:6}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))',gap:5}}>
                   {RADAR_SABLONLAR.map(s=>(
                     <div key={s.id} onClick={()=>setSablon(s)}
-                      style={{padding:'8px 10px',borderRadius:'var(--radius-md)',cursor:'pointer',
+                      style={{padding:'7px 9px',borderRadius:'var(--radius-md)',cursor:'pointer',
                         background:seciliSablon?.id===s.id?`${s.renk}18`:'var(--surface)',
                         border:`0.5px solid ${seciliSablon?.id===s.id?s.renk:'var(--border)'}`,
-                        display:'flex',alignItems:'center',gap:6}}>
-                      <Ic n={s.ic} size={13} style={{color:s.renk}}/>
-                      <span style={{fontSize:12,fontWeight:seciliSablon?.id===s.id?600:400,color:seciliSablon?.id===s.id?s.renk:'var(--text)'}}>{s.label}</span>
+                        display:'flex',alignItems:'center',gap:5}}>
+                      <Ic n={s.ic} size={12} style={{color:s.renk}}/>
+                      <span style={{fontSize:11,fontWeight:seciliSablon?.id===s.id?600:400,color:seciliSablon?.id===s.id?s.renk:'var(--text)'}}>{s.label}</span>
                     </div>
                   ))}
                 </div>
@@ -1959,16 +2038,42 @@ function KayseradarModul({ user, onGeri }) {
               {/* Metin */}
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Metin</div>
-                <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={5}
+                <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={4}
                   placeholder="Haber detayları..." style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
               </div>
 
-              {/* Görsel URL */}
+              {/* Medya yükleme */}
               <div style={{marginBottom:14}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Görsel URL (opsiyonel)</div>
-                <input value={gorselUrl} onChange={e=>setGorselUrl(e.target.value)} placeholder="https://..."
-                  style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
-                {gorselUrl && <img src={gorselUrl} alt="" style={{marginTop:6,width:'100%',maxHeight:120,objectFit:'cover',borderRadius:'var(--radius-sm)'}} onError={e=>e.target.style.display='none'}/>}
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Görsel / Video Ekle</div>
+                <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:'none'}}
+                  onChange={e=>dosyaSec(e.target.files)}/>
+                <div onClick={()=>fileRef.current?.click()}
+                  style={{border:'1px dashed var(--border)',borderRadius:'var(--radius-md)',padding:'1rem',textAlign:'center',cursor:'pointer',background:'var(--surface)',marginBottom:8}}
+                  onDragOver={e=>e.preventDefault()}
+                  onDrop={e=>{e.preventDefault();dosyaSec(e.dataTransfer.files)}}>
+                  {yukleniyorM
+                    ? <span style={{fontSize:12,color:'var(--muted)'}}>Yükleniyor…</span>
+                    : <span style={{fontSize:12,color:'var(--muted)'}}>📎 Dosya seç veya sürükle bırak (görsel ve video)</span>
+                  }
+                </div>
+                {/* Medya önizleme */}
+                {medyalar.length > 0 && (
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {medyalar.map((m,i)=>(
+                      <div key={i} style={{position:'relative',width:80,flexShrink:0}}>
+                        {m.tip==='gorsel'
+                          ? <img src={m.url} alt={m.adi} style={{width:80,height:60,objectFit:'cover',borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                          : <div style={{width:80,height:60,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              <Ic n="player-play" size={20} style={{color:'#ff7b7b'}}/>
+                            </div>
+                        }
+                        <div style={{fontSize:9,color:'var(--muted)',textAlign:'center',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.adi}</div>
+                        <button onClick={()=>medyaSil(i)}
+                          style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#E63946',border:'none',color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {hata && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
@@ -1980,72 +2085,107 @@ function KayseradarModul({ user, onGeri }) {
             </div>
           )}
 
-          {/* ONAY EKRANI */}
+          {/* ── ONAY & PAYLAŞIM ── */}
           {ekran==='onay' && onayKayit && (
-            <div style={{maxWidth:640}}>
+            <div style={{maxWidth:660}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
-                <div style={{fontSize:14,fontWeight:600}}>Onay & Düzenleme</div>
-                <span style={{fontSize:11,color:'#FFB700',background:'rgba(255,183,0,.1)',padding:'2px 8px',borderRadius:10,border:'0.5px solid rgba(255,183,0,.3)'}}>Onay Bekliyor</span>
+                <div style={{fontSize:14,fontWeight:600}}>Onay & Paylaşım</div>
+                <span style={{fontSize:11,color:onayKayit.durum==='yayinda'?'#00D4AA':'#FFB700',
+                  background:onayKayit.durum==='yayinda'?'rgba(0,212,170,.1)':'rgba(255,183,0,.1)',
+                  padding:'2px 8px',borderRadius:10,border:`0.5px solid ${onayKayit.durum==='yayinda'?'rgba(0,212,170,.3)':'rgba(255,183,0,.3)'}`}}>
+                  {onayKayit.durum==='yayinda'?'✓ Yayında':'⏳ Onay Bekliyor'}
+                </span>
               </div>
 
-              {/* Başlık */}
+              {/* Başlık düzenle */}
               <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık (düzenleyebilirsiniz)</div>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
                 <input value={onayKayit.baslik} onChange={e=>onayGuncelle('baslik',e.target.value)}
                   style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
               </div>
 
+              {/* Video render durumu */}
+              {Object.keys(videoRenders).length > 0 && (
+                <div style={{marginBottom:12,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Video İşleme Durumu</div>
+                  {Object.entries(videoRenders).map(([fmt,r])=>(
+                    <div key={fmt} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,marginBottom:4}}>
+                      <span style={{color:'var(--muted)',minWidth:50}}>{fmt==='dikey'?'⬆ Dikey':'↔ Yatay'}</span>
+                      {r.status==='succeeded'
+                        ? <><span style={{color:'#00D4AA'}}>✓ Hazır</span>
+                            <a href={r.url} target="_blank" rel="noreferrer" style={{color:'#00D4AA',fontSize:11}}>İndir →</a></>
+                        : r.status==='failed'
+                          ? <span style={{color:'#ff7b7b'}}>✗ Başarısız</span>
+                          : <span style={{color:'#FFB700'}}>⏳ İşleniyor…</span>
+                      }
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Medya önizleme */}
+              {onayKayit.medyalar?.length > 0 && (
+                <div style={{marginBottom:12,display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {onayKayit.medyalar.map((m,i)=>(
+                    <div key={i}>
+                      {m.tip==='gorsel'
+                        ? <img src={m.url} alt="" style={{height:80,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                        : <div style={{height:80,width:120,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#ff7b7b'}}>
+                            <Ic n="player-play" size={18}/> Video
+                          </div>
+                      }
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Platform metinleri */}
-              {[
-                ['ig_metni','Instagram Metni'],
-                ['tw_metni','Twitter/X Metni'],
-                ['fb_metni','Facebook Metni'],
-              ].map(([alan,label])=>(
+              {[['ig_metni','Instagram','#E1306C'],['tw_metni','Twitter/X','#1da1f2'],['fb_metni','Facebook','#4dabf7']].map(([alan,label,renk])=>(
                 <div key={alan} style={{marginBottom:10}}>
-                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{label}</div>
+                  <div style={{fontSize:11,color:renk,marginBottom:4}}>{label} metni</div>
                   <textarea value={onayKayit[alan]||''} onChange={e=>onayGuncelle(alan,e.target.value)} rows={3}
-                    style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+                    style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box',borderColor:`${renk}33`}}/>
+                  {alan==='tw_metni'&&<div style={{fontSize:10,color:(onayKayit[alan]||'').length>260?'#ff7b7b':'var(--muted)',textAlign:'right'}}>{(onayKayit[alan]||'').length}/280</div>}
                 </div>
               ))}
 
-              {/* Paylaşım seçimi */}
-              <div style={{marginBottom:14,padding:12,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Paylaşılacak Platformlar</div>
+              {/* Paylaşım butonları */}
+              <div style={{padding:12,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',marginBottom:12}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Paylaş</div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
-                    <label key={p} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',
-                      padding:'5px 10px',border:`0.5px solid ${renk}44`,borderRadius:'var(--radius-sm)',background:`${renk}11`}}>
-                      <input type="checkbox" id={`onay_${p}`} defaultChecked={!!onayKayit.gorsel_url||p==='twitter'}/>
-                      <span style={{color:renk}}>{l}</span>
-                    </label>
+                    <button key={p} disabled={paylasiyor} onClick={()=>paylas(onayKayit,[p])}
+                      style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>
+                      {paylasiyor?<Ic n="loader-2" size={11}/>:null} {l}
+                    </button>
                   ))}
+                  <button disabled={paylasiyor} onClick={()=>paylas(onayKayit,['facebook','instagram','twitter'])}
+                    style={{fontSize:12,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                    <Ic n="send" size={11}/> Tümüne Paylaş
+                  </button>
                 </div>
               </div>
 
-              {hata && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
-              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı</div>}
+              {hata   && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
+              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı!</div>}
 
-              <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>{
-                  const platformlar = ['facebook','instagram','twitter'].filter(p=>document.getElementById(`onay_${p}`)?.checked)
-                  paylas(onayKayit, platformlar)
-                }} disabled={paylasiyor}
-                  style={{fontSize:13,background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
-                  <Ic n={paylasiyor?'loader-2':'send'} size={13}/> {paylasiyor?'Paylaşılıyor…':'Paylaş'}
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <button onClick={sifirla} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                  <Ic n="plus" size={11}/> Yeni Giriş
                 </button>
-                <button onClick={()=>{setEkran('liste');setOnayKayit(null);listeYukle()}}
-                  style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
-                  Listeye Dön
+                <button onClick={()=>sil(onayKayit.id,false)}
+                  style={{fontSize:12,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                  <Ic n="trash" size={11}/> Sil
                 </button>
               </div>
             </div>
           )}
 
-          {/* DETAY EKRANI */}
+          {/* ── DETAY ── */}
           {ekran==='detay' && seciliKayit && (
-            <div style={{maxWidth:640}}>
+            <div style={{maxWidth:660}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
-                <div style={{fontSize:14,fontWeight:600}}>{seciliKayit.baslik}</div>
+                <div style={{fontSize:14,fontWeight:600,flex:1}}>{seciliKayit.baslik}</div>
                 <span style={{fontSize:11,color:seciliKayit.durum==='yayinda'?'#00D4AA':'#FFB700',
                   background:seciliKayit.durum==='yayinda'?'rgba(0,212,170,.1)':'rgba(255,183,0,.1)',
                   padding:'2px 8px',borderRadius:10,border:`0.5px solid ${seciliKayit.durum==='yayinda'?'rgba(0,212,170,.3)':'rgba(255,183,0,.3)'}`}}>
@@ -2053,48 +2193,65 @@ function KayseradarModul({ user, onGeri }) {
                 </span>
               </div>
 
-              {/* Paylaşım durumu */}
-              {seciliKayit.paylasimlar && Object.keys(seciliKayit.paylasimlar).length > 0 && (
-                <div style={{marginBottom:14,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
-                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Paylaşım Durumu</div>
-                  {Object.entries(seciliKayit.paylasimlar).map(([p,v])=>(
-                    <div key={p} style={{fontSize:12,color:'#00D4AA',marginBottom:2}}>
-                      ✓ {p} — {new Date(v.tarih).toLocaleString('tr-TR')}
-                      {v.tweet_url && <a href={v.tweet_url} target="_blank" rel="noreferrer" style={{marginLeft:8,color:'#1da1f2'}}>→</a>}
+              {/* Medyalar */}
+              {seciliKayit.medyalar?.length > 0 && (
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                  {seciliKayit.medyalar.map((m,i)=>(
+                    m.tip==='gorsel'
+                      ? <img key={i} src={m.url} alt="" style={{height:80,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                      : <div key={i} style={{height:80,width:120,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#ff7b7b'}}><Ic n="player-play" size={18}/></div>
+                  ))}
+                </div>
+              )}
+
+              {/* Video render durumu */}
+              {seciliKayit.creatomate?.length > 0 && (
+                <div style={{marginBottom:12,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Creatomate Videoları</div>
+                  {seciliKayit.creatomate.map(r=>(
+                    <div key={r.format} style={{fontSize:12,marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{color:'var(--muted)',minWidth:50}}>{r.format==='dikey'?'⬆ Dikey':'↔ Yatay'}</span>
+                      <span style={{color:r.status==='succeeded'?'#00D4AA':'#FFB700'}}>{r.status==='succeeded'?'✓ Hazır':'⏳ İşleniyor'}</span>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Yayınlanmamışsa paylaş */}
-              {seciliKayit.durum !== 'yayinda' && (
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Paylaş</div>
-                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
-                      <button key={p} disabled={paylasiyor} onClick={()=>paylas(seciliKayit,[p])}
-                        style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>
-                        {l}
-                      </button>
-                    ))}
-                    <button disabled={paylasiyor} onClick={()=>paylas(seciliKayit,['facebook','instagram','twitter'])}
-                      style={{fontSize:12,background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
-                      <Ic n="send" size={11}/> Tümüne Paylaş
-                    </button>
-                  </div>
+              {/* Paylaşım durumu */}
+              {seciliKayit.paylasimlar && Object.keys(seciliKayit.paylasimlar).length > 0 && (
+                <div style={{marginBottom:12,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Paylaşım Geçmişi</div>
+                  {Object.entries(seciliKayit.paylasimlar).map(([p,v])=>(
+                    <div key={p} style={{fontSize:12,color:'#00D4AA',marginBottom:2,display:'flex',alignItems:'center',gap:6}}>
+                      <span>✓ {p}</span>
+                      <span style={{color:'var(--muted)',fontSize:11}}>{new Date(v.tarih).toLocaleString('tr-TR')}</span>
+                      {v.tweet_url&&<a href={v.tweet_url} target="_blank" rel="noreferrer" style={{color:'#1da1f2',fontSize:11}}>→ Tweet</a>}
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı</div>}
+              {/* Paylaş */}
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
+                  <button key={p} disabled={paylasiyor} onClick={()=>paylas(seciliKayit,[p])}
+                    style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>{l}</button>
+                ))}
+                <button disabled={paylasiyor} onClick={()=>paylas(seciliKayit,['facebook','instagram','twitter'])}
+                  style={{fontSize:12,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                  <Ic n="send" size={11}/> Tümüne
+                </button>
+              </div>
+
+              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı!</div>}
               {hata   && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
 
-              {/* Sil */}
               <div style={{display:'flex',gap:6,marginTop:'1rem',paddingTop:'1rem',borderTop:'0.5px solid var(--border)'}}>
                 <button onClick={()=>sil(seciliKayit.id,false)}
                   style={{fontSize:12,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
                   <Ic n="trash" size={11}/> Kaydı Sil
                 </button>
-                {seciliKayit.durum==='yayinda' && (
+                {seciliKayit.durum==='yayinda'&&(
                   <button onClick={()=>sil(seciliKayit.id,true)}
                     style={{fontSize:12,background:'rgba(230,57,70,.15)',border:'0.5px solid rgba(230,57,70,.4)',color:'#ff7b7b'}}>
                     <Ic n="trash" size={11}/> Sosyal Medyadan da Sil
@@ -2104,10 +2261,10 @@ function KayseradarModul({ user, onGeri }) {
             </div>
           )}
 
-          {/* Başlangıç ekranı */}
-          {ekran==='liste' && !seciliKayit && (
+          {/* Başlangıç */}
+          {ekran==='liste' && !seciliKayit && !onayKayit && (
             <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:12,color:'var(--muted)'}}>
-            <Ic n="radar" size={40} style={{opacity:0.2}}/>
+              <Ic n="radar" size={40} style={{opacity:0.2}}/>
               <div style={{fontSize:14}}>Soldan bir kayıt seçin veya yeni giriş yapın</div>
             </div>
           )}
