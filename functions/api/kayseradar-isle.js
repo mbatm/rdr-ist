@@ -110,18 +110,7 @@ Sadece JSON döndür:
         'baslik.text':     baslikMetni,
         'baslik-X6C.text': baslikMetni,
         'tarih.text':      tarihStr,
-        // Kadraj kuralı:
-        // Dikey medya → üstten hizala (yüzler genelde üstte)
-        // Yatay medya → genişliği esas al, ortaya yerleştir
-        ...{
-          'video.fit':      'cover',
-          'video.width':    '100%',
-          'video.height':   '100%',
-          'video.x':        '50%',
-          'video.y':        mediaDikey ? '35%' : '50%', // dikey → biraz üstten, yatay → tam orta
-          'video.x_anchor': '50%',
-          'video.y_anchor': '50%',
-        },
+        // Kadraj — şablon seviyesinde ayarlı, sadece dinamik source geçiyoruz
       }
 
       try {
