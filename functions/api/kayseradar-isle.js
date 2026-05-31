@@ -108,13 +108,15 @@ Sadece JSON döndür:
         'baslik.text':     baslikMetni,
         'baslik-X6C.text': baslikMetni,
         'tarih.text':      tarihStr,
-        // Görsel ise fit:cover ortadan kadraj
+        // Görsel ise tam alan, ortadan kadraj
         ...(isVideo ? {} : {
           'video.fit':       'cover',
-          'video.x_anchor':  '50%',
-          'video.y_anchor':  '50%',
+          'video.width':     '100%',
+          'video.height':    '100%',
           'video.x':         '50%',
           'video.y':         '50%',
+          'video.x_anchor':  '50%',
+          'video.y_anchor':  '50%',
         }),
       }
 
