@@ -1767,6 +1767,356 @@ function AdminLog({ onKapat }) {
   )
 }
 
+
+// ── KAYSERADAR MODÜLÜ ─────────────────────────────────────────────────────────
+const RADAR_SABLONLAR = [
+  { id:'kaza',        label:'Kaza',          ic:'car-crash',      renk:'#E63946' },
+  { id:'kayip',       label:'Kayıp',         ic:'user-search',    renk:'#FFB700' },
+  { id:'kan',         label:'Kan İhtiyacı',  ic:'droplet',        renk:'#E63946' },
+  { id:'trafik',      label:'Trafik',        ic:'traffic-cone',   renk:'#FFB700' },
+  { id:'son_dakika',  label:'Son Dakika',    ic:'urgent',         renk:'#E63946' },
+  { id:'yangin',      label:'Yangın',        ic:'flame',          renk:'#FF6B00' },
+  { id:'acil',        label:'Acil Durum',    ic:'alert-triangle', renk:'#E63946' },
+  { id:'calinti',     label:'Çalıntı',       ic:'shield-x',       renk:'#FFB700' },
+  { id:'genel',       label:'Genel',         ic:'news',           renk:'#4488FF' },
+  { id:'pati',        label:'Pati',          ic:'paw',            renk:'#00D4AA' },
+  { id:'kaza_ani',    label:'Kaza Anı',      ic:'camera',         renk:'#E63946' },
+  { id:'hirsiz',      label:'Hırsız Var',    ic:'eye',            renk:'#FFB700' },
+  { id:'bulunmustur', label:'Bulunmuştur',   ic:'check-circle',   renk:'#00D4AA' },
+  { id:'radar_yardim',label:'Radar Yardım',  ic:'heart-handshake',renk:'#4488FF' },
+]
+
+function KayseradarModul({ user, onGeri }) {
+  const [ekran,      setEkran]     = useState('liste') // 'liste' | 'yeni' | 'detay'
+  const [seciliSablon, setSablon]  = useState(null)
+  const [baslik,     setBaslik]    = useState('')
+  const [metin,      setMetin]     = useState('')
+  const [gorselUrl,  setGorselUrl] = useState('')
+  const [isleniyor,  setIsleniyor] = useState(false)
+  const [onayKayit,  setOnayKayit] = useState(null) // işleme sonucu onay ekranı
+  const [liste,      setListe]     = useState([])
+  const [seciliKayit,setSecili]    = useState(null)
+  const [paylasiyor, setPaylasiyor]= useState(false)
+  const [hata,       setHata]      = useState(null)
+  const [pSonuc,     setPSonuc]    = useState(null)
+
+  const token = localStorage.getItem('cms_token') || ''
+
+  const listeYukle = async () => {
+    try {
+      const res  = await fetch('/api/kayseradar-isle', { headers: { 'X-Token': token } })
+      const data = await res.json()
+      setListe(Array.isArray(data) ? data : [])
+    } catch(e) { console.error(e) }
+  }
+
+  useEffect(() => { listeYukle() }, [])
+
+  // Metin işle ve onaya sun
+  const isle = async () => {
+    if (!seciliSablon) { setHata('Şablon seçin'); return }
+    if (!baslik.trim() && !metin.trim()) { setHata('Başlık veya metin girin'); return }
+    setIsleniyor(true); setHata(null)
+    try {
+      const res  = await fetch('/api/kayseradar-isle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body: JSON.stringify({ sablon: seciliSablon.id, baslik, metin, gorsel_url: gorselUrl }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setOnayKayit(data.kayit)
+      setEkran('onay')
+    } catch(e) { setHata(e.message) }
+    setIsleniyor(false)
+  }
+
+  // Onay sonrası düzenlenmiş metni güncelle
+  const onayGuncelle = (alan, deger) => setOnayKayit(p => ({ ...p, [alan]: deger }))
+
+  // Paylaş
+  const paylas = async (kayit, platformlar, fbIds=[], igIds=[]) => {
+    setPaylasiyor(true); setPSonuc(null)
+    try {
+      const res  = await fetch('/api/kayseradar-paylas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body: JSON.stringify({
+          id: kayit.id,
+          platformlar,
+          fb_page_ids: fbIds,
+          ig_ids: igIds,
+          tw: platformlar.includes('twitter'),
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setPSonuc(data.sonuclar)
+      listeYukle()
+    } catch(e) { setHata(e.message) }
+    setPaylasiyor(false)
+  }
+
+  // Sil
+  const sil = async (id, sosyaldan=false) => {
+    if (!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return
+    try {
+      const res  = await fetch('/api/kayseradar-sil', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body: JSON.stringify({ id, sosyal_medyadan_da_sil: sosyaldan }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      listeYukle()
+      if (seciliKayit?.id === id) setSecili(null)
+    } catch(e) { setHata(e.message) }
+  }
+
+  return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+      {/* Header */}
+      <div style={{padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--surface)',flexShrink:0}}>
+        <button onClick={onGeri} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+          <Ic n="arrow-left" size={11}/> Menü
+        </button>
+        <div style={{width:1,height:16,background:'var(--border)'}}/>
+        <Ic n="radar" size={15} style={{color:'#E63946'}}/>
+        <div style={{fontSize:14,fontWeight:600}}>Kayseradar</div>
+        <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+          <button onClick={()=>{setEkran('yeni');setSablon(null);setBaslik('');setMetin('');setGorselUrl('');setOnayKayit(null);setHata(null)}}
+            style={{fontSize:12,background:'rgba(230,57,70,.12)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+            <Ic n="plus" size={12}/> Yeni Giriş
+          </button>
+          <button onClick={listeYukle} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+            <Ic n="refresh" size={11}/>
+          </button>
+        </div>
+      </div>
+
+      <div style={{flex:1,overflow:'hidden',display:'flex'}}>
+
+        {/* Sol — Liste */}
+        <div style={{width:320,borderRight:'0.5px solid var(--border)',overflowY:'auto',padding:'0.75rem',flexShrink:0}}>
+          {liste.length === 0 && (
+            <div style={{textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:13}}>
+              Henüz kayıt yok
+            </div>
+          )}
+          {liste.map(item => {
+            const sbl = RADAR_SABLONLAR.find(s=>s.id===item.sablon) || RADAR_SABLONLAR[8]
+            const on  = seciliKayit?.id === item.id
+            return (
+              <div key={item.id} onClick={async()=>{
+                  const res = await fetch(`/api/kayseradar-isle?id=${item.id}`,{headers:{'X-Token':token}})
+                  const d   = await res.json()
+                  setSecili(d); setEkran('detay')
+                }}
+                style={{background:on?'rgba(230,57,70,.06)':'var(--surface)',border:`0.5px solid ${on?'rgba(230,57,70,.3)':'var(--border)'}`,borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,cursor:'pointer'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                  <span style={{fontSize:10,fontWeight:600,color:sbl.renk,background:`${sbl.renk}18`,padding:'2px 8px',borderRadius:10,border:`0.5px solid ${sbl.renk}33`}}>{sbl.label}</span>
+                  <span style={{fontSize:10,color:item.durum==='yayinda'?'#00D4AA':'#FFB700',marginLeft:'auto'}}>{item.durum==='yayinda'?'✓ Yayında':'⏳ Bekliyor'}</span>
+                </div>
+                <div style={{fontSize:13,fontWeight:500,lineHeight:1.4,marginBottom:3}}>{item.baslik}</div>
+                <div style={{fontSize:11,color:'var(--muted)'}}>{new Date(item.tarih).toLocaleString('tr-TR')}</div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Sağ — Yeni Giriş / Onay / Detay */}
+        <div style={{flex:1,overflowY:'auto',padding:'1.25rem'}}>
+
+          {/* YENİ GİRİŞ */}
+          {ekran==='yeni' && !onayKayit && (
+            <div style={{maxWidth:640}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Yeni Kayseradar Girişi</div>
+
+              {/* Şablon seçimi */}
+              <div style={{marginBottom:'1rem'}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Şablon Seç</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:6}}>
+                  {RADAR_SABLONLAR.map(s=>(
+                    <div key={s.id} onClick={()=>setSablon(s)}
+                      style={{padding:'8px 10px',borderRadius:'var(--radius-md)',cursor:'pointer',
+                        background:seciliSablon?.id===s.id?`${s.renk}18`:'var(--surface)',
+                        border:`0.5px solid ${seciliSablon?.id===s.id?s.renk:'var(--border)'}`,
+                        display:'flex',alignItems:'center',gap:6}}>
+                      <Ic n={s.ic} size={13} style={{color:s.renk}}/>
+                      <span style={{fontSize:12,fontWeight:seciliSablon?.id===s.id?600:400,color:seciliSablon?.id===s.id?s.renk:'var(--text)'}}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Başlık */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
+                <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Haber başlığı..."
+                  style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+              </div>
+
+              {/* Metin */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Metin</div>
+                <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={5}
+                  placeholder="Haber detayları..." style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
+              </div>
+
+              {/* Görsel URL */}
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Görsel URL (opsiyonel)</div>
+                <input value={gorselUrl} onChange={e=>setGorselUrl(e.target.value)} placeholder="https://..."
+                  style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                {gorselUrl && <img src={gorselUrl} alt="" style={{marginTop:6,width:'100%',maxHeight:120,objectFit:'cover',borderRadius:'var(--radius-sm)'}} onError={e=>e.target.style.display='none'}/>}
+              </div>
+
+              {hata && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
+
+              <button onClick={isle} disabled={isleniyor||!seciliSablon}
+                style={{fontSize:13,background:'rgba(230,57,70,.15)',border:'0.5px solid rgba(230,57,70,.4)',color:'#ff7b7b'}}>
+                <Ic n={isleniyor?'loader-2':'sparkles'} size={13}/> {isleniyor?'İşleniyor…':'İşle & Onaya Sun'}
+              </button>
+            </div>
+          )}
+
+          {/* ONAY EKRANI */}
+          {ekran==='onay' && onayKayit && (
+            <div style={{maxWidth:640}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
+                <div style={{fontSize:14,fontWeight:600}}>Onay & Düzenleme</div>
+                <span style={{fontSize:11,color:'#FFB700',background:'rgba(255,183,0,.1)',padding:'2px 8px',borderRadius:10,border:'0.5px solid rgba(255,183,0,.3)'}}>Onay Bekliyor</span>
+              </div>
+
+              {/* Başlık */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık (düzenleyebilirsiniz)</div>
+                <input value={onayKayit.baslik} onChange={e=>onayGuncelle('baslik',e.target.value)}
+                  style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+              </div>
+
+              {/* Platform metinleri */}
+              {[
+                ['ig_metni','Instagram Metni'],
+                ['tw_metni','Twitter/X Metni'],
+                ['fb_metni','Facebook Metni'],
+              ].map(([alan,label])=>(
+                <div key={alan} style={{marginBottom:10}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{label}</div>
+                  <textarea value={onayKayit[alan]||''} onChange={e=>onayGuncelle(alan,e.target.value)} rows={3}
+                    style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+                </div>
+              ))}
+
+              {/* Paylaşım seçimi */}
+              <div style={{marginBottom:14,padding:12,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Paylaşılacak Platformlar</div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
+                    <label key={p} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',
+                      padding:'5px 10px',border:`0.5px solid ${renk}44`,borderRadius:'var(--radius-sm)',background:`${renk}11`}}>
+                      <input type="checkbox" id={`onay_${p}`} defaultChecked={!!onayKayit.gorsel_url||p==='twitter'}/>
+                      <span style={{color:renk}}>{l}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {hata && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
+              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı</div>}
+
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>{
+                  const platformlar = ['facebook','instagram','twitter'].filter(p=>document.getElementById(`onay_${p}`)?.checked)
+                  paylas(onayKayit, platformlar)
+                }} disabled={paylasiyor}
+                  style={{fontSize:13,background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                  <Ic n={paylasiyor?'loader-2':'send'} size={13}/> {paylasiyor?'Paylaşılıyor…':'Paylaş'}
+                </button>
+                <button onClick={()=>{setEkran('liste');setOnayKayit(null);listeYukle()}}
+                  style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                  Listeye Dön
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* DETAY EKRANI */}
+          {ekran==='detay' && seciliKayit && (
+            <div style={{maxWidth:640}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
+                <div style={{fontSize:14,fontWeight:600}}>{seciliKayit.baslik}</div>
+                <span style={{fontSize:11,color:seciliKayit.durum==='yayinda'?'#00D4AA':'#FFB700',
+                  background:seciliKayit.durum==='yayinda'?'rgba(0,212,170,.1)':'rgba(255,183,0,.1)',
+                  padding:'2px 8px',borderRadius:10,border:`0.5px solid ${seciliKayit.durum==='yayinda'?'rgba(0,212,170,.3)':'rgba(255,183,0,.3)'}`}}>
+                  {seciliKayit.durum==='yayinda'?'✓ Yayında':'⏳ Bekliyor'}
+                </span>
+              </div>
+
+              {/* Paylaşım durumu */}
+              {seciliKayit.paylasimlar && Object.keys(seciliKayit.paylasimlar).length > 0 && (
+                <div style={{marginBottom:14,padding:10,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Paylaşım Durumu</div>
+                  {Object.entries(seciliKayit.paylasimlar).map(([p,v])=>(
+                    <div key={p} style={{fontSize:12,color:'#00D4AA',marginBottom:2}}>
+                      ✓ {p} — {new Date(v.tarih).toLocaleString('tr-TR')}
+                      {v.tweet_url && <a href={v.tweet_url} target="_blank" rel="noreferrer" style={{marginLeft:8,color:'#1da1f2'}}>→</a>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Yayınlanmamışsa paylaş */}
+              {seciliKayit.durum !== 'yayinda' && (
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Paylaş</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
+                      <button key={p} disabled={paylasiyor} onClick={()=>paylas(seciliKayit,[p])}
+                        style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>
+                        {l}
+                      </button>
+                    ))}
+                    <button disabled={paylasiyor} onClick={()=>paylas(seciliKayit,['facebook','instagram','twitter'])}
+                      style={{fontSize:12,background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                      <Ic n="send" size={11}/> Tümüne Paylaş
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı</div>}
+              {hata   && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
+
+              {/* Sil */}
+              <div style={{display:'flex',gap:6,marginTop:'1rem',paddingTop:'1rem',borderTop:'0.5px solid var(--border)'}}>
+                <button onClick={()=>sil(seciliKayit.id,false)}
+                  style={{fontSize:12,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                  <Ic n="trash" size={11}/> Kaydı Sil
+                </button>
+                {seciliKayit.durum==='yayinda' && (
+                  <button onClick={()=>sil(seciliKayit.id,true)}
+                    style={{fontSize:12,background:'rgba(230,57,70,.15)',border:'0.5px solid rgba(230,57,70,.4)',color:'#ff7b7b'}}>
+                    <Ic n="trash" size={11}/> Sosyal Medyadan da Sil
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Başlangıç ekranı */}
+          {ekran==='liste' && !seciliKayit && (
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:12,color:'var(--muted)'}}>
+            <Ic n="radar" size={40} style={{opacity:0.2}}/>
+              <div style={{fontSize:14}}>Soldan bir kayıt seçin veya yeni giriş yapın</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── MODÜL SEÇİCİ ANA EKRAN ───────────────────────────────────────────────────
 function ModulSecici({ user, onModul }) {
   const moduller = [
@@ -1952,7 +2302,8 @@ export default function App() {
   if (!user) return <LoginEkrani onGiris={girisYap}/>
   if (adminLog) return <AdminLog onKapat={()=>setAdminLog(false)}/>
   if (!aktifModul) return <ModulSecici user={user} onModul={setAktifModul}/>
-  // Kayseradar, Reklam, Manuel, Yönetim modülleri yakında eklenecek
+  if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
+  // Reklam, Manuel, Yönetim modülleri yakında
   if (aktifModul !== 'kayserim') return (
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
       <div style={{fontSize:32}}>🚧</div>
