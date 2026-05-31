@@ -2274,6 +2274,521 @@ function KayseradarModul({ user, onGeri }) {
   )
 }
 
+
+// ── REKLAM MODÜLÜ ─────────────────────────────────────────────────────────────
+function ReklamModul({ user, onGeri }) {
+  const [ekran,       setEkran]     = useState('firmalar') // firmalar | firma_detay | kampanya_detay
+  const [firmalar,    setFirmalar]  = useState([])
+  const [seciliFirma, setFirma]     = useState(null)
+  const [seciliKamp,  setKamp]      = useState(null)
+  const [hata,        setHata]      = useState(null)
+  const [yukleniyor,  setYuk]       = useState(false)
+
+  // Firma formu
+  const [firmaForm,   setFirmaForm] = useState({ ad:'', sektor:'', notlar:'' })
+  const [firmaModal,  setFirmaModal]= useState(false)
+
+  // Kampanya formu
+  const [kampForm,    setKampForm]  = useState({ ad:'', baslangic:'', bitis:'', notlar:'' })
+  const [kampModal,   setKampModal] = useState(false)
+
+  // Gönderi formu
+  const [gonForm,     setGonForm]   = useState({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', fb_page_ids:[], ig_ids:[] })
+  const [gonModal,    setGonModal]  = useState(false)
+  const [gonYuk,      setGonYuk]    = useState(false)
+  const [hesaplar,    setHesaplar]  = useState({ facebook:[], instagram:[] })
+
+  // Paylaşım
+  const [paylasiyor,  setPaylasiyor]= useState(false)
+  const [uyari,       setUyari]     = useState(null) // { mesaj, tip, payload }
+  const gonFileRef = useRef(null)
+  const token = localStorage.getItem('cms_token') || ''
+
+  const firmalariYukle = async () => {
+    setYuk(true)
+    try {
+      const res  = await fetch('/api/reklam-firma', { headers:{ 'X-Token':token } })
+      const data = await res.json()
+      setFirmalar(Array.isArray(data) ? data : [])
+    } catch(e) { setHata(e.message) }
+    setYuk(false)
+  }
+
+  const firmaYukle = async (id) => {
+    try {
+      const res  = await fetch(`/api/reklam-firma?id=${id}`, { headers:{ 'X-Token':token } })
+      const data = await res.json()
+      setFirma(data)
+      return data
+    } catch(e) { setHata(e.message) }
+  }
+
+  const hesaplariYukle = async () => {
+    try {
+      const res  = await fetch('/api/hesaplar')
+      const data = await res.json()
+      setHesaplar(data)
+    } catch(e) {}
+  }
+
+  useEffect(() => { firmalariYukle(); hesaplariYukle() }, [])
+
+  // Kampanya süresi doldu mu?
+  const kampanyaBitti = (k) => k.bitis && new Date(k.bitis) < new Date()
+
+  // Aktif kampanyalar (bitmemiş)
+  const aktifKampanyalar = (firma) => (firma?.kampanyalar||[]).filter(k=>!kampanyaBitti(k))
+
+  // Son paylaşım etiketi
+  const sonPaylasimEtiketi = (tarih) => {
+    if (!tarih) return null
+    const fark = Date.now() - new Date(tarih).getTime()
+    const saat = Math.floor(fark/(1000*60*60))
+    const dk   = Math.floor(fark/(1000*60))
+    if (dk < 60) return `${dk} dk önce yayınlandı`
+    return `${saat} saat önce yayınlandı`
+  }
+
+  // Firma ekle
+  const firmaEkle = async () => {
+    if (!firmaForm.ad.trim()) { setHata('Firma adı zorunlu'); return }
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'firma_ekle', ...firmaForm }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setFirmaModal(false); setFirmaForm({ ad:'', sektor:'', notlar:'' })
+      firmalariYukle()
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Kampanya ekle
+  const kampanyaEkle = async () => {
+    if (!kampForm.ad.trim()) { setHata('Kampanya adı zorunlu'); return }
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'kampanya_ekle', firma_id: seciliFirma.id, ...kampForm }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setKampModal(false); setKampForm({ ad:'', baslangic:'', bitis:'', notlar:'' })
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f)
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Gönderi görsel yükle
+  const gonselYukle = async (file) => {
+    setGonYuk(true)
+    try {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64 = e.target.result.split(',')[1]
+        const tip    = file.type.startsWith('video') ? 'video' : 'gorsel'
+        const res    = await fetch('/api/gorsel-yukle', {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ data: base64, source_id: `reklam_${Date.now()}`, format: `${tip}_${Date.now()}` }),
+        })
+        const data = await res.json()
+        if (data.url) setGonForm(p=>({ ...p, medya_url: data.url, medya_tip: tip }))
+        else setHata(data.hata||'Yükleme hatası')
+        setGonYuk(false)
+      }
+      reader.readAsDataURL(file)
+    } catch(e) { setHata(e.message); setGonYuk(false) }
+  }
+
+  // Gönderi ekle
+  const gonderiEkle = async () => {
+    if (!gonForm.medya_url) { setHata('Görsel/video yükleyin'); return }
+    try {
+      const etiketler = gonForm.etiketler.split(',').map(e=>e.trim()).filter(Boolean)
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({
+          islem:'gonderi_ekle', firma_id: seciliFirma.id, kampanya_id: seciliKamp.id,
+          medya_url: gonForm.medya_url, medya_tip: gonForm.medya_tip,
+          alt_metin: gonForm.alt_metin, etiketler,
+          fb_page_ids: gonForm.fb_page_ids, ig_ids: gonForm.ig_ids,
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setGonModal(false); setGonForm({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', fb_page_ids:[], ig_ids:[] })
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Gönderi sil (kaydı koru, görsel sil)
+  const gonderiSil = async (gonderi_id) => {
+    if (!confirm('Gönderi görseli silinecek, paylaşım kayıtları korunacak. Devam?')) return
+    try {
+      const res  = await fetch('/api/reklam-firma', {
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({ islem:'gonderi_sil', firma_id: seciliFirma.id, kampanya_id: seciliKamp.id, gonderi_id }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
+    } catch(e) { setHata(e.message) }
+  }
+
+  // Paylaş
+  const paylas = async (gonderi, platformlar, zorla=false) => {
+    setPaylasiyor(true); setHata(null); setUyari(null)
+    try {
+      const endpoint = zorla ? 'PUT' : 'POST'
+      const res  = await fetch('/api/reklam-paylas', {
+        method: endpoint,
+        headers: { 'Content-Type':'application/json', 'X-Token':token },
+        body: JSON.stringify({
+          firma_id: seciliFirma.id, kampanya_id: seciliKamp.id,
+          gonderi_id: gonderi.id, platformlar,
+          fb_page_ids: gonderi.fb_page_ids, ig_ids: gonderi.ig_ids,
+        }),
+      })
+      const data = await res.json()
+      if (data.uyari || data.firma_uyari) {
+        setUyari({ mesaj: data.mesaj, payload: { gonderi, platformlar } })
+        setPaylasiyor(false); return
+      }
+      if (data.hata) throw new Error(data.hata)
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
+    } catch(e) { setHata(e.message) }
+    setPaylasiyor(false)
+  }
+
+  return (
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+      {/* Header */}
+      <div style={{padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--surface)',flexShrink:0}}>
+        <button onClick={onGeri} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+          <Ic n="arrow-left" size={11}/> Menü
+        </button>
+        <div style={{width:1,height:16,background:'var(--border)'}}/>
+        <Ic n="speakerphone" size={15} style={{color:'#FFB700'}}/>
+        <div style={{fontSize:14,fontWeight:600}}>Reklam Yönetimi</div>
+        {ekran!=='firmalar' && (
+          <button onClick={()=>{setEkran('firmalar');setFirma(null);setKamp(null)}}
+            style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+            ← Firmalar
+          </button>
+        )}
+        {ekran==='firma_detay' && seciliFirma && (
+          <span style={{fontSize:12,color:'var(--muted)'}}>{seciliFirma.ad}</span>
+        )}
+        {ekran==='kampanya_detay' && seciliKamp && (
+          <>
+            <button onClick={()=>{setEkran('firma_detay');setKamp(null)}}
+              style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+              ← {seciliFirma?.ad}
+            </button>
+            <span style={{fontSize:12,color:'var(--muted)'}}>{seciliKamp.ad}</span>
+          </>
+        )}
+        <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+          {ekran==='firmalar' && (
+            <button onClick={()=>setFirmaModal(true)}
+              style={{fontSize:12,background:'rgba(255,183,0,.12)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>
+              <Ic n="plus" size={12}/> Firma Ekle
+            </button>
+          )}
+          {ekran==='firma_detay' && (
+            <button onClick={()=>setKampModal(true)}
+              style={{fontSize:12,background:'rgba(255,183,0,.12)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>
+              <Ic n="plus" size={12}/> Kampanya Ekle
+            </button>
+          )}
+          {ekran==='kampanya_detay' && (
+            <button onClick={()=>setGonModal(true)}
+              style={{fontSize:12,background:'rgba(255,183,0,.12)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>
+              <Ic n="plus" size={12}/> Gönderi Ekle
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Hata */}
+      {hata && (
+        <div style={{padding:'8px 1rem',background:'rgba(230,57,70,.08)',borderBottom:'0.5px solid rgba(230,57,70,.2)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
+          {hata} <span style={{cursor:'pointer'}} onClick={()=>setHata(null)}>×</span>
+        </div>
+      )}
+
+      {/* Uyarı modal */}
+      {uyari && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',maxWidth:400,width:'90%'}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>⚠ Uyarı</div>
+            <div style={{fontSize:13,color:'var(--muted)',marginBottom:'1rem'}}>{uyari.mesaj}</div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>paylas(uyari.payload.gonderi,uyari.payload.platformlar,true)}
+                style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.4)',color:'#FFB700'}}>
+                Evet, Paylaş
+              </button>
+              <button onClick={()=>setUyari(null)}
+                style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{flex:1,overflowY:'auto',padding:'1.25rem'}}>
+
+        {/* ── FİRMALAR LİSTESİ ── */}
+        {ekran==='firmalar' && (
+          <div style={{maxWidth:800}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:'0.75rem'}}>
+              {firmalar.map(f=>(
+                <div key={f.id} onClick={async()=>{ const d=await firmaYukle(f.id); setFirma(d); setEkran('firma_detay') }}
+                  style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1rem',cursor:'pointer',transition:'border-color .15s'}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(255,183,0,.4)'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                    <div style={{width:36,height:36,background:'rgba(255,183,0,.1)',border:'0.5px solid rgba(255,183,0,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <Ic n="building-store" size={18} style={{color:'#FFB700'}}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600}}>{f.ad}</div>
+                      <div style={{fontSize:11,color:'var(--muted)'}}>{f.sektor||'—'}</div>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:10,fontSize:11,color:'var(--muted)'}}>
+                    <span>{f.aktif_kampanya||0} aktif kampanya</span>
+                  </div>
+                </div>
+              ))}
+              {firmalar.length===0 && !yukleniyor && (
+                <div style={{gridColumn:'1/-1',textAlign:'center',padding:'3rem',color:'var(--muted)',fontSize:13}}>
+                  Henüz firma yok — Firma Ekle butonuyla başlayın
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── FİRMA DETAY ── */}
+        {ekran==='firma_detay' && seciliFirma && (
+          <div style={{maxWidth:800}}>
+            <div style={{marginBottom:'1rem'}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>
+                {seciliFirma.sektor||''} · Oluşturuldu: {new Date(seciliFirma.olusturuldu).toLocaleDateString('tr-TR')}
+              </div>
+              {seciliFirma.notlar && <div style={{fontSize:12,color:'var(--muted)',padding:'6px 10px',background:'var(--surface)',borderRadius:'var(--radius-sm)'}}>{seciliFirma.notlar}</div>}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Kampanyalar</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {(seciliFirma.kampanyalar||[]).map(k=>{
+                const bitti = kampanyaBitti(k)
+                if (bitti) return null // Süresi dolan kampanyaları gizle
+                return (
+                  <div key={k.id} onClick={()=>{ setKamp(k); setEkran('kampanya_detay') }}
+                    style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'12px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:500,marginBottom:3}}>{k.ad}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',display:'flex',gap:10}}>
+                        {k.baslangic && <span>Başlangıç: {new Date(k.baslangic).toLocaleDateString('tr-TR')}</span>}
+                        {k.bitis     && <span>Bitiş: {new Date(k.bitis).toLocaleDateString('tr-TR')}</span>}
+                        <span>{(k.gonderiler||[]).length} gönderi</span>
+                      </div>
+                    </div>
+                    {k.son_paylasim && (
+                      <span style={{fontSize:10,color:'#00D4AA'}}>{sonPaylasimEtiketi(k.son_paylasim)}</span>
+                    )}
+                    <Ic n="chevron-right" size={14} style={{color:'var(--muted)'}}/>
+                  </div>
+                )
+              })}
+              {(seciliFirma.kampanyalar||[]).filter(k=>!kampanyaBitti(k)).length===0 && (
+                <div style={{textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:13}}>Aktif kampanya yok</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── KAMPANYA DETAY ── */}
+        {ekran==='kampanya_detay' && seciliKamp && seciliFirma && (
+          <div style={{maxWidth:800}}>
+            {seciliKamp.notlar && (
+              <div style={{fontSize:12,color:'var(--muted)',padding:'6px 10px',background:'var(--surface)',borderRadius:'var(--radius-sm)',marginBottom:'1rem'}}>{seciliKamp.notlar}</div>
+            )}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'0.75rem'}}>
+              {(seciliKamp.gonderiler||[]).map(g=>(
+                <div key={g.id} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+                  {/* Medya */}
+                  {g.medya_tip==='gorsel'
+                    ? <img src={g.medya_url} alt="" style={{width:'100%',height:130,objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                    : <div style={{width:'100%',height:130,background:'rgba(230,57,70,.1)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <Ic n="player-play" size={28} style={{color:'#ff7b7b'}}/>
+                      </div>
+                  }
+                  <div style={{padding:'8px 10px'}}>
+                    {g.alt_metin && <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,lineHeight:1.4}}>{g.alt_metin.slice(0,80)}{g.alt_metin.length>80?'…':''}</div>}
+
+                    {/* Son paylaşım etiketi */}
+                    {g.son_paylasim && (
+                      <div style={{fontSize:10,color:'#00D4AA',marginBottom:6}}>{sonPaylasimEtiketi(g.son_paylasim)}</div>
+                    )}
+
+                    {/* Paylaşım butonları */}
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>
+                      {[['facebook','FB','#4dabf7'],['instagram','IG','#E1306C'],['twitter','𝕏','#1da1f2']].map(([p,l,renk])=>(
+                        <button key={p} disabled={paylasiyor} onClick={()=>paylas(g,[p])}
+                          style={{fontSize:10,padding:'2px 7px',background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>
+                          {l}
+                        </button>
+                      ))}
+                      <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook','instagram','twitter'])}
+                        style={{fontSize:10,padding:'2px 7px',background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                        Tümü
+                      </button>
+                    </div>
+
+                    {/* Gönderi sil */}
+                    <button onClick={()=>gonderiSil(g.id)}
+                      style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)',width:'100%'}}>
+                      <Ic n="trash" size={10}/> Görseli Sil
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {(seciliKamp.gonderiler||[]).length===0 && (
+                <div style={{gridColumn:'1/-1',textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:13}}>
+                  Gönderi yok — Gönderi Ekle butonuyla ekleyin
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── FİRMA MODAL ── */}
+      {firmaModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:380}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Yeni Firma</div>
+            {[['ad','Firma Adı *'],['sektor','Sektör'],['notlar','Notlar']].map(([k,l])=>(
+              <div key={k} style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{l}</div>
+                {k==='notlar'
+                  ? <textarea value={firmaForm[k]} onChange={e=>setFirmaForm(p=>({...p,[k]:e.target.value}))} rows={2} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                  : <input value={firmaForm[k]} onChange={e=>setFirmaForm(p=>({...p,[k]:e.target.value}))} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                }
+              </div>
+            ))}
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <button onClick={firmaEkle} style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>Ekle</button>
+              <button onClick={()=>setFirmaModal(false)} style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>İptal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KAMPANYA MODAL ── */}
+      {kampModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:380}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Yeni Kampanya — {seciliFirma?.ad}</div>
+            {[['ad','Kampanya Adı *'],['baslangic','Başlangıç Tarihi'],['bitis','Bitiş Tarihi'],['notlar','Notlar']].map(([k,l])=>(
+              <div key={k} style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{l}</div>
+                {k==='notlar'
+                  ? <textarea value={kampForm[k]} onChange={e=>setKampForm(p=>({...p,[k]:e.target.value}))} rows={2} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                  : <input type={k.includes('tarih')||k==='baslangic'||k==='bitis'?'date':'text'} value={kampForm[k]} onChange={e=>setKampForm(p=>({...p,[k]:e.target.value}))} style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                }
+              </div>
+            ))}
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <button onClick={kampanyaEkle} style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>Ekle</button>
+              <button onClick={()=>setKampModal(false)} style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>İptal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── GÖNDERİ MODAL ── */}
+      {gonModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100,overflowY:'auto'}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:420,margin:'1rem auto'}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Gönderi Ekle — {seciliKamp?.ad}</div>
+
+            {/* Görsel yükle */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Görsel / Video *</div>
+              <input ref={gonFileRef} type="file" accept="image/*,video/*" style={{display:'none'}}
+                onChange={e=>e.target.files[0]&&gonselYukle(e.target.files[0])}/>
+              <div onClick={()=>gonFileRef.current?.click()}
+                style={{border:'1px dashed var(--border)',borderRadius:'var(--radius-md)',padding:'0.75rem',textAlign:'center',cursor:'pointer',marginBottom:6}}>
+                {gonYuk ? 'Yükleniyor…' : '📎 Dosya seç'}
+              </div>
+              {gonForm.medya_url && (
+                gonForm.medya_tip==='gorsel'
+                  ? <img src={gonForm.medya_url} alt="" style={{width:'100%',maxHeight:120,objectFit:'cover',borderRadius:'var(--radius-sm)'}} onError={e=>e.target.style.display='none'}/>
+                  : <div style={{padding:'8px',background:'rgba(230,57,70,.08)',borderRadius:'var(--radius-sm)',fontSize:12,color:'#ff7b7b'}}>✓ Video yüklendi</div>
+              )}
+            </div>
+
+            {/* Alt metin */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Alt Metin / Açıklama</div>
+              <textarea value={gonForm.alt_metin} onChange={e=>setGonForm(p=>({...p,alt_metin:e.target.value}))} rows={3}
+                style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="Paylaşım metni..."/>
+            </div>
+
+            {/* Etiketler */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Etiketlenecek Hesaplar (virgülle)</div>
+              <input value={gonForm.etiketler} onChange={e=>setGonForm(p=>({...p,etiketler:e.target.value}))}
+                style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="@hesap1, @hesap2"/>
+            </div>
+
+            {/* Sayfa seçimi */}
+            {hesaplar.facebook?.length > 0 && (
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Facebook Sayfaları</div>
+                {hesaplar.facebook.map(h=>(
+                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',marginBottom:3}}>
+                    <input type="checkbox" checked={gonForm.fb_page_ids.includes(h.page_id)}
+                      onChange={e=>setGonForm(p=>({...p, fb_page_ids: e.target.checked ? [...p.fb_page_ids,h.page_id] : p.fb_page_ids.filter(i=>i!==h.page_id)}))}/>
+                    {h.page_name}
+                  </label>
+                ))}
+              </div>
+            )}
+            {hesaplar.instagram?.length > 0 && (
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Instagram Hesapları</div>
+                {hesaplar.instagram.map(h=>(
+                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',marginBottom:3}}>
+                    <input type="checkbox" checked={gonForm.ig_ids.includes(h.ig_id)}
+                      onChange={e=>setGonForm(p=>({...p, ig_ids: e.target.checked ? [...p.ig_ids,h.ig_id] : p.ig_ids.filter(i=>i!==h.ig_id)}))}/>
+                    @{h.username}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <button onClick={gonderiEkle} disabled={gonYuk||!gonForm.medya_url}
+                style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>Ekle</button>
+              <button onClick={()=>setGonModal(false)} style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>İptal</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── MODÜL SEÇİCİ ANA EKRAN ───────────────────────────────────────────────────
 function ModulSecici({ user, onModul }) {
   const moduller = [
@@ -2460,6 +2975,7 @@ export default function App() {
   if (adminLog) return <AdminLog onKapat={()=>setAdminLog(false)}/>
   if (!aktifModul) return <ModulSecici user={user} onModul={setAktifModul}/>
   if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
+  if (aktifModul === 'reklam') return <ReklamModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
   if (aktifModul !== 'kayserim') return (
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
