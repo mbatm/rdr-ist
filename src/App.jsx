@@ -1941,6 +1941,7 @@ const RADAR_SABLONLAR = [
   { id:'hirsiz',      label:'Hırsız Var',    ic:'eye',            renk:'#FFB700' },
   { id:'bulunmustur', label:'Bulunmuştur',   ic:'check-circle',   renk:'#00D4AA' },
   { id:'radar_yardim',label:'Radar Yardım',  ic:'heart-handshake',renk:'#4488FF' },
+  { id:'sikayet',     label:'Şikayet',       ic:'message-report', renk:'#E63946' },
 ]
 
 // Dosyayı base64'e çevirip yükle, public URL döndür
