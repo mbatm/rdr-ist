@@ -40,7 +40,8 @@ export async function onRequestPost({ request, env }) {
           headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
           body: JSON.stringify(metaPayload),
         })
-        sonuclar.meta = await metaRes.json()
+        try { const t = await metaRes.text(); sonuclar.meta = t ? JSON.parse(t) : { ok: true } }
+        catch(e) { sonuclar.meta = { hata: 'Meta parse hatası' } }
       } else {
         sonuclar.meta = { hata: 'Görsel URL gerekli' }
       }
@@ -56,7 +57,8 @@ export async function onRequestPost({ request, env }) {
           gorselUrl: kayit.gorsel_url || undefined,
         }),
       })
-      sonuclar.twitter = await twRes.json()
+      try { const t = await twRes.text(); sonuclar.twitter = t ? JSON.parse(t) : { ok: true } }
+      catch(e) { sonuclar.twitter = { hata: 'Twitter parse hatası' } }
     }
 
     // ── Durumu güncelle ───────────────────────────────────────────────────────

@@ -72,7 +72,10 @@ export async function onRequestPost({ request, env }) {
           baslik:      kamp.ad,
         }),
       })
-      sonuclar.meta = await res.json()
+      try {
+        const text = await res.text()
+        sonuclar.meta = text ? JSON.parse(text) : { ok: true }
+      } catch(e) { sonuclar.meta = { hata: 'Meta yanıt parse hatası' } }
     }
 
     // ── Twitter ────────────────────────────────────────────────────────────
@@ -82,7 +85,10 @@ export async function onRequestPost({ request, env }) {
         headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
         body: JSON.stringify({ metin: gonderi.alt_metin, gorselUrl: gonderi.medya_url }),
       })
-      sonuclar.twitter = await res.json()
+      try {
+        const text = await res.text()
+        sonuclar.twitter = text ? JSON.parse(text) : { ok: true }
+      } catch(e) { sonuclar.twitter = { hata: 'Twitter yanıt parse hatası' } }
     }
 
     // ── Gönderi ve kampanya güncelle ───────────────────────────────────────
@@ -145,14 +151,14 @@ export async function onRequestPut({ request, env }) {
           fb_page_ids: fb_page_ids.length ? fb_page_ids : gonderi.fb_page_ids,
           ig_ids: ig_ids.length ? ig_ids : gonderi.ig_ids, source_id: gonderi_id }),
       })
-      sonuclar.meta = await res.json()
+      try { const t = await res.text(); sonuclar.meta = t ? JSON.parse(t) : { ok: true } } catch(e) { sonuclar.meta = { hata: 'parse' } }
     }
     if (platformlar.includes('twitter')) {
       const res = await fetch('https://rdr.ist/api/twitter-paylas', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
         body: JSON.stringify({ metin: gonderi.alt_metin, gorselUrl: gonderi.medya_url }),
       })
-      sonuclar.twitter = await res.json()
+      try { const t = await res.text(); sonuclar.twitter = t ? JSON.parse(t) : { ok: true } } catch(e) { sonuclar.twitter = { hata: 'parse' } }
     }
 
     gonderi.paylasimlar = [...(gonderi.paylasimlar||[]), { platformlar, tarih: simdi, kullanici: kul.kullanici }]
