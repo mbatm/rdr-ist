@@ -2096,6 +2096,8 @@ function KayseradarModul({ user, onGeri }) {
           const renderUrl = data.url || data.render_url || null
           if (data.status === 'succeeded' || renderUrl) {
             setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'succeeded', url: renderUrl } }))
+            // Listedeki kaydı da güncelle
+            setListe(prev => prev.map(li => li.render_id === r.render_id ? { ...li, render_url: renderUrl } : li))
             // KV kaydını güncelle
             setOnayKayit(p => p ? {
               ...p,
@@ -2194,14 +2196,24 @@ function KayseradarModul({ user, onGeri }) {
                 const d    = await res.json()
                 setSecili(d); setOnayKayit(null); setEkran('detay'); setPSonuc(null); setHata(null)
               }}
-                style={{background:on?'rgba(230,57,70,.06)':'var(--surface)',border:`0.5px solid ${on?'rgba(230,57,70,.3)':'var(--border)'}`,borderRadius:'var(--radius-md)',padding:'10px 12px',marginBottom:6,cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-                  <span style={{fontSize:10,fontWeight:600,color:sbl.renk,background:`${sbl.renk}18`,padding:'2px 7px',borderRadius:10,border:`0.5px solid ${sbl.renk}33`}}>{sbl.label}</span>
-                  {item.medya_sayisi > 0 && <span style={{fontSize:10,color:'var(--muted)'}}>📎 {item.medya_sayisi}</span>}
-                  <span style={{fontSize:10,color:item.durum==='yayinda'?'#00D4AA':'#FFB700',marginLeft:'auto'}}>{item.durum==='yayinda'?'✓ Yayında':'⏳ Bekliyor'}</span>
+                style={{background:on?'rgba(230,57,70,.06)':'var(--surface)',border:`0.5px solid ${on?'rgba(230,57,70,.3)':'var(--border)'}`,borderRadius:'var(--radius-md)',marginBottom:6,cursor:'pointer',overflow:'hidden'}}>
+                {/* Render görseli — hazırsa göster */}
+                {item.render_url ? (
+                  <img src={item.render_url} alt="" style={{width:'100%',height:120,objectFit:'cover',display:'block'}}
+                    onError={e=>e.target.style.display='none'}/>
+                ) : item.gorsel_url ? (
+                  <img src={item.gorsel_url} alt="" style={{width:'100%',height:100,objectFit:'cover',display:'block',opacity:0.6}}
+                    onError={e=>e.target.style.display='none'}/>
+                ) : null}
+                <div style={{padding:'8px 10px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                    <span style={{fontSize:10,fontWeight:600,color:sbl.renk,background:`${sbl.renk}18`,padding:'2px 7px',borderRadius:10,border:`0.5px solid ${sbl.renk}33`}}>{sbl.label}</span>
+                    {item.medya_sayisi > 0 && <span style={{fontSize:10,color:'var(--muted)'}}>📎 {item.medya_sayisi}</span>}
+                    <span style={{fontSize:10,color:item.durum==='yayinda'?'#00D4AA':'#FFB700',marginLeft:'auto'}}>{item.durum==='yayinda'?'✓ Yayında':'⏳ Bekliyor'}</span>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:500,lineHeight:1.4,marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.baslik}</div>
+                  <div style={{fontSize:11,color:'var(--muted)'}}>{new Date(item.tarih).toLocaleString('tr-TR')}</div>
                 </div>
-                <div style={{fontSize:12,fontWeight:500,lineHeight:1.4,marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.baslik}</div>
-                <div style={{fontSize:11,color:'var(--muted)'}}>{new Date(item.tarih).toLocaleString('tr-TR')}</div>
               </div>
             )
           })}

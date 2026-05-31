@@ -264,7 +264,21 @@ Sadece JSON döndür, başka hiçbir şey yazma:
 
     // Liste güncelle
     const liste = await env.HABERLER.get('radar_liste', 'json') || []
-    liste.unshift({ id, sablon, baslik: kayit.baslik, durum: 'onay_bekliyor', tarih: kayit.olusturuldu, medya_sayisi: medyalar.length })
+    // Render URL'yi bul (hazırsa)
+    const ilkRender = kayit.creatomate?.[0]
+    const renderUrl = ilkRender?.url || null
+
+    liste.unshift({
+      id,
+      sablon,
+      baslik:      kayit.baslik,
+      durum:       'onay_bekliyor',
+      tarih:       kayit.olusturuldu,
+      medya_sayisi: medyalar.length,
+      gorsel_url:  kayit.gorsel_url || '',
+      render_url:  renderUrl,
+      render_id:   ilkRender?.render_id || null,
+    })
     await env.HABERLER.put('radar_liste', JSON.stringify(liste.slice(0, 200)))
 
     return Response.json({ ok: true, id, kayit })
