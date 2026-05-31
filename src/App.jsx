@@ -55,11 +55,23 @@ function Login({ onLogin }) {
   const [p, setP] = useState('')
   const [err, setErr] = useState('')
 
-  const doLogin = () => {
-    if ((u === 'admin' && p === 'radar2024') || (u === 'editor' && p === 'editor123')) {
-      onLogin({ name: u === 'admin' ? 'Admin' : 'Editör', role: u })
-    } else {
-      setErr('Kullanıcı adı veya şifre hatalı')
+  const doLogin = async () => {
+    setErr('')
+    try {
+      const res  = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kullanici: u, sifre: p }),
+      })
+      const data = await res.json()
+      if (data.token) {
+        localStorage.setItem('cms_token', data.token)
+        onLogin(data.kullanici)
+      } else {
+        setErr(data.hata || 'Kullanıcı adı veya şifre hatalı')
+      }
+    } catch(e) {
+      setErr('Bağlantı hatası')
     }
   }
 
@@ -1692,6 +1704,24 @@ function AdminLog({ onKapat }) {
                 </select>
               </div>
             </div>
+            {yeniK.rol !== 'admin' && (
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Modül Yetkileri</div>
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  {[
+                    ['modul_kayserim','kayserim.net Haber Girişi'],
+                    ['modul_kayseradar','Kayseradar Veri Girişi'],
+                    ['modul_reklam','Reklam Girişi'],
+                    ['modul_manuel','Manuel Haber Girişi'],
+                  ].map(([key,label])=>(
+                    <label key={key} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,cursor:'pointer',padding:'4px 0'}}>
+                      <input type="checkbox" checked={yeniK[key]!==false} onChange={e=>setYeniK(p=>({...p,[key]:e.target.checked}))}/>
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             {tumHesaplar.facebook?.length > 0 && <SayfaSecici form={yeniK} setForm={setYeniK}/>}
             <button onClick={kullaniciEkle} disabled={kayit||!yeniK.kullanici||!yeniK.sifre}
               style={{background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',fontSize:12}}>
@@ -1736,8 +1766,132 @@ function AdminLog({ onKapat }) {
     </div>
   )
 }
+
+// ── MODÜL SEÇİCİ ANA EKRAN ───────────────────────────────────────────────────
+function ModulSecici({ user, onModul }) {
+  const moduller = [
+    {
+      id: 'kayserim',
+      baslik: 'kayserim.net Haber Girişi',
+      aciklama: '1ha akışından haber al, SEO işle, sosyal medyaya yayınla',
+      ic: 'news',
+      renk: '#00D4AA',
+      bg: 'rgba(0,212,170,0.08)',
+      border: 'rgba(0,212,170,0.2)',
+      yetki: 'modul_kayserim',
+    },
+    {
+      id: 'kayseradar',
+      baslik: 'Kayseradar Veri Girişi',
+      aciklama: 'Kaza, yangın, son dakika — şablon ile hızlı paylaşım',
+      ic: 'radar',
+      renk: '#E63946',
+      bg: 'rgba(230,57,70,0.08)',
+      border: 'rgba(230,57,70,0.2)',
+      yetki: 'modul_kayseradar',
+    },
+    {
+      id: 'reklam',
+      baslik: 'Reklam Girişi',
+      aciklama: 'Firma ve kampanya yönetimi, sosyal medya reklam paylaşımı',
+      ic: 'speakerphone',
+      renk: '#FFB700',
+      bg: 'rgba(255,183,0,0.08)',
+      border: 'rgba(255,183,0,0.2)',
+      yetki: 'modul_reklam',
+    },
+    {
+      id: 'manuel',
+      baslik: 'Manuel Haber Girişi',
+      aciklama: 'Haber metni ve görselini gir, işle ve yayınla',
+      ic: 'pencil',
+      renk: '#4488FF',
+      bg: 'rgba(68,136,255,0.08)',
+      border: 'rgba(68,136,255,0.2)',
+      yetki: 'modul_manuel',
+    },
+    {
+      id: 'yonetim',
+      baslik: 'Yönetim',
+      aciklama: 'Log kayıtları, kullanıcı yönetimi, reklam raporları',
+      ic: 'settings',
+      renk: '#8899a6',
+      bg: 'rgba(136,153,166,0.08)',
+      border: 'rgba(136,153,166,0.2)',
+      yetki: 'admin',
+    },
+  ]
+
+  // Kullanıcının erişebildiği modüller
+  const erisim = (m) => {
+    if (user?.rol === 'admin') return true
+    if (m.yetki === 'admin') return false
+    return user?.[m.yetki] !== false
+  }
+
+  return (
+    <div style={{minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column'}}>
+      {/* Header */}
+      <div style={{padding:'1.25rem 1.5rem', borderBottom:'0.5px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'var(--surface)'}}>
+        <div style={{display:'flex', alignItems:'center', gap:10}}>
+          <div style={{width:32, height:32, background:'rgba(230,57,70,0.15)', border:'0.5px solid rgba(230,57,70,0.3)', borderRadius:'var(--radius-md)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+            <Ic n="radar" size={17} style={{color:'#E63946'}}/>
+          </div>
+          <div>
+            <div style={{fontSize:15, fontWeight:600, color:'var(--text)'}}>kayserim.net</div>
+            <div style={{fontSize:11, color:'var(--muted)'}}>İçerik Yönetim Sistemi</div>
+          </div>
+        </div>
+        <div style={{display:'flex', alignItems:'center', gap:10}}>
+          <span style={{fontSize:12, color:'var(--muted)'}}>{user?.ad || user?.kullanici}</span>
+          <button onClick={()=>{ localStorage.removeItem('cms_token'); window.location.reload() }}
+            style={{fontSize:11, color:'var(--muted)', background:'transparent', border:'0.5px solid var(--border)'}}>
+            <Ic n="logout" size={11}/> Çıkış
+          </button>
+        </div>
+      </div>
+
+      {/* Modül kartları */}
+      <div style={{flex:1, padding:'2rem 1.5rem', maxWidth:900, margin:'0 auto', width:'100%'}}>
+        <div style={{fontSize:13, color:'var(--muted)', marginBottom:'1.5rem'}}>
+          Hoş geldin, <strong style={{color:'var(--text)'}}>{user?.ad || user?.kullanici}</strong>. Hangi modüle gitmek istiyorsun?
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'1rem'}}>
+          {moduller.map(m => {
+            const aktif = erisim(m)
+            return (
+              <div key={m.id}
+                onClick={() => aktif && onModul(m.id)}
+                style={{
+                  background: aktif ? m.bg : 'rgba(255,255,255,0.02)',
+                  border: `0.5px solid ${aktif ? m.border : 'var(--border)'}`,
+                  borderRadius:'var(--radius-lg)',
+                  padding:'1.25rem',
+                  cursor: aktif ? 'pointer' : 'not-allowed',
+                  opacity: aktif ? 1 : 0.4,
+                  transition:'transform 0.1s, box-shadow 0.1s',
+                }}
+                onMouseEnter={e => { if(aktif) e.currentTarget.style.transform='translateY(-2px)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)' }}
+              >
+                <div style={{width:40, height:40, background:`${m.bg}`, border:`0.5px solid ${m.border}`, borderRadius:'var(--radius-md)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'0.875rem'}}>
+                  <Ic n={m.ic} size={20} style={{color:m.renk}}/>
+                </div>
+                <div style={{fontSize:14, fontWeight:600, color:'var(--text)', marginBottom:6}}>{m.baslik}</div>
+                <div style={{fontSize:12, color:'var(--muted)', lineHeight:1.5}}>{m.aciklama}</div>
+                {!aktif && <div style={{fontSize:11, color:'var(--muted)', marginTop:8}}>🔒 Yetki gerekli</div>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const { user, loading, girisYap, cikisYap } = useAuth()
+  const [aktifModul, setAktifModul] = useState(null)
   const [adminLog, setAdminLog] = useState(false)
   const [tab, setTab] = useState('haberler')
   const [haberler, setHaberler] = useState([])
@@ -1797,6 +1951,16 @@ export default function App() {
   if (loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',background:'var(--bg)'}}>Yükleniyor…</div>
   if (!user) return <LoginEkrani onGiris={girisYap}/>
   if (adminLog) return <AdminLog onKapat={()=>setAdminLog(false)}/>
+  if (!aktifModul) return <ModulSecici user={user} onModul={setAktifModul}/>
+  // Kayseradar, Reklam, Manuel, Yönetim modülleri yakında eklenecek
+  if (aktifModul !== 'kayserim') return (
+    <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
+      <div style={{fontSize:32}}>🚧</div>
+      <div style={{fontSize:16,fontWeight:600,color:'var(--text)'}}>Yapım aşamasında</div>
+      <div style={{fontSize:13,color:'var(--muted)'}}>Bu modül yakında aktif olacak</div>
+      <button onClick={()=>setAktifModul(null)} style={{fontSize:13,marginTop:8}}>← Ana Menü</button>
+    </div>
+  )
 
   if (gorselEditor) return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
@@ -1809,6 +1973,9 @@ export default function App() {
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:8,padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',flexShrink:0}}>
         <div style={{fontWeight:700,fontSize:16,color:'#ff7b7b',letterSpacing:'-0.02em'}}>rdr.ist</div>
+          <button onClick={()=>setAktifModul(null)} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)',marginLeft:4}}>
+            <Ic n="layout-grid" size={11}/> Menü
+          </button>
         <div style={{marginLeft:'auto',display:'flex',gap:6}}>
           {[['haberler','1ha akışı','rss']].map(([id,label,ic])=>(
             <button key={id} onClick={()=>setTab(id)}
