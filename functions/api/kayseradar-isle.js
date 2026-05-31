@@ -89,6 +89,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'acil':         { video: 'ff46854d-3059-4be5-bfab-d3026cd72aaa', gorsel: 'bfdd293b-4e99-435e-8cf4-ed7a7926698d' },
       'pati':         { video: '789cd38d-2cd1-4783-836d-0c22381a6d7b', gorsel: '49a6e9cb-a8a0-4db6-8500-0e2db1641f24' },
       'radar_yardim': { video: 'a63ab1d9-8417-4c69-87bf-42ed3eee7d53', gorsel: 'f39bcded-c7c0-4bf2-81d9-aa7331f5f925' },
+      'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' }, // sadece image, video yok
       // Henüz özel şablonu olmayan — fallback
       'genel':        { video: '348bec91-f26e-4184-92df-4b34d51c461d', gorsel: '7586e1f4-d6ab-409a-9995-c9a03d2647d1' },
       'kan':          { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
@@ -100,7 +101,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
     }
 
     let creatomateRenders = []
-    if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel)) {
+    if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel || sablon === 'kan')) {
       const tarihStr  = new Date().toLocaleDateString('tr-TR')
       const mediaUrl  = ilkVideo || ilkGorsel
       const isVideo   = !!ilkVideo
@@ -113,7 +114,13 @@ Sadece JSON döndür, başka hiçbir şey yazma:
 
       // Modifikasyonlar — radar şablonu için
       const baslikMetni = (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120)
-      const modifications = {
+      const metinMetni  = (duzeltilmis.duzeltilmis_metin  || metin  || '').slice(0, 300)
+
+      // Kan ilanı için özel modifikasyonlar
+      const isKan = sablon === 'kan'
+      const modifications = isKan ? {
+        'kan-ilan.text': metinMetni || baslikMetni,
+      } : {
         'video.source':    mediaUrl,
         'baslik.text':     baslikMetni,
         'baslik-X6C.text': baslikMetni,
@@ -122,8 +129,13 @@ Sadece JSON döndür, başka hiçbir şey yazma:
 
       try {
         // Görsel → jpg snapshot (v1 API), Video → mp4 render (v2 API)
+        // Kan ilanı için video yok — sadece image render
+        if (isVideo && sablon === 'kan') {
+          console.log('Kan ilanı için video render atlandı')
+          // sadece image render yapılacak, aşağıya devam
+        }
         let res, data
-        if (!isVideo) {
+        if (!isVideo || sablon === 'kan') {
           // Görsel için v1 snapshot — çok daha az kredi, anında JPG
           res = await fetch('https://api.creatomate.com/v1/renders', {
             method: 'POST',
