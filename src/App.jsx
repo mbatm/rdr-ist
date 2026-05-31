@@ -1985,7 +1985,8 @@ async function dosyaYukle(file, sourceId) {
     reader.onload = async (e) => {
       try {
         const dataUrl = e.target.result
-        const base64  = dataUrl.split(',')[1]
+        const base64  = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl
+        if (!base64) { reject(new Error('Dosya okunamadı — base64 boş')); return }
         const format  = file.type.startsWith('video') ? 'video' : 'gorsel'
 
         // Boyut bilgisini paralel al
