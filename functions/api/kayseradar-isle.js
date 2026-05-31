@@ -30,20 +30,19 @@ export async function onRequestPost({ request, env }) {
         max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: `Sen Kayseradar haber ajansı için çalışan bir editörüsün. Türkçe dil ve imla kurallarına göre aşağıdaki metni düzelt. Anlam ve içeriği değiştirme.
+          content: `Sadece yazım ve imla hatalarını düzelt. Kelime değiştirme, cümle yapısı değiştirme, anlam ekleme veya çıkarma YAPMA. Noktalama işaretlerini düzelt.
 
-ŞABLON: ${sablon}
 BAŞLIK: ${baslik || ''}
 METİN: ${metin || ''}
 
-Sadece JSON döndür:
+Sadece JSON döndür, başka hiçbir şey yazma:
 {
-  "duzeltilmis_baslik": "düzeltilmiş başlık",
-  "duzeltilmis_metin": "düzeltilmiş metin",
-  "instagram_metni": "IG için kısa metin + hashtag (max 2200 karakter)",
-  "twitter_metni": "280 karakter max",
-  "facebook_metni": "FB için metin",
-  "spot": "15 kelimelik kısa özet (video alt yazısı için)"
+  "duzeltilmis_baslik": "sadece imla düzeltilmiş başlık — kelime ekleme veya çıkarma yok",
+  "duzeltilmis_metin": "sadece imla düzeltilmiş metin — anlam değişikliği yok",
+  "instagram_metni": "başlık + metin aynen + #kayseradar #kayseri hashtag",
+  "twitter_metni": "başlık aynen, max 280 karakter",
+  "facebook_metni": "başlık + metin aynen",
+  "spot": "başlığın kendisi, max 15 kelime"
 }`,
         }],
       }),
