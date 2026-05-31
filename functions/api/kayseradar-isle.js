@@ -110,7 +110,29 @@ Sadece JSON döndür:
         'baslik.text':     baslikMetni,
         'baslik-X6C.text': baslikMetni,
         'tarih.text':      tarihStr,
-        // Kadraj — şablon seviyesinde ayarlı, sadece dinamik source geçiyoruz
+        // Kadraj kuralı: genişliği şablona sığdır, yüksekliği oranla hesapla, ortala
+        // Şablon: 720x1280
+        // Görsel genişliği → 720px'e sığdır
+        // Görsel yüksekliği → orantılı (genislik/yukseklik * 720)
+        // Y pozisyonu → ortala (50%)
+        ...(() => {
+          const medya = medyalar.find(m => m.tip === (isVideo ? 'video' : 'gorsel'))
+          const gw = medya?.genislik  || 1
+          const gh = medya?.yukseklik || 1
+          // Şablon genişliği 720, bu genişliğe sığdırınca yükseklik:
+          const olcekliYukseklik = Math.round((gh / gw) * 720)
+          // Yüzde olarak şablona göre (1280px yükseklik)
+          const heightPct = `${((olcekliYukseklik / 1280) * 100).toFixed(2)}%`
+          return {
+            'video.width':    '100%',   // 720px — şablon genişliği
+            'video.height':   heightPct, // orantılı yükseklik
+            'video.x':        '50%',
+            'video.y':        '50%',    // tam orta
+            'video.x_anchor': '50%',
+            'video.y_anchor': '50%',
+            'video.fit':      'contain', // zoom yok
+          }
+        })(),
       }
 
       try {
