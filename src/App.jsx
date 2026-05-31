@@ -2029,9 +2029,18 @@ function KayseradarModul({ user, onGeri }) {
       // Video render takibi başlat
       if (data.kayit.creatomate?.length) {
         const rv = {}
-        for (const r of data.kayit.creatomate) rv[r.format] = { render_id: r.render_id, status: r.status, url: null }
+        for (const r of data.kayit.creatomate) {
+          rv[r.format] = {
+            render_id: r.render_id,
+            status:    r.url ? 'succeeded' : (r.status || 'planned'),
+            url:       r.url || null,
+            tip:       r.tip || 'video',
+          }
+        }
         setVideoRenders(rv)
-        takipBaslat(data.kayit.creatomate, data.kayit.id)
+        // Henüz hazır olmayanları takip et
+        const bekleyenler = data.kayit.creatomate.filter(r => !r.url && r.status !== 'succeeded')
+        if (bekleyenler.length) takipBaslat(bekleyenler, data.kayit.id)
       }
       setEkran('onay')
     } catch(e) { setHata(e.message) }
@@ -2048,8 +2057,9 @@ function KayseradarModul({ user, onGeri }) {
         try {
           const res  = await fetch(`/api/video-durum?render_id=${r.render_id}`)
           const data = await res.json()
-          if (data.status === 'succeeded') {
-            setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'succeeded', url: data.url } }))
+          const renderUrl = data.url || data.render_url || null
+          if (data.status === 'succeeded' || renderUrl) {
+            setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'succeeded', url: renderUrl } }))
             // KV kaydını güncelle
             setOnayKayit(p => p ? {
               ...p,
@@ -2269,7 +2279,7 @@ function KayseradarModul({ user, onGeri }) {
                     <div key={fmt} style={{marginBottom:8}}>
                       {r.status==='succeeded' && r.url ? (
                         <div style={{position:'relative'}}>
-                          {r.tip==='gorsel' || (!r.tip && fmt==='dikey' && r.url?.match(/\.(jpg|jpeg|png|webp)/i)) ? (
+                          {(r.tip==='gorsel' || (!r.tip && r.url && /\.(jpg|jpeg|png|webp)/i.test(r.url))) ? (
                             // Görsel önizleme
                             <img src={r.url} alt="render"
                               style={{width:'100%',maxHeight:300,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
@@ -2279,12 +2289,18 @@ function KayseradarModul({ user, onGeri }) {
                             <video src={r.url} controls
                               style={{width:'100%',maxHeight:300,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
                           )}
-                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4}}>
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4,gap:6}}>
                             <span style={{fontSize:10,color:'#00D4AA'}}>✓ {fmt==='dikey'?'Dikey':'Yatay'} hazır</span>
-                            <a href={r.url} target="_blank" rel="noreferrer"
-                              style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>
-                              İndir →
-                            </a>
+                            <div style={{display:'flex',gap:4}}>
+                              <a href={r.url} target="_blank" rel="noreferrer"
+                                style={{fontSize:10,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'2px 8px',borderRadius:4}}>
+                                Aç →
+                              </a>
+                              <a href={r.url} download={r.tip==='gorsel'?'radar.jpg':'radar.mp4'} target="_blank"
+                                style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>
+                                ↓ İndir
+                              </a>
+                            </div>
                           </div>
                         </div>
                       ) : r.status==='failed' ? (
