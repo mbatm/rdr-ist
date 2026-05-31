@@ -81,9 +81,23 @@ export async function onRequestPost({ request, env }) {
 
     // Twitter reklam modülünde kullanılmıyor
 
+    // ── Post ID'leri topla ────────────────────────────────────────────────
+    const postIdler = {}
+    if (sonuclar.meta?.facebook) {
+      for (const [pid, s] of Object.entries(sonuclar.meta.facebook)) {
+        if (s?.post_id || s?.ok) postIdler[`fb_${pid}`] = s.post_id || s.id || null
+      }
+    }
+    if (sonuclar.meta?.instagram) {
+      for (const [igid, s] of Object.entries(sonuclar.meta.instagram)) {
+        if (s?.post_id || s?.ok) postIdler[`ig_${igid}`] = s.post_id || s.id || null
+      }
+    }
+
     // ── Gönderi ve kampanya güncelle ───────────────────────────────────────
-    const paylasimKaydi = { platformlar, tarih: simdi, kullanici: kul.kullanici, sonuclar }
+    const paylasimKaydi = { platformlar, tarih: simdi, kullanici: kul.kullanici, sonuclar, post_idler: postIdler }
     gonderi.paylasimlar = [...(gonderi.paylasimlar||[]), paylasimKaydi]
+    gonderi.son_paylasim_post_idler = postIdler
     gonderi.son_paylasim = simdi
     kamp.son_paylasim = simdi
     firma.son_paylasim = simdi
