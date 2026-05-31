@@ -1176,7 +1176,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       if (selectedHaber?.video_yatay) vr.yatay = { url: selectedHaber.video_yatay, snapshot: selectedHaber.video_yatay_snapshot }
       setVRenders(vr)
     }
-  }, [content?.url_slug])
+  }, [content?.source_id, content?.url_slug])
 
   const set = (f,v) => setEc(p=>({...p,[f]:v}))
 
@@ -2488,10 +2488,27 @@ function ManuelHaberModul({ user, onGeri }) {
         {ekran==='sonuc' && sonuc && (
           <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
             <Isleme
-              content={sonuc}
+              content={{
+                ...sonuc,
+                // Isleme bileşeninin beklediği alanları garantiye al
+                site_basligi:     sonuc.site_basligi     || sonuc.baslik || '',
+                h1_basligi:       sonuc.h1_basligi        || sonuc.baslik || '',
+                meta_description: sonuc.meta_description  || '',
+                url_slug:         sonuc.url_slug           || sonuc.source_id || '',
+                optimize_icerik:  sonuc.optimize_icerik   || sonuc.icerik || '',
+                sosyal_baslik:    sonuc.sosyal_baslik      || sonuc.instagram_metni || sonuc.baslik || '',
+                instagram_metni:  sonuc.instagram_metni   || '',
+                facebook_metni:   sonuc.facebook_metni    || '',
+                x_twitter:        sonuc.x_twitter          || '',
+                whatsapp_basligi: sonuc.whatsapp_basligi  || '',
+              }}
               processing={false}
               error={null}
-              selectedHaber={sonuc}
+              selectedHaber={{
+                ...sonuc,
+                gorsel:     sonuc.gorsel_url || sonuc.gorsel || '',
+                gorsel_url: sonuc.gorsel_url || sonuc.gorsel || '',
+              }}
             />
           </div>
         )}
