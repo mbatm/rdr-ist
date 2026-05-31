@@ -83,15 +83,15 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'hirsiz':       { video: '25a6cbcc-f791-4876-a4aa-22ca70064aa8', gorsel: '097372b3-39c7-49bc-8821-2ce61d79e0d6' },
       'calinti':      { video: '3a0a838c-08dc-4964-a36f-a8dde48423b8', gorsel: '7c0a1ea7-0ede-4158-8677-6e8f103461d3' },
       'yangin':       { video: '288f5185-c014-42c6-917e-6594e350ba77', gorsel: '3c95c888-f76d-4024-9b87-4fa958b707aa' },
-      'son_dakika':   { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'acil':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'trafik':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'bulunmustur':  { video: '89588329-ccf5-4895-9d9f-6d1a79583a91', gorsel: '314aee42-4412-4f23-baf3-72be45d5fc63' },
+      'trafik':       { video: '6b18e958-cea5-4c56-9863-83c93454fa9a', gorsel: '80f1d1b3-68dd-4e04-a6ee-3ad4e07944f8' },
+      'son_dakika':   { video: '7fade5d6-ef75-4675-9d80-0bf640d141e5', gorsel: '7522777c-2aa1-476e-a5d8-eafc399440ca' },
+      'acil':         { video: 'ff46854d-3059-4be5-bfab-d3026cd72aaa', gorsel: 'bfdd293b-4e99-435e-8cf4-ed7a7926698d' },
+      'pati':         { video: '789cd38d-2cd1-4783-836d-0c22381a6d7b', gorsel: '49a6e9cb-a8a0-4db6-8500-0e2db1641f24' },
+      'radar_yardim': { video: 'a63ab1d9-8417-4c69-87bf-42ed3eee7d53', gorsel: 'f39bcded-c7c0-4bf2-81d9-aa7331f5f925' },
+      // Henüz özel şablonu olmayan — fallback
       'genel':        { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'pati':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'kan':          { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'trafik':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'bulunmustur':  { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'radar_yardim': { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
     }
     // Kayserim.net haber şablonları (fallback)
     const HABER_TEMPLATES = {
