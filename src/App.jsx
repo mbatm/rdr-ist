@@ -953,7 +953,7 @@ function YoutubeYukle({ content, selectedHaber, videoRenders={}, kayserimLink=''
       {/* Yükle butonu */}
       <button onClick={yukle} disabled={gonderiyor||!videoUrl||!baslik.trim()}
         style={{fontSize:12,background:'rgba(255,0,0,.15)',border:'0.5px solid rgba(255,0,0,.4)',color:'#ff4444'}}>
-        <Ic n={gonderiyor?'loader-2':'brand-youtube'} size={13}/> {gonderiyor?'Yükleniyor…':'▶ YouTube'a Yükle'}
+        <Ic n={gonderiyor?'loader-2':'brand-youtube'} size={13}/> {gonderiyor?"Yükleniyor…":"▶ YouTube'a Yükle"}
       </button>
 
       {/* Hata / Sonuç */}
