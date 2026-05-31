@@ -90,7 +90,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'pati':         { video: '789cd38d-2cd1-4783-836d-0c22381a6d7b', gorsel: '49a6e9cb-a8a0-4db6-8500-0e2db1641f24' },
       'radar_yardim': { video: 'a63ab1d9-8417-4c69-87bf-42ed3eee7d53', gorsel: 'f39bcded-c7c0-4bf2-81d9-aa7331f5f925' },
       // Henüz özel şablonu olmayan — fallback
-      'genel':        { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'genel':        { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '7586e1f4-d6ab-409a-9995-c9a03d2647d1' },
       'kan':          { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
     }
     // Kayserim.net haber şablonları (fallback)
