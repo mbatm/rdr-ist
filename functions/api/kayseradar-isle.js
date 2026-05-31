@@ -74,14 +74,14 @@ Sadece JSON döndür:
     // ── Creatomate render ─────────────────────────────────────────────────────
     // Şablon haritası — sablon adına göre template ID
     const RADAR_TEMPLATES = {
-      // Kayseradar özel şablonlar (sablon_adi: { dikey, yatay, gorsel })
-      'sikayet':      { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
-      'kaza':         { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
-      'son_dakika':   { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
-      'yangin':       { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
-      'acil':         { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
-      'trafik':       { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
-      'genel':        { dikey: '1153524a-8743-45d6-86e0-e0c20bde5d6a' },
+      // sablon_adi: { video: template_id, gorsel: template_id }
+      'sikayet':      { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'kaza':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'son_dakika':   { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'yangin':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'acil':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'trafik':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'genel':        { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
     }
     // Kayserim.net haber şablonları (fallback)
     const HABER_TEMPLATES = {
@@ -95,9 +95,11 @@ Sadece JSON döndür:
       const mediaUrl  = ilkVideo || ilkGorsel
       const isVideo   = !!ilkVideo
 
-      // Şablonu belirle
-      const radarTpl  = RADAR_TEMPLATES[sablon]
-      const templateId = radarTpl?.dikey || HABER_TEMPLATES.dikey
+      // Şablonu belirle — görsel/video ayrı template
+      const radarTpl   = RADAR_TEMPLATES[sablon]
+      const templateId = isVideo
+        ? (radarTpl?.video  || HABER_TEMPLATES.dikey)
+        : (radarTpl?.gorsel || HABER_TEMPLATES.dikey)
 
       // Modifikasyonlar — radar şablonu için
       const baslikMetni = (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120)
