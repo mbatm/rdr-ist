@@ -2,10 +2,6 @@
 // YouTube OAuth 2.0 yetkilendirme başlatır
 
 export async function onRequestGet({ request, env }) {
-  const apiKey = request.headers.get('X-API-Key')
-  if (apiKey !== env.RSS_API_KEY)
-    return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
-
   const params = new URLSearchParams({
     client_id:     env.YOUTUBE_CLIENT_ID,
     redirect_uri:  'https://rdr.ist/api/youtube-callback',
