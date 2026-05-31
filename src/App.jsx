@@ -2490,17 +2490,18 @@ function ManuelHaberModul({ user, onGeri }) {
             <Isleme
               content={{
                 ...sonuc,
-                // Isleme bileşeninin beklediği alanları garantiye al
                 site_basligi:     sonuc.site_basligi     || sonuc.baslik || '',
                 h1_basligi:       sonuc.h1_basligi        || sonuc.baslik || '',
                 meta_description: sonuc.meta_description  || '',
                 url_slug:         sonuc.url_slug           || sonuc.source_id || '',
                 optimize_icerik:  sonuc.optimize_icerik   || sonuc.icerik || '',
-                sosyal_baslik:    sonuc.sosyal_baslik      || sonuc.instagram_metni || sonuc.baslik || '',
-                instagram_metni:  sonuc.instagram_metni   || '',
-                facebook_metni:   sonuc.facebook_metni    || '',
+                ozet:             sonuc.ozet               || '',
+                sosyal_baslik:    sonuc.sosyal_baslik      || '',
+                instagram:        sonuc.instagram          || '',
+                facebook:         sonuc.facebook           || '',
                 x_twitter:        sonuc.x_twitter          || '',
-                whatsapp_basligi: sonuc.whatsapp_basligi  || '',
+                youtube_baslik:   sonuc.youtube_baslik     || '',
+                youtube_aciklama: sonuc.youtube_aciklama   || '',
               }}
               processing={false}
               error={null}
@@ -2508,6 +2509,7 @@ function ManuelHaberModul({ user, onGeri }) {
                 ...sonuc,
                 gorsel:     sonuc.gorsel_url || sonuc.gorsel || '',
                 gorsel_url: sonuc.gorsel_url || sonuc.gorsel || '',
+                video:      sonuc.video_url  || sonuc.video  || '',
               }}
             />
           </div>
