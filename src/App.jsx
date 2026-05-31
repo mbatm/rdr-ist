@@ -2255,22 +2255,30 @@ function KayseradarModul({ user, onGeri }) {
                 </div>
               </div>
 
-              {/* Başlık */}
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
-                <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Haber başlığı..."
-                  style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
-              </div>
+              {/* Başlık — kan ilanında gizle */}
+              {seciliSablon?.id !== 'kan' && (
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
+                  <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Haber başlığı..."
+                    style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                </div>
+              )}
 
               {/* Metin */}
               <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Metin</div>
-                <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={4}
-                  placeholder="Haber detayları..." style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>
+                  {seciliSablon?.id === 'kan' ? 'Kan İlanı Metni' : 'Metin'}
+                </div>
+                <textarea value={metin} onChange={e=>setMetin(e.target.value)}
+                  rows={seciliSablon?.id === 'kan' ? 6 : 4}
+                  placeholder={seciliSablon?.id === 'kan'
+                    ? 'Hastane adı, kan grubu, iletişim numarası...'
+                    : 'Haber detayları...'}
+                  style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
               </div>
 
-              {/* Medya yükleme */}
-              <div style={{marginBottom:14}}>
+              {/* Medya yükleme — kan ilanında gizle */}
+              {seciliSablon?.id !== 'kan' && <div style={{marginBottom:14}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Görsel / Video Ekle</div>
                 <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:'none'}}
                   onChange={e=>dosyaSec(e.target.files)}/>
@@ -2301,7 +2309,7 @@ function KayseradarModul({ user, onGeri }) {
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
 
               {hata && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
 
