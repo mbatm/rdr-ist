@@ -77,7 +77,8 @@ Sadece JSON döndür, başka hiçbir şey yazma:
     const RADAR_TEMPLATES = {
       // sablon_adi: { video: template_id, gorsel: template_id }
       'sikayet':      { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'kaza':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'kaza':         { video: '6b4b2793-2590-4180-abe8-adc9c10300f9', gorsel: '91e77d8b-614e-4803-a636-5264d3ea344c' },
+      'kaza_ani':     { video: '6b4b2793-2590-4180-abe8-adc9c10300f9', gorsel: '91e77d8b-614e-4803-a636-5264d3ea344c' },
       'son_dakika':   { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'yangin':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'acil':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
