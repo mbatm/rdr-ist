@@ -79,11 +79,19 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'sikayet':      { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'kaza':         { video: '6b4b2793-2590-4180-abe8-adc9c10300f9', gorsel: '91e77d8b-614e-4803-a636-5264d3ea344c' },
       'kaza_ani':     { video: '6b4b2793-2590-4180-abe8-adc9c10300f9', gorsel: '91e77d8b-614e-4803-a636-5264d3ea344c' },
+      'kayip':        { video: 'e6a3347a-73a8-45ab-b463-66920341c216', gorsel: 'ead3335d-8714-484a-b58e-a74babd4bc46' },
+      'hirsiz':       { video: '25a6cbcc-f791-4876-a4aa-22ca70064aa8', gorsel: '097372b3-39c7-49bc-8821-2ce61d79e0d6' },
+      'calinti':      { video: '3a0a838c-08dc-4964-a36f-a8dde48423b8', gorsel: '7c0a1ea7-0ede-4158-8677-6e8f103461d3' },
+      'yangin':       { video: '288f5185-c014-42c6-917e-6594e350ba77', gorsel: '3c95c888-f76d-4024-9b87-4fa958b707aa' },
       'son_dakika':   { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
-      'yangin':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'acil':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'trafik':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
       'genel':        { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'pati':         { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'kan':          { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'trafik':       { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'bulunmustur':  { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
+      'radar_yardim': { video: '1153524a-8743-45d6-86e0-e0c20bde5d6a', gorsel: '65eba71b-0f0c-44d2-86e7-319e63c59373' },
     }
     // Kayserim.net haber şablonları (fallback)
     const HABER_TEMPLATES = {
