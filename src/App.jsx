@@ -2517,28 +2517,68 @@ function ReklamModul({ user, onGeri }) {
     const sonP = gonderi.paylasimlar?.[gonderi.paylasimlar.length-1]
     if (!sonP) { setHata('Silinecek paylaşım bulunamadı'); return }
     setPaylasiyor(true)
+    const API_KEY = (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5')
+    const sonuclar = []
     try {
-      // FB post id'lerini topla
-      const fbSonuclar = sonP.sonuclar?.meta?.facebook || {}
-      for (const [pid, sonuc] of Object.entries(fbSonuclar)) {
-        if (sonuc?.post_id) {
-          await fetch('/api/paylas-sil', {
-            method:'POST', headers:{'Content-Type':'application/json','X-API-Key':env_apiKey},
-            body: JSON.stringify({ platform:'facebook', post_id: sonuc.post_id, page_id: pid }),
-          }).catch(()=>{})
+      // FB post id'leri — yeni kayıt formatı
+      const postIdler = sonP.post_idler || {}
+      for (const [key, postId] of Object.entries(postIdler)) {
+        if (!postId) continue
+        if (key.startsWith('fb_')) {
+          const pageId = key.replace('fb_','')
+          const res = await fetch('/api/paylas-sil', {
+            method:'POST', headers:{'Content-Type':'application/json','X-API-Key':API_KEY},
+            body: JSON.stringify({ platform:'facebook', post_id: postId, page_id: pageId }),
+          })
+          const d = await res.json().catch(()=>({}))
+          sonuclar.push({ platform:'FB', ok: d.ok, hata: d.hata })
+        } else if (key.startsWith('ig_')) {
+          const res = await fetch('/api/paylas-sil', {
+            method:'POST', headers:{'Content-Type':'application/json','X-API-Key':API_KEY},
+            body: JSON.stringify({ platform:'instagram', post_id: postId }),
+          })
+          const d = await res.json().catch(()=>({}))
+          sonuclar.push({ platform:'IG', ok: d.ok, log_silindi: d.log_silindi, hata: d.hata, post_url: d.post_url })
         }
       }
-      // IG post id'lerini topla
-      const igSonuclar = sonP.sonuclar?.meta?.instagram || {}
-      for (const [igid, sonuc] of Object.entries(igSonuclar)) {
-        if (sonuc?.post_id) {
-          await fetch('/api/paylas-sil', {
-            method:'POST', headers:{'Content-Type':'application/json','X-API-Key':env_apiKey},
-            body: JSON.stringify({ platform:'instagram', post_id: sonuc.post_id }),
-          }).catch(()=>{})
+
+      // Eski kayıt formatı — meta.facebook/instagram içinden al
+      if (Object.keys(postIdler).length === 0) {
+        const fbSonuclar = sonP.sonuclar?.meta?.facebook || {}
+        for (const [pid, s] of Object.entries(fbSonuclar)) {
+          if (s?.post_id) {
+            const res = await fetch('/api/paylas-sil', {
+              method:'POST', headers:{'Content-Type':'application/json','X-API-Key':API_KEY},
+              body: JSON.stringify({ platform:'facebook', post_id: s.post_id, page_id: pid }),
+            })
+            const d = await res.json().catch(()=>({}))
+            sonuclar.push({ platform:'FB', ok: d.ok, hata: d.hata })
+          }
+        }
+        const igSonuclar = sonP.sonuclar?.meta?.instagram || {}
+        for (const [, s] of Object.entries(igSonuclar)) {
+          if (s?.post_id) {
+            const res = await fetch('/api/paylas-sil', {
+              method:'POST', headers:{'Content-Type':'application/json','X-API-Key':API_KEY},
+              body: JSON.stringify({ platform:'instagram', post_id: s.post_id }),
+            })
+            const d = await res.json().catch(()=>({}))
+            sonuclar.push({ platform:'IG', ok: d.ok, hata: d.hata, post_url: d.post_url })
+          }
         }
       }
-      setPaylasimSonuc({ gonderi_id: gonderi.id, ok: true, mesaj: 'Son paylaşım silindi' })
+
+      // Sonuç mesajı oluştur
+      const basarililar = sonuclar.filter(s=>s.ok).map(s=>s.platform)
+      const hatalar     = sonuclar.filter(s=>!s.ok)
+      const igManuel    = sonuclar.find(s=>s.platform==='IG'&&s.post_url)
+
+      let mesaj = ''
+      if (basarililar.length) mesaj += `✓ ${basarililar.join(', ')} silindi. `
+      if (igManuel) mesaj += `IG manuel silinmeli → ${igManuel.post_url}`
+      if (!sonuclar.length) mesaj = 'Silinecek post ID bulunamadı — eski paylaşım olabilir'
+
+      setPaylasimSonuc({ gonderi_id: gonderi.id, ok: true, mesaj: mesaj || '✓ İşlem tamamlandı' })
       const f = await firmaYukle(seciliFirma.id)
       setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
     } catch(e) { setHata(e.message) }
