@@ -15,6 +15,9 @@ export async function onRequestGet({ request }) {
     'service.1ha.com.tr',
     'cdn.1ha.com.tr',
     '1ha.com.tr',
+    'rdr.ist',
+    'kayserim.net',
+    'www.kayserim.net',
   ]
   const hostname = new URL(imageUrl).hostname
   if (!allowed.some(h => hostname === h || hostname.endsWith('.' + h))) {
