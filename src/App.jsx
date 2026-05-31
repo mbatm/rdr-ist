@@ -2297,7 +2297,7 @@ function ReklamModul({ user, onGeri }) {
   const [kampDuzForm,  setKampDuzForm]  = useState(null)
 
   // Gönderi formu
-  const [gonForm,     setGonForm]   = useState({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', gonderi_tipi:'gonderi' })
+  const [gonForm,     setGonForm]   = useState({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', gonderi_tipi:'gonderi', story_etiket:'', story_link:'' })
   const [gonModal,    setGonModal]  = useState(false)
   const [gonYuk,      setGonYuk]    = useState(false)
   const [hesaplar,    setHesaplar]  = useState({ facebook:[], instagram:[] })
@@ -2483,6 +2483,8 @@ function ReklamModul({ user, onGeri }) {
           medya_url: gonForm.medya_url, medya_tip: gonForm.medya_tip,
           alt_metin: gonForm.alt_metin, etiketler,
           gonderi_tipi: gonForm.gonderi_tipi || 'gonderi',
+          story_etiket: gonForm.story_etiket || '',
+          story_link:   gonForm.story_link   || '',
           fb_page_ids: seciliFirma.fb_page_ids || [], ig_ids: seciliFirma.ig_ids || [],
         }),
       })
@@ -2784,23 +2786,56 @@ function ReklamModul({ user, onGeri }) {
                       </div>
                     )}
 
-                    {/* Paylaşım butonları — Twitter yok */}
+                    {/* Paylaşım butonları */}
                     <div style={{marginBottom:5}}>
-                      <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Paylaş</div>
-                      <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-                        <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook'],gonTipi==='story')}
-                          style={{fontSize:10,padding:'3px 8px',background:'rgba(77,171,247,.1)',border:'0.5px solid rgba(77,171,247,.3)',color:'#4dabf7'}}>
-                          FB
-                        </button>
-                        <button disabled={paylasiyor} onClick={()=>paylas(g,['instagram'],gonTipi==='story')}
-                          style={{fontSize:10,padding:'3px 8px',background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>
-                          IG
-                        </button>
-                        <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook','instagram'],gonTipi==='story')}
-                          style={{fontSize:10,padding:'3px 8px',background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
-                          <Ic n="send" size={10}/> İkisi
-                        </button>
-                      </div>
+                      <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{gonTipi==='story'?'Story Paylaş':'Paylaş'}</div>
+                      {gonTipi==='story' ? (
+                        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                          {/* Story — FB normal paylaş */}
+                          <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook'],true)}
+                            style={{fontSize:10,padding:'3px 8px',background:'rgba(77,171,247,.1)',border:'0.5px solid rgba(77,171,247,.3)',color:'#4dabf7'}}>
+                            FB Story
+                          </button>
+                          {/* Story — IG indir+kopyala+aç */}
+                          <button disabled={paylasiyor} onClick={async()=>{
+                            // 1) Görseli indir
+                            try {
+                              const a = document.createElement('a')
+                              a.href = g.medya_url
+                              a.download = 'story.jpg'
+                              a.click()
+                            } catch(e) {}
+                            // 2) Etiket veya link panoya kopyala
+                            const kopyaMetin = g.story_etiket || g.story_link || ''
+                            if (kopyaMetin) {
+                              try { await navigator.clipboard.writeText(kopyaMetin) } catch(e) {}
+                            }
+                            // 3) Kısa gecikme sonra Instagram aç
+                            setTimeout(()=>{
+                              window.location.href = 'instagram://'
+                            }, 800)
+                            setPaylasimSonuc({ gonderi_id: g.id, ok: true, mesaj: `✓ Görsel indirildi${kopyaMetin?' — '+kopyaMetin+' kopyalandı':''}, Instagram açılıyor…` })
+                          }}
+                            style={{fontSize:10,padding:'3px 8px',background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>
+                            <Ic n="download" size={10}/> IG İndir & Aç
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                          <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook'],false)}
+                            style={{fontSize:10,padding:'3px 8px',background:'rgba(77,171,247,.1)',border:'0.5px solid rgba(77,171,247,.3)',color:'#4dabf7'}}>
+                            FB
+                          </button>
+                          <button disabled={paylasiyor} onClick={()=>paylas(g,['instagram'],false)}
+                            style={{fontSize:10,padding:'3px 8px',background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>
+                            IG
+                          </button>
+                          <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook','instagram'],false)}
+                            style={{fontSize:10,padding:'3px 8px',background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                            <Ic n="send" size={10}/> İkisi
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Son paylaşımı sil */}
@@ -3055,12 +3090,34 @@ function ReklamModul({ user, onGeri }) {
                 style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="Paylaşım metni..."/>
             </div>
 
-            {/* Etiketler */}
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Etiketlenecek Hesaplar (virgülle)</div>
-              <input value={gonForm.etiketler} onChange={e=>setGonForm(p=>({...p,etiketler:e.target.value}))}
-                style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="@hesap1, @hesap2"/>
-            </div>
+            {/* Gönderi metni — sadece gönderi tipinde */}
+            {(gonForm.gonderi_tipi||'gonderi')==='gonderi' && (
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Etiketlenecek Hesaplar (virgülle)</div>
+                <input value={gonForm.etiketler} onChange={e=>setGonForm(p=>({...p,etiketler:e.target.value}))}
+                  style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="@hesap1, @hesap2"/>
+              </div>
+            )}
+
+            {/* Story — etiket ve link */}
+            {(gonForm.gonderi_tipi||'gonderi')==='story' && (
+              <div style={{marginBottom:10,padding:'10px 12px',background:'rgba(225,48,108,.05)',border:'0.5px solid rgba(225,48,108,.2)',borderRadius:'var(--radius-md)'}}>
+                <div style={{fontSize:11,color:'#E1306C',marginBottom:8,fontWeight:600}}>Story Ayarları</div>
+                <div style={{marginBottom:8}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Etiket (panoya kopyalanır)</div>
+                  <input value={gonForm.story_etiket} onChange={e=>setGonForm(p=>({...p,story_etiket:e.target.value}))}
+                    style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="@kayserimnet"/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Link (panoya kopyalanır)</div>
+                  <input value={gonForm.story_link} onChange={e=>setGonForm(p=>({...p,story_link:e.target.value}))}
+                    style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="https://kayserim.net/..."/>
+                </div>
+                <div style={{fontSize:10,color:'var(--muted)',marginTop:8,lineHeight:1.5}}>
+                  Paylaş butonuna basınca görsel indirilir, etiket/link panoya kopyalanır ve Instagram açılır.
+                </div>
+              </div>
+            )}
 
             {/* Hesaplar firmadan geliyor */}
             {seciliFirma && (

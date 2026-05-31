@@ -111,9 +111,11 @@ export async function onRequestPost({ request, env }) {
       const kamp = firma.kampanyalar?.find(k=>k.id===kampanya_id)
       if (!kamp) return Response.json({ hata: 'Kampanya bulunamadı' }, { status: 404 })
       const gid = `gon_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
+      const { gonderi_tipi='gonderi', story_etiket='', story_link='' } = body
       const gonderi = {
         id: gid, medya_url, medya_tip: medya_tip||'gorsel',
         alt_metin: alt_metin||'', etiketler: etiketler||[],
+        gonderi_tipi, story_etiket, story_link,
         fb_page_ids: fb_page_ids||[], ig_ids: ig_ids||[],
         olusturuldu: new Date().toISOString(), olusturan: kul.kullanici,
         paylasimlar: [], son_paylasim: null,
