@@ -2297,10 +2297,11 @@ function ReklamModul({ user, onGeri }) {
   const [kampDuzForm,  setKampDuzForm]  = useState(null)
 
   // Gönderi formu
-  const [gonForm,     setGonForm]   = useState({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', fb_page_ids:[], ig_ids:[] })
+  const [gonForm,     setGonForm]   = useState({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', gonderi_tipi:'gonderi' })
   const [gonModal,    setGonModal]  = useState(false)
   const [gonYuk,      setGonYuk]    = useState(false)
   const [hesaplar,    setHesaplar]  = useState({ facebook:[], instagram:[] })
+  const [paylasimSonuc, setPaylasimSonuc] = useState(null) // { gonderi_id, ok, mesaj }
 
   // Paylaşım
   const [paylasiyor,  setPaylasiyor]= useState(false)
@@ -2481,12 +2482,13 @@ function ReklamModul({ user, onGeri }) {
           islem:'gonderi_ekle', firma_id: seciliFirma.id, kampanya_id: seciliKamp.id,
           medya_url: gonForm.medya_url, medya_tip: gonForm.medya_tip,
           alt_metin: gonForm.alt_metin, etiketler,
+          gonderi_tipi: gonForm.gonderi_tipi || 'gonderi',
           fb_page_ids: seciliFirma.fb_page_ids || [], ig_ids: seciliFirma.ig_ids || [],
         }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setGonModal(false); setGonForm({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', fb_page_ids:[], ig_ids:[] })
+      setGonModal(false); setGonForm({ alt_metin:'', etiketler:'', medya_url:'', medya_tip:'gorsel', gonderi_tipi:'gonderi' })
       const f = await firmaYukle(seciliFirma.id)
       setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
     } catch(e) { setHata(e.message) }
@@ -2507,9 +2509,43 @@ function ReklamModul({ user, onGeri }) {
     } catch(e) { setHata(e.message) }
   }
 
+  // Son paylaşımı sil
+  const sonPaylasimSil = async (gonderi) => {
+    if (!confirm('Son paylaşımı sosyal medyadan silmek istediğinizden emin misiniz?')) return
+    const sonP = gonderi.paylasimlar?.[gonderi.paylasimlar.length-1]
+    if (!sonP) { setHata('Silinecek paylaşım bulunamadı'); return }
+    setPaylasiyor(true)
+    try {
+      // FB post id'lerini topla
+      const fbSonuclar = sonP.sonuclar?.meta?.facebook || {}
+      for (const [pid, sonuc] of Object.entries(fbSonuclar)) {
+        if (sonuc?.post_id) {
+          await fetch('/api/paylas-sil', {
+            method:'POST', headers:{'Content-Type':'application/json','X-API-Key':env_apiKey},
+            body: JSON.stringify({ platform:'facebook', post_id: sonuc.post_id, page_id: pid }),
+          }).catch(()=>{})
+        }
+      }
+      // IG post id'lerini topla
+      const igSonuclar = sonP.sonuclar?.meta?.instagram || {}
+      for (const [igid, sonuc] of Object.entries(igSonuclar)) {
+        if (sonuc?.post_id) {
+          await fetch('/api/paylas-sil', {
+            method:'POST', headers:{'Content-Type':'application/json','X-API-Key':env_apiKey},
+            body: JSON.stringify({ platform:'instagram', post_id: sonuc.post_id }),
+          }).catch(()=>{})
+        }
+      }
+      setPaylasimSonuc({ gonderi_id: gonderi.id, ok: true, mesaj: 'Son paylaşım silindi' })
+      const f = await firmaYukle(seciliFirma.id)
+      setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
+    } catch(e) { setHata(e.message) }
+    setPaylasiyor(false)
+  }
+
   // Paylaş
-  const paylas = async (gonderi, platformlar, zorla=false) => {
-    setPaylasiyor(true); setHata(null); setUyari(null)
+  const paylas = async (gonderi, platformlar, story=false, zorla=false) => {
+    setPaylasiyor(true); setHata(null); setUyari(null); setPaylasimSonuc(null)
     try {
       const endpoint = zorla ? 'PUT' : 'POST'
       const res  = await fetch('/api/reklam-paylas', {
@@ -2517,16 +2553,18 @@ function ReklamModul({ user, onGeri }) {
         headers: { 'Content-Type':'application/json', 'X-Token':token },
         body: JSON.stringify({
           firma_id: seciliFirma.id, kampanya_id: seciliKamp.id,
-          gonderi_id: gonderi.id, platformlar,
-          fb_page_ids: gonderi.fb_page_ids, ig_ids: gonderi.ig_ids,
+          gonderi_id: gonderi.id, platformlar, story,
+          fb_page_ids: gonderi.fb_page_ids||seciliFirma.fb_page_ids||[],
+          ig_ids: gonderi.ig_ids||seciliFirma.ig_ids||[],
         }),
       })
       const data = await res.json()
       if (data.uyari || data.firma_uyari) {
-        setUyari({ mesaj: data.mesaj, payload: { gonderi, platformlar } })
+        setUyari({ mesaj: data.mesaj, payload: { gonderi, platformlar, story } })
         setPaylasiyor(false); return
       }
       if (data.hata) throw new Error(data.hata)
+      setPaylasimSonuc({ gonderi_id: gonderi.id, ok: true, mesaj: `✓ ${story?'Story':'Gönderi'} paylaşıldı!` })
       const f = await firmaYukle(seciliFirma.id)
       setFirma(f); setKamp(f.kampanyalar?.find(k=>k.id===seciliKamp.id))
     } catch(e) { setHata(e.message) }
@@ -2702,50 +2740,85 @@ function ReklamModul({ user, onGeri }) {
 
         {/* ── KAMPANYA DETAY ── */}
         {ekran==='kampanya_detay' && seciliKamp && seciliFirma && (
-          <div style={{maxWidth:800}}>
+          <div style={{maxWidth:900}}>
             {seciliKamp.notlar && (
               <div style={{fontSize:12,color:'var(--muted)',padding:'6px 10px',background:'var(--surface)',borderRadius:'var(--radius-sm)',marginBottom:'1rem'}}>{seciliKamp.notlar}</div>
             )}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'0.75rem'}}>
-              {(seciliKamp.gonderiler||[]).map(g=>(
-                <div key={g.id} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+
+            {/* Paylaşım sonuç bandı */}
+            {paylasimSonuc && (
+              <div style={{marginBottom:'1rem',padding:'8px 14px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span style={{fontSize:13,color:'#00D4AA'}}>{paylasimSonuc.mesaj}</span>
+                <button onClick={()=>setPaylasimSonuc(null)} style={{fontSize:11,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>×</button>
+              </div>
+            )}
+
+            {/* Gönderi listesi */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:'0.75rem'}}>
+              {(seciliKamp.gonderiler||[]).map(g=>{
+                const aktifSonuc = paylasimSonuc?.gonderi_id === g.id
+                const gonTipi = g.gonderi_tipi || 'gonderi'
+                return (
+                <div key={g.id} style={{background:'var(--surface)',border:`0.5px solid ${aktifSonuc?'rgba(0,212,170,.4)':'var(--border)'}`,borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+                  {/* Tip etiketi */}
+                  <div style={{padding:'4px 8px',background: gonTipi==='story'?'rgba(225,48,108,.1)':'rgba(77,171,247,.1)',display:'flex',alignItems:'center',gap:5}}>
+                    <Ic n={gonTipi==='story'?'circles':'layout-grid'} size={11} style={{color:gonTipi==='story'?'#E1306C':'#4dabf7'}}/>
+                    <span style={{fontSize:10,fontWeight:600,color:gonTipi==='story'?'#E1306C':'#4dabf7'}}>{gonTipi==='story'?'STORY':'GÖNDERİ'}</span>
+                  </div>
+
                   {/* Medya */}
                   {g.medya_tip==='gorsel'
-                    ? <img src={g.medya_url} alt="" style={{width:'100%',height:130,objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
-                    : <div style={{width:'100%',height:130,background:'rgba(230,57,70,.1)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                        <Ic n="player-play" size={28} style={{color:'#ff7b7b'}}/>
+                    ? <img src={g.medya_url} alt="" style={{width:'100%',height:120,objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                    : <div style={{width:'100%',height:120,background:'rgba(230,57,70,.1)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <Ic n="player-play" size={24} style={{color:'#ff7b7b'}}/>
                       </div>
                   }
-                  <div style={{padding:'8px 10px'}}>
-                    {g.alt_metin && <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,lineHeight:1.4}}>{g.alt_metin.slice(0,80)}{g.alt_metin.length>80?'…':''}</div>}
 
-                    {/* Son paylaşım etiketi */}
+                  <div style={{padding:'8px 10px'}}>
+                    {g.alt_metin && <div style={{fontSize:11,color:'var(--muted)',marginBottom:5,lineHeight:1.4}}>{g.alt_metin.slice(0,70)}{g.alt_metin.length>70?'…':''}</div>}
+
+                    {/* Son paylaşım */}
                     {g.son_paylasim && (
-                      <div style={{fontSize:10,color:'#00D4AA',marginBottom:6}}>{sonPaylasimEtiketi(g.son_paylasim)}</div>
+                      <div style={{fontSize:10,color:'#00D4AA',marginBottom:5,display:'flex',alignItems:'center',gap:4}}>
+                        <Ic n="check" size={10}/> {sonPaylasimEtiketi(g.son_paylasim)}
+                      </div>
                     )}
 
-                    {/* Paylaşım butonları */}
-                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>
-                      {[['facebook','FB','#4dabf7'],['instagram','IG','#E1306C'],['twitter','𝕏','#1da1f2']].map(([p,l,renk])=>(
-                        <button key={p} disabled={paylasiyor} onClick={()=>paylas(g,[p])}
-                          style={{fontSize:10,padding:'2px 7px',background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>
-                          {l}
+                    {/* Paylaşım butonları — Twitter yok */}
+                    <div style={{marginBottom:5}}>
+                      <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Paylaş</div>
+                      <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                        <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook'],gonTipi==='story')}
+                          style={{fontSize:10,padding:'3px 8px',background:'rgba(77,171,247,.1)',border:'0.5px solid rgba(77,171,247,.3)',color:'#4dabf7'}}>
+                          FB
                         </button>
-                      ))}
-                      <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook','instagram','twitter'])}
-                        style={{fontSize:10,padding:'2px 7px',background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
-                        Tümü
-                      </button>
+                        <button disabled={paylasiyor} onClick={()=>paylas(g,['instagram'],gonTipi==='story')}
+                          style={{fontSize:10,padding:'3px 8px',background:'rgba(225,48,108,.1)',border:'0.5px solid rgba(225,48,108,.3)',color:'#E1306C'}}>
+                          IG
+                        </button>
+                        <button disabled={paylasiyor} onClick={()=>paylas(g,['facebook','instagram'],gonTipi==='story')}
+                          style={{fontSize:10,padding:'3px 8px',background:'rgba(0,212,170,.1)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
+                          <Ic n="send" size={10}/> İkisi
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Gönderi sil */}
+                    {/* Son paylaşımı sil */}
+                    {g.paylasimlar?.length > 0 && (
+                      <button disabled={paylasiyor} onClick={()=>sonPaylasimSil(g)}
+                        style={{fontSize:10,padding:'3px 8px',background:'rgba(230,57,70,.06)',border:'0.5px solid rgba(230,57,70,.2)',color:'rgba(230,57,70,.7)',width:'100%',marginBottom:4}}>
+                        <Ic n="rotate-ccw" size={10}/> Son paylaşımı sil
+                      </button>
+                    )}
+
+                    {/* Görseli sil */}
                     <button onClick={()=>gonderiSil(g.id)}
                       style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)',width:'100%'}}>
                       <Ic n="trash" size={10}/> Görseli Sil
                     </button>
                   </div>
                 </div>
-              ))}
+              )})}
               {(seciliKamp.gonderiler||[]).length===0 && (
                 <div style={{gridColumn:'1/-1',textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:13}}>
                   Gönderi yok — Gönderi Ekle butonuyla ekleyin
@@ -2943,7 +3016,21 @@ function ReklamModul({ user, onGeri }) {
       {gonModal && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100,overflowY:'auto'}}>
           <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:420,margin:'1rem auto'}}>
-            <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Gönderi Ekle — {seciliKamp?.ad}</div>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:'0.75rem'}}>Gönderi Ekle — {seciliKamp?.ad}</div>
+
+            {/* Story / Gönderi seçimi */}
+            <div style={{display:'flex',gap:6,marginBottom:'1rem'}}>
+              {[['gonderi','Gönderi','layout-grid','#4dabf7'],['story','Story','circles','#E1306C']].map(([tip,label,ic,renk])=>(
+                <button key={tip} onClick={()=>setGonForm(p=>({...p,gonderi_tipi:tip}))}
+                  style={{flex:1,fontSize:12,padding:'7px',display:'flex',alignItems:'center',justifyContent:'center',gap:5,
+                    background:(gonForm.gonderi_tipi||'gonderi')===tip?`${renk}18`:'transparent',
+                    border:`0.5px solid ${(gonForm.gonderi_tipi||'gonderi')===tip?renk:'var(--border)'}`,
+                    color:(gonForm.gonderi_tipi||'gonderi')===tip?renk:'var(--muted)',
+                    borderRadius:'var(--radius-sm)',fontWeight:(gonForm.gonderi_tipi||'gonderi')===tip?600:400}}>
+                  <Ic n={ic} size={13}/> {label}
+                </button>
+              ))}
+            </div>
 
             {/* Görsel yükle */}
             <div style={{marginBottom:10}}>

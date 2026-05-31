@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env }) {
   if (!kul || kul.modul_reklam === false) return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
 
   try {
-    const { firma_id, kampanya_id, gonderi_id, platformlar=[], fb_page_ids=[], ig_ids=[] } = await request.json()
+    const { firma_id, kampanya_id, gonderi_id, platformlar=[], fb_page_ids=[], ig_ids=[], story=false } = await request.json()
     if (!firma_id||!kampanya_id||!gonderi_id) return Response.json({ hata: 'firma_id, kampanya_id, gonderi_id zorunlu' }, { status: 400 })
 
     const firma = await env.HABERLER.get(`firma:${firma_id}`, 'json')
@@ -70,6 +70,7 @@ export async function onRequestPost({ request, env }) {
           ig_ids:      igIds,
           source_id:   gonderi_id,
           baslik:      kamp.ad,
+          ig_story:    story && (platformlar.includes('instagram') || platform==='her_ikisi'),
         }),
       })
       try {
@@ -78,18 +79,7 @@ export async function onRequestPost({ request, env }) {
       } catch(e) { sonuclar.meta = { hata: 'Meta yanıt parse hatası' } }
     }
 
-    // ── Twitter ────────────────────────────────────────────────────────────
-    if (platformlar.includes('twitter')) {
-      const res  = await fetch('https://rdr.ist/api/twitter-paylas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
-        body: JSON.stringify({ metin: gonderi.alt_metin, gorselUrl: gonderi.medya_url }),
-      })
-      try {
-        const text = await res.text()
-        sonuclar.twitter = text ? JSON.parse(text) : { ok: true }
-      } catch(e) { sonuclar.twitter = { hata: 'Twitter yanıt parse hatası' } }
-    }
+    // Twitter reklam modülünde kullanılmıyor
 
     // ── Gönderi ve kampanya güncelle ───────────────────────────────────────
     const paylasimKaydi = { platformlar, tarih: simdi, kullanici: kul.kullanici, sonuclar }
