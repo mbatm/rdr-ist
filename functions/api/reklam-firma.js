@@ -42,8 +42,10 @@ export async function onRequestPost({ request, env }) {
       const { ad, sektor, notlar } = body
       if (!ad) return Response.json({ hata: 'Firma adı zorunlu' }, { status: 400 })
       const id    = `firma_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
+      const { fb_page_ids=[], ig_ids=[] } = body
       const firma = {
         id, ad, sektor: sektor||'', notlar: notlar||'',
+        fb_page_ids, ig_ids,
         olusturuldu: new Date().toISOString(),
         olusturan:   kul.kullanici,
         kampanyalar: [],

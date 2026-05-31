@@ -2285,7 +2285,7 @@ function ReklamModul({ user, onGeri }) {
   const [yukleniyor,  setYuk]       = useState(false)
 
   // Firma formu
-  const [firmaForm,   setFirmaForm] = useState({ ad:'', sektor:'', notlar:'' })
+  const [firmaForm,   setFirmaForm] = useState({ ad:'', sektor:'', notlar:'', fb_page_ids:[], ig_ids:[] })
   const [firmaModal,  setFirmaModal]= useState(false)
 
   // Kampanya formu
@@ -2359,7 +2359,7 @@ function ReklamModul({ user, onGeri }) {
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setFirmaModal(false); setFirmaForm({ ad:'', sektor:'', notlar:'' })
+      setFirmaModal(false); setFirmaForm({ ad:'', sektor:'', notlar:'', fb_page_ids:[], ig_ids:[] })
       firmalariYukle()
     } catch(e) { setHata(e.message) }
   }
@@ -2412,7 +2412,7 @@ function ReklamModul({ user, onGeri }) {
           islem:'gonderi_ekle', firma_id: seciliFirma.id, kampanya_id: seciliKamp.id,
           medya_url: gonForm.medya_url, medya_tip: gonForm.medya_tip,
           alt_metin: gonForm.alt_metin, etiketler,
-          fb_page_ids: gonForm.fb_page_ids, ig_ids: gonForm.ig_ids,
+          fb_page_ids: seciliFirma.fb_page_ids || [], ig_ids: seciliFirma.ig_ids || [],
         }),
       })
       const data = await res.json()
@@ -2673,9 +2673,11 @@ function ReklamModul({ user, onGeri }) {
 
       {/* ── FİRMA MODAL ── */}
       {firmaModal && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
-          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:380}}>
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100,padding:'1rem'}}>
+          <div style={{background:'var(--card)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1.5rem',width:420,maxHeight:'90vh',overflowY:'auto'}}>
             <div style={{fontSize:14,fontWeight:600,marginBottom:'1rem'}}>Yeni Firma</div>
+
+            {/* Temel bilgiler */}
             {[['ad','Firma Adı *'],['sektor','Sektör'],['notlar','Notlar']].map(([k,l])=>(
               <div key={k} style={{marginBottom:10}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>{l}</div>
@@ -2685,9 +2687,66 @@ function ReklamModul({ user, onGeri }) {
                 }
               </div>
             ))}
-            <div style={{display:'flex',gap:8,marginTop:12}}>
-              <button onClick={firmaEkle} style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700'}}>Ekle</button>
-              <button onClick={()=>setFirmaModal(false)} style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>İptal</button>
+
+            {/* Facebook sayfaları */}
+            {hesaplar.facebook?.length > 0 && (
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Facebook Sayfaları</div>
+                <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:160,overflowY:'auto',padding:'4px 0'}}>
+                  {hesaplar.facebook.map(h=>(
+                    <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer',
+                      padding:'6px 8px',borderRadius:'var(--radius-sm)',
+                      background:firmaForm.fb_page_ids.includes(h.page_id)?'rgba(77,171,247,.08)':'transparent',
+                      border:`0.5px solid ${firmaForm.fb_page_ids.includes(h.page_id)?'rgba(77,171,247,.3)':'var(--border)'}`}}>
+                      <input type="checkbox"
+                        checked={firmaForm.fb_page_ids.includes(h.page_id)}
+                        onChange={e=>setFirmaForm(p=>({...p,
+                          fb_page_ids: e.target.checked
+                            ? [...p.fb_page_ids, h.page_id]
+                            : p.fb_page_ids.filter(i=>i!==h.page_id)
+                        }))}
+                        style={{width:14,height:14,cursor:'pointer'}}/>
+                      <span style={{color:firmaForm.fb_page_ids.includes(h.page_id)?'#4dabf7':'var(--text)'}}>{h.page_name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Instagram hesapları */}
+            {hesaplar.instagram?.length > 0 && (
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Instagram Hesapları</div>
+                <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:160,overflowY:'auto',padding:'4px 0'}}>
+                  {hesaplar.instagram.map(h=>(
+                    <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer',
+                      padding:'6px 8px',borderRadius:'var(--radius-sm)',
+                      background:firmaForm.ig_ids.includes(h.ig_id)?'rgba(225,48,108,.08)':'transparent',
+                      border:`0.5px solid ${firmaForm.ig_ids.includes(h.ig_id)?'rgba(225,48,108,.3)':'var(--border)'}`}}>
+                      <input type="checkbox"
+                        checked={firmaForm.ig_ids.includes(h.ig_id)}
+                        onChange={e=>setFirmaForm(p=>({...p,
+                          ig_ids: e.target.checked
+                            ? [...p.ig_ids, h.ig_id]
+                            : p.ig_ids.filter(i=>i!==h.ig_id)
+                        }))}
+                        style={{width:14,height:14,cursor:'pointer'}}/>
+                      <span style={{color:firmaForm.ig_ids.includes(h.ig_id)?'#E1306C':'var(--text)'}}>@{h.username}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{display:'flex',gap:8,marginTop:12,paddingTop:12,borderTop:'0.5px solid var(--border)'}}>
+              <button onClick={firmaEkle} disabled={!firmaForm.ad.trim()}
+                style={{fontSize:13,background:'rgba(255,183,0,.15)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700',opacity:firmaForm.ad.trim()?1:0.5}}>
+                Firma Ekle
+              </button>
+              <button onClick={()=>{ setFirmaModal(false); setFirmaForm({ ad:'', sektor:'', notlar:'', fb_page_ids:[], ig_ids:[] }) }}
+                style={{fontSize:13,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                İptal
+              </button>
             </div>
           </div>
         </div>
@@ -2751,29 +2810,16 @@ function ReklamModul({ user, onGeri }) {
                 style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="@hesap1, @hesap2"/>
             </div>
 
-            {/* Sayfa seçimi */}
-            {hesaplar.facebook?.length > 0 && (
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Facebook Sayfaları</div>
-                {hesaplar.facebook.map(h=>(
-                  <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',marginBottom:3}}>
-                    <input type="checkbox" checked={gonForm.fb_page_ids.includes(h.page_id)}
-                      onChange={e=>setGonForm(p=>({...p, fb_page_ids: e.target.checked ? [...p.fb_page_ids,h.page_id] : p.fb_page_ids.filter(i=>i!==h.page_id)}))}/>
-                    {h.page_name}
-                  </label>
-                ))}
-              </div>
-            )}
-            {hesaplar.instagram?.length > 0 && (
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Instagram Hesapları</div>
-                {hesaplar.instagram.map(h=>(
-                  <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',marginBottom:3}}>
-                    <input type="checkbox" checked={gonForm.ig_ids.includes(h.ig_id)}
-                      onChange={e=>setGonForm(p=>({...p, ig_ids: e.target.checked ? [...p.ig_ids,h.ig_id] : p.ig_ids.filter(i=>i!==h.ig_id)}))}/>
-                    @{h.username}
-                  </label>
-                ))}
+            {/* Hesaplar firmadan geliyor */}
+            {seciliFirma && (
+              <div style={{marginBottom:10,padding:'6px 10px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-sm)'}}>
+                <div style={{fontSize:11,color:'#FFB700',marginBottom:3}}>Paylaşım Hesapları</div>
+                <div style={{fontSize:12,color:'var(--muted)'}}>
+                  {seciliFirma.fb_page_ids?.length ? `FB: ${seciliFirma.fb_page_ids.length} sayfa` : ''}
+                  {seciliFirma.fb_page_ids?.length && seciliFirma.ig_ids?.length ? ' · ' : ''}
+                  {seciliFirma.ig_ids?.length ? `IG: ${seciliFirma.ig_ids.length} hesap` : ''}
+                  {!seciliFirma.fb_page_ids?.length && !seciliFirma.ig_ids?.length ? 'Firma için hesap tanımlanmamış' : ''}
+                </div>
               </div>
             )}
 
