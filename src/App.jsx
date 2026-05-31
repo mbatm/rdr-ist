@@ -856,6 +856,125 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 }
 
 
+// ── YOUTUBE YÜKLEME ───────────────────────────────────────────────────────────
+function YoutubeYukle({ content, selectedHaber, videoRenders={}, kayserimLink='' }) {
+  const [baslik,     setBaslik]     = useState('')
+  const [aciklama,   setAciklama]   = useState('')
+  const [etiketler,  setEtiketler]  = useState('')
+  const [gonderiyor, setGond]       = useState(false)
+  const [sonuc,      setSonuc]      = useState(null)
+  const [hata,       setHata]       = useState(null)
+
+  useEffect(() => {
+    if (!content && !selectedHaber) return
+    const b = content?.site_basligi || selectedHaber?.baslik || ''
+    const kat = content?.kategori || selectedHaber?.kategori || ''
+    const link = kayserimLink ? `\n\n🔗 ${kayserimLink}` : ''
+    const a = (content?.optimize_icerik || content?.meta_description || '').replace(/<[^>]*>/g,'').slice(0,4000)
+    setBaslik(b.slice(0,100))
+    setAciklama((a + link).slice(0,5000))
+    setEtiketler(['Kayseri', 'KayseriHaber', kat||'Haber', 'kayserimnet'].filter(Boolean).join(', '))
+  }, [content?.url_slug, kayserimLink])
+
+  const videoUrl = videoRenders?.yatay?.url || selectedHaber?.video_yatay || selectedHaber?.video || ''
+
+  const yukle = async () => {
+    if (!videoUrl) { setHata('Yatay video bulunamadı — Video İşle bölümünden oluşturun'); return }
+    if (!baslik.trim()) { setHata('Başlık zorunlu'); return }
+    setGond(true); setSonuc(null); setHata(null)
+    try {
+      const token     = localStorage.getItem('cms_token') || ''
+      const kullanici = token
+        ? (await fetch('/api/auth?token=' + token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
+        : 'editor'
+
+      const res  = await fetch('/api/youtube-yukle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5'), 'X-Kullanici': kullanici },
+        body: JSON.stringify({
+          videoUrl,
+          baslik,
+          aciklama,
+          etiketler: etiketler.split(',').map(e=>e.trim()).filter(Boolean),
+          kategoriId: '25',
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data)
+      if (data.basarili && selectedHaber) {
+        await fetch('/api/haber-kaydet', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...selectedHaber, paylasildi_yt: new Date().toISOString(), youtube_url: data.video_url }),
+        }).catch(() => {})
+      }
+    } catch(e) { setHata(e.message) }
+    setGond(false)
+  }
+
+  return (
+    <div style={{marginBottom:'0.875rem'}}>
+      {/* Video önizleme */}
+      {videoUrl ? (
+        <div style={{marginBottom:8,padding:6,background:'rgba(255,0,0,.05)',border:'0.5px solid rgba(255,0,0,.2)',borderRadius:6}}>
+          <div style={{fontSize:10,color:'#ff4444',marginBottom:4}}>▶ Yatay Video</div>
+          <div style={{fontSize:11,color:'var(--muted)',wordBreak:'break-all'}}>{videoUrl.slice(0,70)}…</div>
+        </div>
+      ) : (
+        <div style={{marginBottom:8,fontSize:11,color:'rgba(255,180,0,.8)',padding:'5px 8px',background:'rgba(255,180,0,.06)',border:'0.5px solid rgba(255,180,0,.2)',borderRadius:4}}>
+          ⚠ Yatay video yok — Video İşle bölümünden oluşturun
+        </div>
+      )}
+
+      {/* Başlık */}
+      <div style={{marginBottom:8}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+          <div style={{fontSize:11,color:'#8899a6'}}>Başlık</div>
+          <div style={{fontSize:11,color:'var(--muted)'}}>{baslik.length}/100</div>
+        </div>
+        <input value={baslik} onChange={e=>setBaslik(e.target.value.slice(0,100))}
+          style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="Video başlığı..."/>
+      </div>
+
+      {/* Açıklama */}
+      <div style={{marginBottom:8}}>
+        <div style={{fontSize:11,color:'#8899a6',marginBottom:3}}>Açıklama</div>
+        <textarea value={aciklama} onChange={e=>setAciklama(e.target.value.slice(0,5000))} rows={4}
+          style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}} placeholder="Video açıklaması..."/>
+      </div>
+
+      {/* Etiketler */}
+      <div style={{marginBottom:8}}>
+        <div style={{fontSize:11,color:'#8899a6',marginBottom:3}}>Etiketler (virgülle ayır)</div>
+        <input value={etiketler} onChange={e=>setEtiketler(e.target.value)}
+          style={{width:'100%',fontSize:12,boxSizing:'border-box'}} placeholder="Kayseri, Haber, ..."/>
+      </div>
+
+      {/* Yükle butonu */}
+      <button onClick={yukle} disabled={gonderiyor||!videoUrl||!baslik.trim()}
+        style={{fontSize:12,background:'rgba(255,0,0,.15)',border:'0.5px solid rgba(255,0,0,.4)',color:'#ff4444'}}>
+        <Ic n={gonderiyor?'loader-2':'brand-youtube'} size={13}/> {gonderiyor?'Yükleniyor…':'▶ YouTube'a Yükle'}
+      </button>
+
+      {/* Hata / Sonuç */}
+      {hata && (
+        <div style={{marginTop:8,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:12,color:'rgba(230,57,70,.9)'}}>
+          <Ic n="alert-circle" size={13}/> {hata}
+        </div>
+      )}
+      {sonuc?.basarili && (
+        <div style={{marginTop:8,background:'rgba(255,0,0,.08)',border:'0.5px solid rgba(255,0,0,.3)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:12,color:'#ff4444'}}>
+          <Ic n="check" size={13}/> Video yüklendi!{' '}
+          <a href={sonuc.video_url} target="_blank" rel="noreferrer" style={{color:'#ff4444',fontWeight:600}}>
+            YouTube'da gör →
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 // ── TWITTER PAYLAŞIM ─────────────────────────────────────────────────────────
 function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
   const isVideo = !!(selectedHaber?.video)
@@ -1138,6 +1257,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
       <Divider label="X / Twitter" ic="brand-x"/>
       <TwitterPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
+      <Divider label="YouTube" ic="brand-youtube"/>
+      <YoutubeYukle content={ec} selectedHaber={selectedHaber} videoRenders={videoRenders} kayserimLink={link}/>
     </div>
   )
 
@@ -1747,6 +1868,7 @@ export default function App() {
                       {h.paylasildi_fb&&<span style={{fontSize:10,background:'rgba(24,119,242,.08)',color:'#4dabf7',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(24,119,242,.2)'}}>FB</span>}
                       {h.paylasildi_ig&&<span style={{fontSize:10,background:'rgba(225,48,108,.08)',color:'#E1306C',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(225,48,108,.2)'}}>IG</span>}
                       {h.paylasildi_tw&&<span style={{fontSize:10,background:'rgba(29,161,242,.08)',color:'#1da1f2',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(29,161,242,.2)'}}>𝕏</span>}
+                      {h.paylasildi_yt&&<span style={{fontSize:10,background:'rgba(255,0,0,.08)',color:'#ff4444',padding:'1px 6px',borderRadius:10,border:'0.5px solid rgba(255,0,0,.2)'}}>YT</span>}
                     </div>
                   </div>
                   <button onClick={()=>{setSelectedHaber(h);setContent(h.durum==='islendi'?h:null);setTab('isleme')}}
