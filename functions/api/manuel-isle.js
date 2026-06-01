@@ -96,7 +96,7 @@ SADECE şu JSON formatını döndür:
       } else {
         wPct = `${((1350*oran)/720*100).toFixed(2)}%`; hPct = `${(1350/1280*100).toFixed(2)}%`
       }
-      const kadraj = { 'video.width':wPct,'video.height':hPct,'video.x':'50%','video.y':'50%','video.x_anchor':'50%','video.y_anchor':'50%','video.fit':'none' }
+      const kadraj = { 'video.width':wPct,'video.height':hPct,'video.x':'50%','video.y':'50%','video.x_anchor':'50%','video.y_anchor':'50%','video.fit':'fill' }
 
       const TEMPLATES = {
         dikey_video:  'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
