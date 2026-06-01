@@ -2421,19 +2421,65 @@ function KayseradarModul({ user, onGeri }) {
                 </div>
               ))}
 
-              {/* Paylaşım butonları */}
+              {/* Hesap seçimi + Paylaşım */}
               <div style={{padding:12,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',marginBottom:12}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Paylaş</div>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                  {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
-                    <button key={p} disabled={paylasiyor} onClick={()=>paylas(onayKayit,[p])}
-                      style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>
+                {/* FB hesap seçimi */}
+                {hesaplar.facebook?.length > 0 && (
+                  <div style={{marginBottom:8}}>
+                    <div style={{fontSize:10,color:'#4dabf7',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                      Facebook
+                      <button onClick={()=>setSecilenFb(hesaplar.facebook.map(h=>h.page_id))} style={{fontSize:9,background:'transparent',border:'none',color:'#4dabf7',cursor:'pointer'}}>Tümü</button>
+                      <button onClick={()=>setSecilenFb([])} style={{fontSize:9,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>Temizle</button>
+                    </div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {hesaplar.facebook.map(h=>(
+                        <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,cursor:'pointer',
+                          padding:'3px 7px',borderRadius:4,
+                          background:secilenFb.includes(h.page_id)?'rgba(77,171,247,.12)':'transparent',
+                          border:`0.5px solid ${secilenFb.includes(h.page_id)?'rgba(77,171,247,.4)':'var(--border)'}`}}>
+                          <input type="checkbox" style={{width:11,height:11}}
+                            checked={secilenFb.includes(h.page_id)}
+                            onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}/>
+                          {h.page_name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* IG hesap seçimi */}
+                {hesaplar.instagram?.length > 0 && (
+                  <div style={{marginBottom:8}}>
+                    <div style={{fontSize:10,color:'#E1306C',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                      Instagram
+                      <button onClick={()=>setSecilenIg(hesaplar.instagram.map(h=>h.ig_id))} style={{fontSize:9,background:'transparent',border:'none',color:'#E1306C',cursor:'pointer'}}>Tümü</button>
+                      <button onClick={()=>setSecilenIg([])} style={{fontSize:9,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>Temizle</button>
+                    </div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {hesaplar.instagram.map(h=>(
+                        <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,cursor:'pointer',
+                          padding:'3px 7px',borderRadius:4,
+                          background:secilenIg.includes(h.ig_id)?'rgba(225,48,108,.12)':'transparent',
+                          border:`0.5px solid ${secilenIg.includes(h.ig_id)?'rgba(225,48,108,.4)':'var(--border)'}`}}>
+                          <input type="checkbox" style={{width:11,height:11}}
+                            checked={secilenIg.includes(h.ig_id)}
+                            onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}/>
+                          @{h.username}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Paylaş butonları */}
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',paddingTop:8,borderTop:'0.5px solid var(--border)'}}>
+                  {[['facebook','FB','#4dabf7'],['instagram','IG','#E1306C'],['twitter','𝕏','#1da1f2']].map(([p,l,renk])=>(
+                    <button key={p} disabled={paylasiyor} onClick={()=>paylas(onayKayit,[p],secilenFb,secilenIg)}
+                      style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk,padding:'5px 10px'}}>
                       {paylasiyor?<Ic n="loader-2" size={11}/>:null} {l}
                     </button>
                   ))}
-                  <button disabled={paylasiyor} onClick={()=>paylas(onayKayit,['facebook','instagram','twitter'])}
-                    style={{fontSize:12,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
-                    <Ic n="send" size={11}/> Tümüne Paylaş
+                  <button disabled={paylasiyor} onClick={()=>paylas(onayKayit,['facebook','instagram'],secilenFb,secilenIg)}
+                    style={{fontSize:12,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',padding:'5px 10px'}}>
+                    <Ic n="send" size={11}/> FB + IG
                   </button>
                 </div>
               </div>
@@ -2550,10 +2596,10 @@ function KayseradarModul({ user, onGeri }) {
               {/* Paylaş */}
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
                 {[['facebook','Facebook','#4dabf7'],['instagram','Instagram','#E1306C'],['twitter','Twitter/X','#1da1f2']].map(([p,l,renk])=>(
-                  <button key={p} disabled={paylasiyor} onClick={()=>paylas(seciliKayit,[p])}
+                  <button key={p} disabled={paylasiyor} onClick={()=>paylas(seciliKayit,[p],secilenFb,secilenIg)}
                     style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk}}>{l}</button>
                 ))}
-                <button disabled={paylasiyor} onClick={()=>paylas(seciliKayit,['facebook','instagram','twitter'])}
+                <button disabled={paylasiyor} onClick={()=>paylas(seciliKayit,['facebook','instagram','twitter'],secilenFb,secilenIg)}
                   style={{fontSize:12,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA'}}>
                   <Ic n="send" size={11}/> Tümüne
                 </button>
