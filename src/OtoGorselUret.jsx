@@ -193,12 +193,12 @@ const PNG_ASSETS = {
     // Orijinal PNG 1080px geniş → 720px canvas'a oran: 720/1080 = 0.667
     ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,   w: 720, h: 295 },
     altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 778, w: 720, h: 502 },
-    pil:      { src: '/templates/pil.png',       x: 534, y: 296, w: 163, h: 59 }, // bant hemen altı sağ
-    tarihImg: { src: '/templates/tarih.png',     x: 532, y: 322, w: 165, h: 55 }, // bant hemen altı sağ
+    pil:      { src: '/templates/pil.png',       x: 537, y: 298, w: 163, h: 59 }, // bant hemen altı sağ kenara
+    tarihImg: { src: '/templates/tarih.png',     x: 536, y: 328, w: 165, h: 55 }, // tarih resmi altına
     baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
     spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
-    kategori: { x: 544, y: 308, fontSize: 20, textAlign: 'left' }, // bant altı sağ
-    tarih:    { x: 544, y: 338, fontSize: 17, textAlign: 'left' }  // bant altı sağ
+    kategori: { x: 548, y: 313, fontSize: 18, textAlign: 'left' },
+    tarih:    { x: 548, y: 345, fontSize: 16, textAlign: 'left' }
   },
   yatay: {
     w: 1200, h: 630,
@@ -216,7 +216,13 @@ const PNG_ASSETS = {
 const pngCache = {}
 async function loadPngAsset(src) {
   if (pngCache[src]) return pngCache[src]
-  const img = await loadImg(src, true)
+  const img = await new Promise(res => {
+    const i = new Image()
+    i.crossOrigin = 'anonymous'
+    i.onload = () => res(i)
+    i.onerror = () => { console.warn('PNG yüklenemedi:', src); res(null) }
+    i.src = src + '?v=' + Math.floor(Date.now()/3600000) // cache bust
+  })
   if (img) pngCache[src] = img
   return img
 }
