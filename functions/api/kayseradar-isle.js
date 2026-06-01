@@ -92,7 +92,6 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' }, // sadece image, video yok
       // Henüz özel şablonu olmayan — fallback
       'genel':        { video: '348bec91-f26e-4184-92df-4b34d51c461d', gorsel: '7586e1f4-d6ab-409a-9995-c9a03d2647d1' },
-      'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' },
     }
     // Kayserim.net haber şablonları (fallback)
     const HABER_TEMPLATES = {

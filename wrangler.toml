@@ -5,7 +5,3 @@ pages_build_output_dir = "dist"
 [[r2_buckets]]
 binding = "MEDYA"
 bucket_name = "rdr-ist-medya"
-
-[[kv_namespaces]]
-binding = "HABERLER"
-id = "cmp6vldho000210g6tt26pvc5"
