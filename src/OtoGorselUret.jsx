@@ -190,25 +190,21 @@ async function gorselYukle(b64,sid,fmt){
 const PNG_ASSETS = {
   dikey: {
     w: 720, h: 1280,
-    // Orijinal PNG 1080px geniş → 720px canvas'a oran: 720/1080 = 0.667
-    ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,    w: 720, h: 295 }, // 443*0.667
-    altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 778,  w: 720, h: 502 }, // 753*0.667, alt hizalı
-    pil:      { src: '/templates/pil.png',       x: 499, y: 128, w: 163, h: 59 }, // 244*0.667, 88*0.667
-    tarihImg: { src: '/templates/tarih.png',     x: 500, y: 152, w: 165, h: 55 }, // 247*0.667, 82*0.667
-    baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
-    spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
-    kategori: { x: 698, y: 318, fontSize: 20, textAlign: 'right' },
-    tarih:    { x: 698, y: 342, fontSize: 16, textAlign: 'right' },
+    ustBant: { src: '/templates/ust-bant.png', x: 0, y: 0,   w: 720, h: 295 },
+    altBant: { src: '/templates/alt-bant.png', x: 0, y: 778, w: 720, h: 502 },
+    baslik:  { x: 53, y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
+    spot:    { x: 53, y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
+    kategori:{ x: 698, y: 310, fontSize: 20, textAlign: 'right' },
+    tarih:   { x: 698, y: 334, fontSize: 16, textAlign: 'right' },
   },
   yatay: {
     w: 1200, h: 630,
-    // Orijinal PNG 1920px geniş → 1200px canvas'a oran: 1200/1920 = 0.625
-    ustBant:  { src: '/templates/yatayust.png', x: 0, y: 0,   w: 1200, h: 130 }, // 208*0.625
-    altBant:  { src: '/templates/yatayalt.png', x: 0, y: 326, w: 1200, h: 304 }, // 486*0.625, alt hizalı
-    baslik:   { x: 80,  y: 400, maxW: 1050, fontSize: 52, maxLines: 2 },
-    spot:     { x: 80,  y: 475, maxW: 1050, fontSize: 28, maxLines: 2 },
-    kategori: { x: 80,  y: 100, fontSize: 22 },
-    tarih:    { x: 80,  y: 126, fontSize: 18 },
+    ustBant: { src: '/templates/yatayust.png', x: 0, y: 0,   w: 1200, h: 130 },
+    altBant: { src: '/templates/yatayalt.png', x: 0, y: 326, w: 1200, h: 304 },
+    baslik:  { x: 80, y: 400, maxW: 1050, fontSize: 52, maxLines: 2 },
+    spot:    { x: 80, y: 475, maxW: 1050, fontSize: 28, maxLines: 2 },
+    kategori:{ x: 1178, y: 108, fontSize: 22, textAlign: 'right' },
+    tarih:   { x: 1178, y: 130, fontSize: 18, textAlign: 'right' },
   }
 }
 
