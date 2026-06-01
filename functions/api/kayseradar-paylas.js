@@ -20,21 +20,36 @@ export async function onRequestPost({ request, env }) {
     const sonuclar = {}
     const API_KEY  = env.RSS_API_KEY
 
+    // Render URL veya orijinal görsel — render tercih edilir
+    const renderKayit = kayit.creatomate?.find(r => r.url && r.status === 'succeeded')
+    const medyaUrl    = renderKayit?.url || kayit.gorsel_url || ''
+    const isVideo     = medyaUrl.includes('.mp4')
+
+    // Hesapları al — UI'dan geldiyse kullan, yoksa tüm hesapları kullan
+    let fbIds = fb_page_ids
+    let igIds = ig_ids
+    if (!fbIds.length || !igIds.length) {
+      const hesaplar = await env.HABERLER.get('meta_hesaplar', 'json') || {}
+      if (!fbIds.length) fbIds = (hesaplar.facebook || []).map(h => h.page_id)
+      if (!igIds.length) igIds = (hesaplar.instagram || []).map(h => h.ig_id)
+    }
+
     // ── FACEBOOK / INSTAGRAM ──────────────────────────────────────────────────
     if (platformlar.includes('facebook') || platformlar.includes('instagram')) {
       const metaPayload = {
-        gorsel_url:  kayit.gorsel_url || '',
-        metin:       platformlar.includes('facebook') ? kayit.fb_metni : kayit.ig_metni,
+        gorsel_url:  medyaUrl,
+        video_url:   isVideo ? medyaUrl : undefined,
+        metin:       platformlar.includes('instagram') ? kayit.ig_metni : kayit.fb_metni,
         baslik:      kayit.baslik,
         platform:    platformlar.includes('facebook') && platformlar.includes('instagram')
                        ? 'her_ikisi'
                        : platformlar.includes('facebook') ? 'facebook' : 'instagram',
-        fb_page_ids: fb_page_ids.length ? fb_page_ids : undefined,
-        ig_ids:      ig_ids.length      ? ig_ids      : undefined,
+        fb_page_ids: fbIds.length ? fbIds : undefined,
+        ig_ids:      igIds.length ? igIds : undefined,
         source_id:   id,
       }
 
-      if (kayit.gorsel_url) {
+      if (medyaUrl) {
         const metaRes  = await fetch('https://rdr.ist/api/meta-paylas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
@@ -54,7 +69,7 @@ export async function onRequestPost({ request, env }) {
         headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
         body: JSON.stringify({
           metin:     kayit.tw_metni || kayit.baslik,
-          gorselUrl: kayit.gorsel_url || undefined,
+          gorselUrl: isVideo ? undefined : medyaUrl, // video tweet'e eklenemiyor
         }),
       })
       try { const t = await twRes.text(); sonuclar.twitter = t ? JSON.parse(t) : { ok: true } }

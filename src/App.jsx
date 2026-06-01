@@ -2439,7 +2439,22 @@ function KayseradarModul({ user, onGeri }) {
               </div>
 
               {hata   && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
-              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı!</div>}
+              {pSonuc && (
+                <div style={{marginBottom:10,padding:'8px 12px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>
+                  <div style={{fontSize:12,color:'#00D4AA',fontWeight:600,marginBottom:4}}>✓ Paylaşım tamamlandı!</div>
+                  {pSonuc.meta?.facebook && Object.entries(pSonuc.meta.facebook).map(([pid,s])=>(
+                    <div key={pid} style={{fontSize:11,color:'var(--muted)'}}>
+                      FB: {s.post_id ? `✓ ${s.page_name||pid}` : `✗ ${s.hata||'hata'}`}
+                    </div>
+                  ))}
+                  {pSonuc.meta?.instagram && Object.entries(pSonuc.meta.instagram).map(([igid,s])=>(
+                    <div key={igid} style={{fontSize:11,color:'var(--muted)'}}>
+                      IG: {s.post_id ? `✓ @${s.username||igid}` : `✗ ${s.hata||'hata'}`}
+                    </div>
+                  ))}
+                  {pSonuc.twitter?.basarili && <div style={{fontSize:11,color:'var(--muted)'}}>𝕏: ✓ Tweet atıldı</div>}
+                </div>
+              )}
 
               <div style={{display:'flex',gap:8,marginTop:8}}>
                 <button onClick={sifirla} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
@@ -2544,7 +2559,22 @@ function KayseradarModul({ user, onGeri }) {
                 </button>
               </div>
 
-              {pSonuc && <div style={{marginBottom:10,fontSize:12,color:'#00D4AA',padding:'6px 10px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>✓ Paylaşım tamamlandı!</div>}
+              {pSonuc && (
+                <div style={{marginBottom:10,padding:'8px 12px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>
+                  <div style={{fontSize:12,color:'#00D4AA',fontWeight:600,marginBottom:4}}>✓ Paylaşım tamamlandı!</div>
+                  {pSonuc.meta?.facebook && Object.entries(pSonuc.meta.facebook).map(([pid,s])=>(
+                    <div key={pid} style={{fontSize:11,color:'var(--muted)'}}>
+                      FB: {s.post_id ? `✓ ${s.page_name||pid}` : `✗ ${s.hata||'hata'}`}
+                    </div>
+                  ))}
+                  {pSonuc.meta?.instagram && Object.entries(pSonuc.meta.instagram).map(([igid,s])=>(
+                    <div key={igid} style={{fontSize:11,color:'var(--muted)'}}>
+                      IG: {s.post_id ? `✓ @${s.username||igid}` : `✗ ${s.hata||'hata'}`}
+                    </div>
+                  ))}
+                  {pSonuc.twitter?.basarili && <div style={{fontSize:11,color:'var(--muted)'}}>𝕏: ✓ Tweet atıldı</div>}
+                </div>
+              )}
               {hata   && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
 
               <div style={{display:'flex',gap:6,marginTop:'1rem',paddingTop:'1rem',borderTop:'0.5px solid var(--border)'}}>
