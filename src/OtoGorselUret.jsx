@@ -190,12 +190,15 @@ async function gorselYukle(b64,sid,fmt){
 const PNG_ASSETS = {
   dikey: {
     w: 720, h: 1280,
-    ustBant:  { src: '/templates/ust-bant.png', x: 0, y: 0,   w: 720, h: 295 },
-    altBant:  { src: '/templates/alt-bant.png', x: 0, y: 778, w: 720, h: 502 },
+    // Orijinal PNG 1080px geniş → 720px canvas'a oran: 720/1080 = 0.667
+    ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,   w: 720, h: 295 },
+    altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 778, w: 720, h: 502 },
+    pil:      { src: '/templates/pil.png',       x: 499, y: 300, w: 163, h: 59 }, // bantın altına
+    tarihImg: { src: '/templates/tarih.png',     x: 500, y: 325, w: 165, h: 55 }, // bantın altına
     baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
     spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
-    kategori: { x: 700, y: 318, fontSize: 18, textAlign: 'right' },
-    tarih:    { x: 700, y: 342, fontSize: 15, textAlign: 'right' }
+    kategori: { x: 698, y: 318, fontSize: 20, textAlign: 'right' },
+    tarih:    { x: 698, y: 342, fontSize: 16, textAlign: 'right' }
   },
   yatay: {
     w: 1200, h: 630,
@@ -204,8 +207,8 @@ const PNG_ASSETS = {
     altBant:  { src: '/templates/yatayalt.png', x: 0, y: 326, w: 1200, h: 304 },
     baslik:   { x: 80,  y: 400, maxW: 1050, fontSize: 52, maxLines: 2 },
     spot:     { x: 80,  y: 475, maxW: 1050, fontSize: 28, maxLines: 2 },
-    kategori: { x: 980, y: 108, fontSize: 22 }, // bant altı sağ
-    tarih:    { x: 980, y: 133, fontSize: 18 }, // bant altı sağ
+    kategori: { x: 1178, y: 108, fontSize: 22, textAlign: 'right' },
+    tarih:    { x: 1178, y: 130, fontSize: 18, textAlign: 'right' }
   }
 }
 
@@ -213,13 +216,7 @@ const PNG_ASSETS = {
 const pngCache = {}
 async function loadPngAsset(src) {
   if (pngCache[src]) return pngCache[src]
-  const img = await new Promise(res => {
-    const i = new Image()
-    i.crossOrigin = 'anonymous'
-    i.onload = () => res(i)
-    i.onerror = () => { console.warn('PNG yüklenemedi:', src); res(null) }
-    i.src = src + '?v=' + Math.floor(Date.now()/3600000) // cache bust
-  })
+  const img = await loadImg(src, true)
   if (img) pngCache[src] = img
   return img
 }
@@ -260,19 +257,19 @@ async function renderPngFormat(fmt, haber) {
   grad.addColorStop(1, 'rgba(0,0,0,0.88)')
   ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h)
 
-  // 3. PNG katmanları — sıra önemli: önce alt/üst bantlar, sonra üstteki detaylar
-  for (const key of ['altBant', 'ustBant']) {
+  // 3. PNG katmanları
+  const layers = ['ustBant', 'altBant', 'pil', 'tarihImg'].filter(k => cfg[k])
+  for (const key of layers) {
     const layer = cfg[key]
-    if (!layer) continue
     const img = await loadPngAsset(layer.src)
     if (!img) continue
+    // Alt bant her zaman alt kenara yapışık
     if (key === 'altBant') {
       ctx.drawImage(img, layer.x, h - layer.h, layer.w, layer.h)
     } else {
       ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
     }
   }
-  // Pil/tarih PNG'leri kaldırıldı — sadece metin kullanılıyor
 
   // 4. Metinler
   const baslik   = haber.sosyal_baslik || haber.site_basligi || haber.baslik || ''
@@ -285,7 +282,6 @@ async function renderPngFormat(fmt, haber) {
   ctx.font = `700 ${km.fontSize}px Poppins,Arial`
   ctx.fillStyle = '#fff'
   ctx.textBaseline = 'alphabetic'
-  ctx.textAlign = km.textAlign || 'left'
   ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8
   ctx.fillText(kategori, km.x, km.y)
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
@@ -294,69 +290,54 @@ async function renderPngFormat(fmt, haber) {
   const tm = cfg.tarih
   ctx.font = `300 ${tm.fontSize}px Poppins,Arial`
   ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.textAlign = tm.textAlign || 'left'
   ctx.fillText(tarih, tm.x, tm.y)
-  ctx.textAlign = 'left'
 
-  // Alt bant başlangıcı — metinler buraya taşmamalı
-  const altBantY = cfg.altBant ? (h - cfg.altBant.h - 20) : h * 0.82
-  const PAD_BOTTOM = 30
-
-  // Spot — önce spot satırlarını hesapla (alttan yukarı layout)
-  const sm = cfg.spot
-  let sFontSize = sm.fontSize
-  const minSFont = sm.fontSize * 0.45
-  let sLines = []
-  if (spot) {
-    ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
-    sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
-    while (sFontSize > minSFont) {
-      ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
-      sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
-      if (sLines.length * sFontSize * 1.4 <= sm.fontSize * sm.maxLines * 1.5) break
-      sFontSize *= 0.92
-    }
-  }
-  const sLineH   = sFontSize * 1.38
-  const spotBlockH = sLines.length > 0 ? sLines.length * sLineH + sFontSize * 0.6 : 0
-
-  // Başlık — auto-size, spotun üstüne yerleş
+  // Başlık — auto-size
   const bm = cfg.baslik
   let bFontSize = bm.fontSize
   const minBFont = bm.fontSize * 0.5
   ctx.font = `700 ${bFontSize}px Poppins,Arial`
   let bLines = wrapText(ctx, baslik, bm.maxW, bm.maxLines)
+  // Font küçült — tüm satırlar sığana kadar
   while (bFontSize > minBFont) {
     ctx.font = `700 ${bFontSize}px Poppins,Arial`
     bLines = wrapText(ctx, baslik, bm.maxW, bm.maxLines)
-    if (bLines.length * bFontSize * 1.25 <= bm.fontSize * bm.maxLines * 1.35) break
+    const totalH = bLines.length * bFontSize * 1.25
+    if (totalH <= bm.fontSize * bm.maxLines * 1.35) break
     bFontSize *= 0.92
   }
-  const bLineH     = bFontSize * 1.28
-  const titleBlockH = bLines.length * bLineH
-
-  // Alttan yukarı hesapla
-  const totalBlockH = titleBlockH + spotBlockH
-  const blockBottom = altBantY - PAD_BOTTOM
-  const blockTop    = blockBottom - totalBlockH
-  const titleY      = blockTop + bFontSize * 0.9
-  const spotY       = blockTop + titleBlockH + sFontSize * 1.1
-
-  // Başlık çiz
+  const bLineH = bFontSize * 1.28
   ctx.font = `700 ${bFontSize}px Poppins,Arial`
   ctx.fillStyle = '#fff'
   ctx.shadowColor = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 1
-  bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, titleY + i * bLineH))
+  bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, bm.y + i * bLineH))
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
 
   // Sol kırmızı şerit
   const strW = Math.max(4, Math.round(w * 0.004))
   ctx.fillStyle = '#ED1C24'
-  ctx.fillRect(bm.x - strW - Math.round(w * 0.012), titleY - bFontSize * 0.85, strW, titleBlockH)
+  ctx.fillRect(bm.x - strW - Math.round(w * 0.012), bm.y - bFontSize * 0.85, strW, bLines.length * bLineH)
 
-  // Spot çiz
-  if (spot && sLines.length) {
+  // Spot — auto-size
+  if (spot) {
+    const sm = cfg.spot
+    let sFontSize = sm.fontSize
+    const minSFont = sm.fontSize * 0.45
     ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+    let sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
+    while (sFontSize > minSFont) {
+      ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+      sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
+      const totalH = sLines.length * sFontSize * 1.4
+      if (totalH <= sm.fontSize * sm.maxLines * 1.5) break
+      sFontSize *= 0.92
+    }
+    const sLineH = sFontSize * 1.38
+    // Başlığın hemen altına yerleştir
+    const spotY = bm.y + bLines.length * bLineH + sFontSize * 0.6
+
+    ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+    // Highlight arka plan
     ctx.globalAlpha = 0.45; ctx.fillStyle = '#ED1C24'
     sLines.forEach((ln, i) => {
       const lw = ctx.measureText(ln).width
