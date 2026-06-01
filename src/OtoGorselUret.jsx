@@ -193,12 +193,12 @@ const PNG_ASSETS = {
     // Orijinal PNG 1080px geniş → 720px canvas'a oran: 720/1080 = 0.667
     ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,   w: 720, h: 295 },
     altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 778, w: 720, h: 502 },
-    pil:      { src: '/templates/pil.png',       x: 499, y: 300, w: 163, h: 59 }, // bantın altına
-    tarihImg: { src: '/templates/tarih.png',     x: 500, y: 325, w: 165, h: 55 }, // bantın altına
+    pil:      { src: '/templates/pil.png',       x: 534, y: 296, w: 163, h: 59 }, // bant hemen altı sağ
+    tarihImg: { src: '/templates/tarih.png',     x: 532, y: 322, w: 165, h: 55 }, // bant hemen altı sağ
     baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
     spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
-    kategori: { x: 500, y: 318, fontSize: 20 }, // bant altı sağ
-    tarih:    { x: 500, y: 360, fontSize: 17 }, // bant altı sağ
+    kategori: { x: 544, y: 308, fontSize: 20, textAlign: 'left' }, // bant altı sağ
+    tarih:    { x: 544, y: 338, fontSize: 17, textAlign: 'left' }  // bant altı sağ
   },
   yatay: {
     w: 1200, h: 630,
@@ -282,6 +282,7 @@ async function renderPngFormat(fmt, haber) {
   ctx.font = `700 ${km.fontSize}px Poppins,Arial`
   ctx.fillStyle = '#fff'
   ctx.textBaseline = 'alphabetic'
+  ctx.textAlign = km.textAlign || 'left'
   ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8
   ctx.fillText(kategori, km.x, km.y)
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
@@ -290,7 +291,9 @@ async function renderPngFormat(fmt, haber) {
   const tm = cfg.tarih
   ctx.font = `300 ${tm.fontSize}px Poppins,Arial`
   ctx.fillStyle = 'rgba(255,255,255,0.85)'
+  ctx.textAlign = tm.textAlign || 'left'
   ctx.fillText(tarih, tm.x, tm.y)
+  ctx.textAlign = 'left'
 
   // Başlık — auto-size
   const bm = cfg.baslik
