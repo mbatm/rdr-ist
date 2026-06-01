@@ -135,21 +135,20 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         modifications = { 'kan-ilan.text': kanMetni }
 
       } else if (isMetinSablon) {
-        // Metin şablonları — video + baslik + aciklamayapan
-        // baslik = ifade eden, metin = açıklama
-        const ifadeEden  = baslik.trim()
-        const aciklama   = metinMetni || baslikMetni
+        // Metin şablonları — sadece baslik ve aciklamayapan
+        // Video-H2H şablonda sabit, dinamik değil — dokunmuyoruz
+        const ifadeEden = baslik.trim()
+        const aciklama  = metinMetni || baslikMetni
 
         modifications = {
-          'Video-H2H.source': mediaUrl || '',
-          'baslik.text':      aciklama,
-          'tarih.text':       tarihStr,
+          'baslik.text':  aciklama,
+          'tarih.text':   tarihStr,
         }
-        // İfade eden varsa göster, yoksa boş bırak (template gizler)
+        // İfade eden varsa göster, yoksa ekran dışına taşı
         if (ifadeEden) {
           modifications['aciklamayapan.text'] = ifadeEden
         } else {
-          modifications['aciklamayapan.x']    = '200%' // ekran dışına taşı
+          modifications['aciklamayapan.x'] = '200%'
         }
 
       } else {
