@@ -2086,14 +2086,14 @@ function KayseradarModul({ user, onGeri }) {
         for (const r of data.kayit.creatomate) {
           rv[r.format] = {
             render_id: r.render_id,
-            status:    r.url ? 'succeeded' : (r.status || 'planned'),
-            url:       r.url || null,
+            status:    r.status === 'succeeded' ? 'succeeded' : 'planned',
+            url:       r.status === 'succeeded' ? (r.url || null) : null, // status succeeded değilse URL'yi kullanma
             tip:       r.tip || 'video',
           }
         }
         setVideoRenders(rv)
-        // Henüz hazır olmayanları takip et
-        const bekleyenler = data.kayit.creatomate.filter(r => !r.url && r.status !== 'succeeded')
+        // Henüz succeeded olmayan hepsini takip et
+        const bekleyenler = data.kayit.creatomate.filter(r => r.status !== 'succeeded')
         if (bekleyenler.length) takipBaslat(bekleyenler, data.kayit.id)
       }
       setEkran('onay')
@@ -2112,7 +2112,7 @@ function KayseradarModul({ user, onGeri }) {
           const res  = await fetch(`/api/video-durum?render_id=${r.render_id}`)
           const data = await res.json()
           const renderUrl = data.url || data.render_url || null
-          if (data.status === 'succeeded' || renderUrl) {
+          if (data.status === 'succeeded' && renderUrl) {
             setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'succeeded', url: renderUrl } }))
             // Listedeki kaydı da güncelle
             setListe(prev => prev.map(li => li.render_id === r.render_id ? { ...li, render_url: renderUrl } : li))
@@ -2391,7 +2391,7 @@ function KayseradarModul({ user, onGeri }) {
               {/* Yayınla butonu — render hazırsa aktif */}
               {(() => {
                 const renderHazir = Object.keys(videoRenders).length === 0 ||
-                  Object.values(videoRenders).some(r => r.url && r.url.length > 10)
+                  Object.values(videoRenders).every(r => r.status === 'succeeded' && r.url)
                 return (
                   <button
                     onClick={()=>setEkran('yayinla')}
