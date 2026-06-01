@@ -1,6 +1,5 @@
 /**
  * GET /api/video-durum?render_id=xxx
- * Creatomate render durumunu döner — status: succeeded | failed | planned | rendering
  */
 export async function onRequestGet({ request, env }) {
   const url      = new URL(request.url)
@@ -8,6 +7,7 @@ export async function onRequestGet({ request, env }) {
   if (!renderId) return Response.json({ hata: 'render_id gerekli' }, { status: 400 })
 
   let render = null
+  let rawStatus = null
 
   // v2 dene
   try {
@@ -17,10 +17,11 @@ export async function onRequestGet({ request, env }) {
     if (res.ok) {
       const data = await res.json()
       render = Array.isArray(data) ? data[0] : data
+      rawStatus = render?.status
     }
   } catch(e) {}
 
-  // v2 bulamazsa v1 dene
+  // v1 dene
   if (!render) {
     try {
       const res = await fetch(`https://api.creatomate.com/v1/renders/${renderId}`, {
@@ -29,20 +30,24 @@ export async function onRequestGet({ request, env }) {
       if (res.ok) {
         const data = await res.json()
         render = Array.isArray(data) ? data[0] : data
+        rawStatus = render?.status
       }
     } catch(e) {}
   }
 
   if (!render) return Response.json({ hata: 'Render bulunamadı' }, { status: 404 })
 
-  // Gerçek status'u kullan — URL varsa succeeded saymıyoruz
-  const status  = render.status || 'planned' // Creatomate: planned | rendering | succeeded | failed
-  const renderUrl = (status === 'succeeded') ? (render.url || render.output_url || null) : null
+  // Creatomate status değerleri: planned | rendering | succeeded | failed
+  // SADECE succeeded ise URL ver
+  const succeeded = rawStatus === 'succeeded'
+  const renderUrl = succeeded ? (render.url || render.output_url || null) : null
 
   return Response.json({
-    status,
+    status:     rawStatus || 'planned',
+    succeeded,
     url:        renderUrl,
     render_url: renderUrl,
     progress:   render.progress || 0,
+    _debug:     { rawStatus, hasUrl: !!(render.url), renderId },
   })
 }

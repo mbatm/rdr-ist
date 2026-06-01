@@ -159,9 +159,24 @@ export async function onRequestPost({ request, env }) {
       if (!r.ok) throw new Error(`Görsel çekilemedi: ${gorselUrl}`)
       mediaIds.push(await mediaYukle(await r.arrayBuffer(), r.headers.get('content-type') || 'image/jpeg', creds))
     } else if (videoUrl) {
-      const r = await fetch(videoUrl)
-      if (!r.ok) throw new Error(`Video çekilemedi: ${videoUrl}`)
-      mediaIds.push(await mediaYukle(await r.arrayBuffer(), r.headers.get('content-type') || 'video/mp4', creds))
+      // Video için Cloudflare timeout sorunu — video boyutuna göre kontrol et
+      try {
+        const head = await fetch(videoUrl, { method: 'HEAD' })
+        const boyut = parseInt(head.headers.get('content-length') || '0')
+        const MAX = 15 * 1024 * 1024 // 15MB üstü timeout riski
+        if (boyut > MAX) {
+          // Büyük video — sadece metin tweet at, video linki ekle
+          console.warn(`Video çok büyük (${(boyut/1024/1024).toFixed(1)}MB), metin olarak tweet atılıyor`)
+          // mediaIds boş kalacak — sadece metin+link
+        } else {
+          const r = await fetch(videoUrl)
+          if (!r.ok) throw new Error(`Video çekilemedi: ${videoUrl}`)
+          mediaIds.push(await mediaYukle(await r.arrayBuffer(), r.headers.get('content-type') || 'video/mp4', creds))
+        }
+      } catch(e) {
+        console.warn('Video yüklenemedi, sadece metin:', e.message)
+        // mediaIds boş — sadece metin
+      }
     }
 
     const sonuc = await tweetAt(metin, mediaIds, creds)
