@@ -49,19 +49,19 @@ export async function onRequestPost({ request, env }) {
         } else if (gorsel_url) {
           let data
           if (kayserim_link) {
-            // Link post: resim + başlık tıklanınca kayserim.net'e gider
-            const res = await fetch(`https://graph.facebook.com/v19.0/${pid}/feed`, {
+            // Önce görseli yükle, sonra link ekle
+            // name/description/picture parametreleri URL sahibine özgü — kullanmıyoruz
+            const fotoRes = await fetch(`https://graph.facebook.com/v19.0/${pid}/photos`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
-                message: metin,
-                link: kayserim_link,
-                picture: gorsel_url,
-                name: (baslik||'').slice(0,100),
+                url: gorsel_url,
+                caption: metin + '\n\n' + kayserim_link,
+                published: true,
                 access_token: pToken,
               }),
             })
-            data = await res.json()
-            sonuclar.facebook[pid] = data.error ? { hata:data.error.message } : { ok:true, post_id:data.id, page_name:sayfa.page_name }
+            data = await fotoRes.json()
+            sonuclar.facebook[pid] = data.error ? { hata:data.error.message } : { ok:true, post_id:data.post_id||data.id, page_name:sayfa.page_name }
           } else {
             const res = await fetch(`https://graph.facebook.com/v19.0/${pid}/photos`, {
               method:'POST', headers:{'Content-Type':'application/json'},
