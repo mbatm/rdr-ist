@@ -190,15 +190,12 @@ async function gorselYukle(b64,sid,fmt){
 const PNG_ASSETS = {
   dikey: {
     w: 720, h: 1280,
-    // Koordinatlar JSON şablonundan: x%*720, y%*1280
-    ustBant:  { src: '/templates/ust-bant.png',  x: 0,   y: 0,   w: 720, h: 295 },
-    altBant:  { src: '/templates/alt-bant.png',  x: 0,   y: 778, w: 720, h: 502 },
-    pil:      { src: '/templates/pil.png',       x: 614, y: 238, w: 205, h: 81  },
-    tarihImg: { src: '/templates/tarih.png',     x: 615, y: 285, w: 208, h: 75  },
+    ustBant:  { src: '/templates/ust-bant.png', x: 0, y: 0,   w: 720, h: 295 },
+    altBant:  { src: '/templates/alt-bant.png', x: 0, y: 778, w: 720, h: 502 },
     baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
     spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
-    kategori: { x: 564, y: 225, fontSize: 18, textAlign: 'left' },
-    tarih:    { x: 577, y: 268, fontSize: 16, textAlign: 'left' }
+    kategori: { x: 700, y: 318, fontSize: 18, textAlign: 'right' },
+    tarih:    { x: 700, y: 342, fontSize: 15, textAlign: 'right' }
   },
   yatay: {
     w: 1200, h: 630,
@@ -275,15 +272,7 @@ async function renderPngFormat(fmt, haber) {
       ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
     }
   }
-  // Pil ve tarih görseli — üst bantten sonra çizilmeli
-  for (const key of ['pil', 'tarihImg']) {
-    const layer = cfg[key]
-    if (!layer) continue
-    const img = await loadPngAsset(layer.src)
-    if (!img) { console.warn(key, 'yüklenemedi'); continue }
-    console.log(key, 'çiziliyor:', layer.x, layer.y, layer.w, layer.h)
-    ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
-  }
+  // Pil/tarih PNG'leri kaldırıldı — sadece metin kullanılıyor
 
   // 4. Metinler
   const baslik   = haber.sosyal_baslik || haber.site_basligi || haber.baslik || ''
