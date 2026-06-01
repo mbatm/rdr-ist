@@ -190,15 +190,15 @@ async function gorselYukle(b64,sid,fmt){
 const PNG_ASSETS = {
   dikey: {
     w: 720, h: 1280,
-    // Orijinal PNG 1080px geniş → 720px canvas'a oran: 720/1080 = 0.667
-    ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,   w: 720, h: 295 },
-    altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 778, w: 720, h: 502 },
-    pil:      { src: '/templates/pil.png',       x: 537, y: 298, w: 163, h: 59 }, // bant hemen altı sağ kenara
-    tarihImg: { src: '/templates/tarih.png',     x: 536, y: 328, w: 165, h: 55 }, // tarih resmi altına
+    // Koordinatlar JSON şablonundan: x%*720, y%*1280
+    ustBant:  { src: '/templates/ust-bant.png',  x: 0,   y: 0,   w: 720, h: 295 },
+    altBant:  { src: '/templates/alt-bant.png',  x: 0,   y: 778, w: 720, h: 502 },
+    pil:      { src: '/templates/pil.png',       x: 614, y: 238, w: 205, h: 81  },
+    tarihImg: { src: '/templates/tarih.png',     x: 615, y: 285, w: 208, h: 75  },
     baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
     spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
-    kategori: { x: 548, y: 313, fontSize: 18, textAlign: 'left' },
-    tarih:    { x: 548, y: 345, fontSize: 16, textAlign: 'left' }
+    kategori: { x: 564, y: 225, fontSize: 18, textAlign: 'left' },
+    tarih:    { x: 577, y: 268, fontSize: 16, textAlign: 'left' }
   },
   yatay: {
     w: 1200, h: 630,
