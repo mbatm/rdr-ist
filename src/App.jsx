@@ -2030,6 +2030,9 @@ function KayseradarModul({ user, onGeri }) {
   const [hata,         setHata]       = useState(null)
   const [pSonuc,       setPSonuc]     = useState(null)
   const [videoRenders, setVideoRenders] = useState({})
+  const [hesaplar,     setHesaplar]     = useState({ facebook:[], instagram:[] })
+  const [secilenFb,    setSecilenFb]    = useState([])
+  const [secilenIg,    setSecilenIg]    = useState([])
   const fileRef = useRef(null)
   const token   = localStorage.getItem('cms_token') || ''
 
@@ -2041,7 +2044,10 @@ function KayseradarModul({ user, onGeri }) {
     } catch(e) { console.error(e) }
   }
 
-  useEffect(() => { listeYukle() }, [])
+  useEffect(() => {
+    listeYukle()
+    fetch('/api/hesaplar').then(r=>r.json()).then(d=>setHesaplar(d)).catch(()=>{})
+  }, [])
 
   // Dosya seç ve yükle
   const dosyaSec = async (files) => {
