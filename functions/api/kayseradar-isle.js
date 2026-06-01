@@ -135,20 +135,25 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         modifications = { 'kan-ilan.text': kanMetni }
 
       } else if (isMetinSablon) {
-        // Metin şablonları — sadece baslik ve aciklamayapan
+        // Metin şablonları — baslik + aciklama-yapan
         // Video-H2H şablonda sabit, dinamik değil — dokunmuyoruz
         const ifadeEden = baslik.trim()
         const aciklama  = metinMetni || baslikMetni
+
+        // Ekonomi: 'aciklama-yapan', Son Dakika: 'aciklamayapan'
+        const isEkonomi   = sablon === 'ekonomi_metin'
+        const aciklamaKey = isEkonomi ? 'aciklama-yapan' : 'aciklamayapan'
 
         modifications = {
           'baslik.text':  aciklama,
           'tarih.text':   tarihStr,
         }
-        // İfade eden varsa göster, yoksa ekran dışına taşı
+
         if (ifadeEden) {
-          modifications['aciklamayapan.text'] = ifadeEden
+          modifications[`${aciklamaKey}.text`] = ifadeEden
         } else {
-          modifications['aciklamayapan.x'] = '200%'
+          // İfade eden boşsa ekran dışına taşı
+          modifications[`${aciklamaKey}.x`] = '200%'
         }
 
       } else {
