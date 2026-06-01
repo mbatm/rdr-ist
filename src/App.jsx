@@ -1032,7 +1032,11 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
         headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5'), 'X-Kullanici': kullanici },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      if (!res.ok && res.status === 524) throw new Error('Twitter video yüklemesi zaman aşımına uğradı (524). Video 5MB'dan büyük olabilir — sadece metin atılabilir.')
+      const rawText = await res.text()
+      let data
+      try { data = JSON.parse(rawText) }
+      catch(e) { throw new Error(`Twitter yanıtı işlenemedi (${res.status}): ${rawText.slice(0,100)}`) }
       if (data.hata) throw new Error(data.hata)
       setSonuc(data)
       // paylasildi_tw flag

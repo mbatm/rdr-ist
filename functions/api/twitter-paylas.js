@@ -159,23 +159,23 @@ export async function onRequestPost({ request, env }) {
       if (!r.ok) throw new Error(`Görsel çekilemedi: ${gorselUrl}`)
       mediaIds.push(await mediaYukle(await r.arrayBuffer(), r.headers.get('content-type') || 'image/jpeg', creds))
     } else if (videoUrl) {
-      // Video için Cloudflare timeout sorunu — video boyutuna göre kontrol et
+      // Video için Cloudflare Pages 30sn timeout var — sadece küçük videolar
       try {
-        const head = await fetch(videoUrl, { method: 'HEAD' })
-        const boyut = parseInt(head.headers.get('content-length') || '0')
-        const MAX = 15 * 1024 * 1024 // 15MB üstü timeout riski
-        if (boyut > MAX) {
-          // Büyük video — sadece metin tweet at, video linki ekle
-          console.warn(`Video çok büyük (${(boyut/1024/1024).toFixed(1)}MB), metin olarak tweet atılıyor`)
-          // mediaIds boş kalacak — sadece metin+link
+        const head   = await fetch(videoUrl, { method: 'HEAD' })
+        const boyut  = parseInt(head.headers.get('content-length') || '0')
+        const MAX_MB = 5 * 1024 * 1024 // 5MB — güvenli limit
+        if (boyut > 0 && boyut > MAX_MB) {
+          console.warn(`Video ${(boyut/1024/1024).toFixed(1)}MB > 5MB, sadece metin tweet atılıyor`)
+          // mediaIds boş — video URL metne eklenecek
         } else {
           const r = await fetch(videoUrl)
-          if (!r.ok) throw new Error(`Video çekilemedi: ${videoUrl}`)
-          mediaIds.push(await mediaYukle(await r.arrayBuffer(), r.headers.get('content-type') || 'video/mp4', creds))
+          if (!r.ok) throw new Error(`Video çekilemedi: ${r.status}`)
+          const buf      = await r.arrayBuffer()
+          const mimeType = r.headers.get('content-type') || 'video/mp4'
+          mediaIds.push(await mediaYukle(buf, mimeType, creds))
         }
       } catch(e) {
-        console.warn('Video yüklenemedi, sadece metin:', e.message)
-        // mediaIds boş — sadece metin
+        console.warn('Video upload başarısız, sadece metin:', e.message)
       }
     }
 

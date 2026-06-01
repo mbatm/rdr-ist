@@ -157,8 +157,8 @@ Sadece JSON döndür, başka hiçbir şey yazma:
           creatomateRenders.push({
             format:    'dikey',
             render_id: render.id,
-            status:    render.status || (render.url ? 'succeeded' : 'planned'),
-            url:       render.url || null, // jpg snapshot anında URL dönebilir
+            status:    render.status || 'planned', // Creatomate'den gelen gerçek status
+            url:       render.status === 'succeeded' ? (render.url || null) : null, // sadece succeeded'da URL ver
             tip:       isVideo ? 'video' : 'gorsel',
             sablon:    sablon,
           })
