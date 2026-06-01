@@ -190,23 +190,25 @@ async function gorselYukle(b64,sid,fmt){
 const PNG_ASSETS = {
   dikey: {
     w: 720, h: 1280,
-    ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,    w: 720, h: 148 },
-    altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 1029, w: 720, h: 251 },
-    pil:      { src: '/templates/pil.png',       x: 530, y: 135, w: 174, h: 41 },
-    tarihImg: { src: '/templates/tarih.png',     x: 532, y: 155, w: 174, h: 38 },
-    baslik:   { x: 53,  y: 852, maxW: 623, fontSize: 50, maxLines: 3 },
-    spot:     { x: 53,  y: 980, maxW: 623, fontSize: 27, maxLines: 3 },
-    kategori: { x: 530, y: 125, fontSize: 22 },
-    tarih:    { x: 616, y: 170, fontSize: 19 },
+    // Orijinal PNG 1080px geniş → 720px canvas'a oran: 720/1080 = 0.667
+    ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,    w: 720, h: 295 }, // 443*0.667
+    altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 778,  w: 720, h: 502 }, // 753*0.667, alt hizalı
+    pil:      { src: '/templates/pil.png',       x: 499, y: 128, w: 163, h: 59 }, // 244*0.667, 88*0.667
+    tarihImg: { src: '/templates/tarih.png',     x: 500, y: 152, w: 165, h: 55 }, // 247*0.667, 82*0.667
+    baslik:   { x: 53,  y: 700, maxW: 640, fontSize: 50, maxLines: 3 },
+    spot:     { x: 53,  y: 820, maxW: 640, fontSize: 27, maxLines: 3 },
+    kategori: { x: 500, y: 122, fontSize: 20 },
+    tarih:    { x: 500, y: 168, fontSize: 17 },
   },
   yatay: {
     w: 1200, h: 630,
-    ustBant:  { src: '/templates/yatayust.png', x: 0, y: 0,   w: 1200, h: 130 },
-    altBant:  { src: '/templates/yatayalt.png', x: 0, y: 475, w: 1200, h: 155 },
-    baslik:   { x: 80,  y: 390, maxW: 1050, fontSize: 52, maxLines: 2 },
-    spot:     { x: 80,  y: 460, maxW: 1050, fontSize: 28, maxLines: 2 },
+    // Orijinal PNG 1920px geniş → 1200px canvas'a oran: 1200/1920 = 0.625
+    ustBant:  { src: '/templates/yatayust.png', x: 0, y: 0,   w: 1200, h: 130 }, // 208*0.625
+    altBant:  { src: '/templates/yatayalt.png', x: 0, y: 326, w: 1200, h: 304 }, // 486*0.625, alt hizalı
+    baslik:   { x: 80,  y: 400, maxW: 1050, fontSize: 52, maxLines: 2 },
+    spot:     { x: 80,  y: 475, maxW: 1050, fontSize: 28, maxLines: 2 },
     kategori: { x: 80,  y: 100, fontSize: 22 },
-    tarih:    { x: 80,  y: 128, fontSize: 18 },
+    tarih:    { x: 80,  y: 126, fontSize: 18 },
   }
 }
 
@@ -260,7 +262,13 @@ async function renderPngFormat(fmt, haber) {
   for (const key of layers) {
     const layer = cfg[key]
     const img = await loadPngAsset(layer.src)
-    if (img) ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
+    if (!img) continue
+    // Alt bant her zaman alt kenara yapışık
+    if (key === 'altBant') {
+      ctx.drawImage(img, layer.x, h - layer.h, layer.w, layer.h)
+    } else {
+      ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
+    }
   }
 
   // 4. Metinler
