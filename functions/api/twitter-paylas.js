@@ -159,14 +159,15 @@ export async function onRequestPost({ request, env }) {
       if (!r.ok) throw new Error(`Görsel çekilemedi: ${gorselUrl}`)
       mediaIds.push(await mediaYukle(await r.arrayBuffer(), r.headers.get('content-type') || 'image/jpeg', creds))
     } else if (videoUrl) {
-      // Video için Cloudflare Pages 30sn timeout var — sadece küçük videolar
+      // Video R2'den geliyor — Cloudflare timeout riski var
+      // Twitter video upload chunked INIT/APPEND/FINALIZE gerektirir
+      // 512MB'a kadar destekler ama Cloudflare 30sn timeout aşılabilir
       try {
         const head   = await fetch(videoUrl, { method: 'HEAD' })
         const boyut  = parseInt(head.headers.get('content-length') || '0')
-        const MAX_MB = 5 * 1024 * 1024 // 5MB — güvenli limit
+        const MAX_MB = 50 * 1024 * 1024 // 50MB — Twitter video limiti makul
         if (boyut > 0 && boyut > MAX_MB) {
-          console.warn(`Video ${(boyut/1024/1024).toFixed(1)}MB > 5MB, sadece metin tweet atılıyor`)
-          // mediaIds boş — video URL metne eklenecek
+          console.warn(`Video ${(boyut/1024/1024).toFixed(1)}MB > 50MB, sadece metin`)
         } else {
           const r = await fetch(videoUrl)
           if (!r.ok) throw new Error(`Video çekilemedi: ${r.status}`)

@@ -1143,27 +1143,22 @@ function ManuelGorselEkle({ selectedHaber, onGorselEklendi }) {
   const dosyaSec = async (file) => {
     setYukleniyor(true); setHata(null)
     try {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const b64 = e.target.result.split(',')[1]
-        const res = await fetch('/api/gorsel-yukle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: b64, source_id: selectedHaber?.source_id || 'manuel', format: `gorsel_${Date.now()}` }),
-        })
-        const data = await res.json()
-        if (data.url) {
-          setGorselUrl(data.url)
-          onGorselEklendi?.(data.url)
-          // selectedHaber'ı güncelle
-          if (selectedHaber) {
-            selectedHaber.gorsel_url = data.url
-            selectedHaber.gorsel     = data.url
-          }
-        } else { setHata(data.hata || 'Yükleme hatası') }
-        setYukleniyor(false)
-      }
-      reader.readAsDataURL(file)
+      // R2'ye multipart upload
+      const form = new FormData()
+      form.append('file', file)
+      form.append('source_id', selectedHaber?.source_id || `gorsel_${Date.now()}`)
+      form.append('tip', 'gorsel')
+      const res = await fetch('/api/medya-yukle', { method: 'POST', body: form })
+      const data = await res.json()
+      if (data.url) {
+        setGorselUrl(data.url)
+        onGorselEklendi?.(data.url)
+        if (selectedHaber) {
+          selectedHaber.gorsel_url = data.url
+          selectedHaber.gorsel     = data.url
+        }
+      } else { setHata(data.hata || 'Yükleme hatası') }
+      setYukleniyor(false)
     } catch(e) { setHata(e.message); setYukleniyor(false) }
   }
 
@@ -1984,39 +1979,38 @@ async function medyaBoyutOku(file, dataUrl) {
 }
 
 async function dosyaYukle(file, sourceId) {
-  return new Promise((resolve, reject) => {
+  const tip    = file.type.startsWith('video') ? 'video' : 'gorsel'
+  const dataUrl = await new Promise((res, rej) => {
     const reader = new FileReader()
-    reader.onload = async (e) => {
-      try {
-        const dataUrl = e.target.result
-        const base64  = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl
-        if (!base64) { reject(new Error('Dosya okunamadı — base64 boş')); return }
-        const format  = file.type.startsWith('video') ? 'video' : 'gorsel'
-
-        // Boyut bilgisini paralel al
-        const boyut = await medyaBoyutOku(file, dataUrl)
-
-        const res  = await fetch('/api/gorsel-yukle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: base64, source_id: sourceId, format: `${format}_${Date.now()}` }),
-        })
-        const data = await res.json()
-        if (data.url) resolve({
-          url:       data.url,
-          tip:       format,
-          adi:       file.name,
-          mime:      file.type,
-          dikey:     boyut.dikey,
-          genislik:  boyut.genislik,
-          yukseklik: boyut.yukseklik,
-        })
-        else reject(new Error(data.hata || 'Yükleme hatası'))
-      } catch(err) { reject(err) }
-    }
-    reader.onerror = () => reject(new Error('Dosya okunamadı'))
+    reader.onload  = e => res(e.target.result)
+    reader.onerror = () => rej(new Error('Dosya okunamadı'))
     reader.readAsDataURL(file)
   })
+
+  // Boyut bilgisi
+  const boyut = await medyaBoyutOku(file, dataUrl)
+
+  // R2'ye multipart upload — boyut sınırı yok
+  const form = new FormData()
+  form.append('file', file)
+  form.append('source_id', sourceId || `upload_${Date.now()}`)
+  form.append('tip', tip)
+
+  const res  = await fetch('/api/medya-yukle', { method: 'POST', body: form })
+  const data = await res.json()
+
+  if (!data.url) throw new Error(data.hata || 'Yükleme hatası')
+
+  return {
+    url:       data.url,
+    tip,
+    adi:       file.name,
+    mime:      file.type,
+    dikey:     boyut.dikey,
+    genislik:  boyut.genislik,
+    yukseklik: boyut.yukseklik,
+    boyutMB:   data.boyutMB,
+  }
 }
 
 function KayseradarModul({ user, onGeri }) {
