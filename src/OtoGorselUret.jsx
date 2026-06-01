@@ -190,10 +190,10 @@ async function gorselYukle(b64,sid,fmt){
 const PNG_ASSETS = {
   dikey: {
     w: 720, h: 1280,
-    ustBant:  { src: '/template/ust-bant.jpg',  x: 0, y: 0,    w: 720, h: 148 },
-    altBant:  { src: '/template/alt-bant.jpg',  x: 0, y: 1029, w: 720, h: 251 },
-    pil:      { src: '/template/pil.jpg',       x: 530, y: 135, w: 174, h: 41 },
-    tarihImg: { src: '/template/tarih.jpg',     x: 532, y: 155, w: 174, h: 38 },
+    ustBant:  { src: '/templates/ust-bant.png',  x: 0, y: 0,    w: 720, h: 148 },
+    altBant:  { src: '/templates/alt-bant.png',  x: 0, y: 1029, w: 720, h: 251 },
+    pil:      { src: '/templates/pil.png',       x: 530, y: 135, w: 174, h: 41 },
+    tarihImg: { src: '/templates/tarih.png',     x: 532, y: 155, w: 174, h: 38 },
     baslik:   { x: 53,  y: 852, maxW: 623, fontSize: 50, maxLines: 3 },
     spot:     { x: 53,  y: 980, maxW: 623, fontSize: 27, maxLines: 3 },
     kategori: { x: 530, y: 125, fontSize: 22 },
@@ -201,8 +201,8 @@ const PNG_ASSETS = {
   },
   yatay: {
     w: 1200, h: 630,
-    ustBant:  { src: '/template/yatayust.jpg', x: 0, y: 0,   w: 1200, h: 130 },
-    altBant:  { src: '/template/yatayalt.jpg', x: 0, y: 475, w: 1200, h: 155 },
+    ustBant:  { src: '/templates/yatayust.png', x: 0, y: 0,   w: 1200, h: 130 },
+    altBant:  { src: '/templates/yatayalt.png', x: 0, y: 475, w: 1200, h: 155 },
     baslik:   { x: 80,  y: 390, maxW: 1050, fontSize: 52, maxLines: 2 },
     spot:     { x: 80,  y: 460, maxW: 1050, fontSize: 28, maxLines: 2 },
     kategori: { x: 80,  y: 100, fontSize: 22 },
