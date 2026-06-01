@@ -69,7 +69,8 @@ export async function onRequestPost({ request, env }) {
         headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
         body: JSON.stringify({
           metin:     kayit.tw_metni || kayit.baslik,
-          gorselUrl: isVideo ? undefined : medyaUrl, // video tweet'e eklenemiyor
+          gorselUrl: isVideo ? undefined : medyaUrl,
+          videoUrl:  isVideo ? medyaUrl  : undefined,
         }),
       })
       try { const t = await twRes.text(); sonuclar.twitter = t ? JSON.parse(t) : { ok: true } }
