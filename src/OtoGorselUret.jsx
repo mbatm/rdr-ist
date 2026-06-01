@@ -184,6 +184,167 @@ async function gorselYukle(b64,sid,fmt){
   }catch{return null}
 }
 
+
+// ── PNG TABANLI RENDER — kayserim.net yeni şablon ────────────────────────────
+// JSON şablon koordinatları: 720x1280 (dikey), 1200x630 (yatay)
+const PNG_ASSETS = {
+  dikey: {
+    w: 720, h: 1280,
+    ustBant:  { src: '/kayserim/ust-bant.jpg',  x: 0, y: 0,    w: 720, h: 148 },
+    altBant:  { src: '/kayserim/alt-bant.jpg',  x: 0, y: 1029, w: 720, h: 251 },
+    pil:      { src: '/kayserim/pil.jpg',       x: 530, y: 135, w: 174, h: 41 },
+    tarihImg: { src: '/kayserim/tarih.jpg',     x: 532, y: 155, w: 174, h: 38 },
+    baslik:   { x: 53,  y: 852, maxW: 623, fontSize: 50, maxLines: 3 },
+    spot:     { x: 53,  y: 980, maxW: 623, fontSize: 27, maxLines: 3 },
+    kategori: { x: 530, y: 125, fontSize: 22 },
+    tarih:    { x: 616, y: 170, fontSize: 19 },
+  },
+  yatay: {
+    w: 1200, h: 630,
+    ustBant:  { src: '/kayserim/yatayust.jpg', x: 0, y: 0,   w: 1200, h: 130 },
+    altBant:  { src: '/kayserim/yatayalt.jpg', x: 0, y: 475, w: 1200, h: 155 },
+    baslik:   { x: 80,  y: 330, maxW: 1050, fontSize: 54, maxLines: 2 },
+    spot:     { x: 80,  y: 430, maxW: 1050, fontSize: 30, maxLines: 2 },
+    kategori: { x: 80,  y: 110, fontSize: 24 },
+    tarih:    { x: 80,  y: 140, fontSize: 20 },
+  }
+}
+
+// PNG asset cache
+const pngCache = {}
+async function loadPngAsset(src) {
+  if (pngCache[src]) return pngCache[src]
+  const img = await loadImg(src, true)
+  if (img) pngCache[src] = img
+  return img
+}
+
+async function renderPngFormat(fmt, haber) {
+  const cfg = fmt === 'yatay' ? PNG_ASSETS.yatay : PNG_ASSETS.dikey
+  const { w, h } = cfg
+
+  const cv = document.createElement('canvas')
+  cv.width = w; cv.height = h
+  const ctx = cv.getContext('2d')
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'
+
+  // 1. Arka plan görseli
+  const gUrl = haber.gorsel_url || haber.gorsel || ''
+  if (gUrl) {
+    const bg = await loadImg('/api/gorsel-proxy?url=' + encodeURIComponent(gUrl), true)
+    if (bg) {
+      await loadSmartCrop()
+      let sx=0, sy=0, sw=bg.width, sh=bg.height
+      if (window.SmartCrop) {
+        try {
+          const r = await window.SmartCrop.crop(bg, { width:w, height:h, minScale:0.8 })
+          const c = r.topCrop; sx=c.x; sy=c.y; sw=c.width; sh=c.height
+        } catch {}
+      }
+      if (!sw||!sh) { const s=Math.max(w/bg.width,h/bg.height); sx=(bg.width-w/s)/2; sy=(bg.height-h/s)/2; sw=w/s; sh=h/s }
+      ctx.drawImage(bg, sx, sy, sw, sh, 0, 0, w, h)
+    }
+  } else {
+    ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h)
+  }
+
+  // 2. Gradient overlay
+  const grad = ctx.createLinearGradient(0, h*0.15, 0, h)
+  grad.addColorStop(0, 'rgba(0,0,0,0)')
+  grad.addColorStop(0.45, 'rgba(0,0,0,0.45)')
+  grad.addColorStop(1, 'rgba(0,0,0,0.88)')
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h)
+
+  // 3. PNG katmanları
+  const layers = ['ustBant', 'altBant', 'pil', 'tarihImg'].filter(k => cfg[k])
+  for (const key of layers) {
+    const layer = cfg[key]
+    const img = await loadPngAsset(layer.src)
+    if (img) ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
+  }
+
+  // 4. Metinler
+  const baslik   = haber.sosyal_baslik || haber.site_basligi || haber.baslik || ''
+  const spot     = haber.ozet || ''
+  const tarih    = haber.tarih || new Date().toLocaleDateString('tr-TR')
+  const kategori = (haber.kategori || 'GÜNCEL').toUpperCase()
+
+  // Kategori
+  const km = cfg.kategori
+  ctx.font = `700 ${km.fontSize}px Poppins,Arial`
+  ctx.fillStyle = '#fff'
+  ctx.textBaseline = 'alphabetic'
+  ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8
+  ctx.fillText(kategori, km.x, km.y)
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+
+  // Tarih
+  const tm = cfg.tarih
+  ctx.font = `300 ${tm.fontSize}px Poppins,Arial`
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'
+  ctx.fillText(tarih, tm.x, tm.y)
+
+  // Başlık — auto-size
+  const bm = cfg.baslik
+  let bFontSize = bm.fontSize
+  const minBFont = bm.fontSize * 0.5
+  ctx.font = `700 ${bFontSize}px Poppins,Arial`
+  let bLines = wrapText(ctx, baslik, bm.maxW, bm.maxLines)
+  // Font küçült — tüm satırlar sığana kadar
+  while (bFontSize > minBFont) {
+    ctx.font = `700 ${bFontSize}px Poppins,Arial`
+    bLines = wrapText(ctx, baslik, bm.maxW, bm.maxLines)
+    const totalH = bLines.length * bFontSize * 1.25
+    if (totalH <= bm.fontSize * bm.maxLines * 1.35) break
+    bFontSize *= 0.92
+  }
+  const bLineH = bFontSize * 1.28
+  ctx.font = `700 ${bFontSize}px Poppins,Arial`
+  ctx.fillStyle = '#fff'
+  ctx.shadowColor = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 1
+  bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, bm.y + i * bLineH))
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+
+  // Sol kırmızı şerit
+  const strW = Math.max(4, Math.round(w * 0.004))
+  ctx.fillStyle = '#ED1C24'
+  ctx.fillRect(bm.x - strW - Math.round(w * 0.012), bm.y - bFontSize * 0.85, strW, bLines.length * bLineH)
+
+  // Spot — auto-size
+  if (spot) {
+    const sm = cfg.spot
+    let sFontSize = sm.fontSize
+    const minSFont = sm.fontSize * 0.45
+    ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+    let sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
+    while (sFontSize > minSFont) {
+      ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+      sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
+      const totalH = sLines.length * sFontSize * 1.4
+      if (totalH <= sm.fontSize * sm.maxLines * 1.5) break
+      sFontSize *= 0.92
+    }
+    const sLineH = sFontSize * 1.38
+    // Başlığın hemen altına yerleştir
+    const spotY = bm.y + bLines.length * bLineH + sFontSize * 0.6
+
+    ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+    // Highlight arka plan
+    ctx.globalAlpha = 0.45; ctx.fillStyle = '#ED1C24'
+    sLines.forEach((ln, i) => {
+      const lw = ctx.measureText(ln).width
+      ctx.fillRect(sm.x - sFontSize*0.3, spotY + i*sLineH - sFontSize*0.85, lw + sFontSize*0.6, sFontSize * 1.3)
+    })
+    ctx.globalAlpha = 1
+    ctx.fillStyle = '#fff'
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 1
+    sLines.forEach((ln, i) => ctx.fillText(ln, sm.x, spotY + i * sLineH))
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+  }
+
+  return cv.toDataURL('image/jpeg', 0.93)
+}
+
 // ── STORY RENDER — tamamen bağımsız ─────────────────────────────────────────
 async function renderStory(haber) {
   const W=1080,H=1920,BAND=130,PAD=54
@@ -506,7 +667,8 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
       for(const fmt of FORMATLAR){
         if(stop)break
         try{
-          const b64=await renderFormat(fmt,haber)
+          // PNG tabanlı yeni şablon kullan
+          const b64=await renderPngFormat(fmt==='instagram'?'dikey':fmt==='facebook'||fmt==='twitter'||fmt==='youtube'?'yatay':fmt, haber)
           if(b64){
             acc[fmt]=b64
             const url=await gorselYukle(b64,haber.source_id,fmt)
