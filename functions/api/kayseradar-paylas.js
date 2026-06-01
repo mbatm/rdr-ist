@@ -20,8 +20,8 @@ export async function onRequestPost({ request, env }) {
     const sonuclar = {}
     const API_KEY  = env.RSS_API_KEY
 
-    // Render URL veya orijinal görsel — render tercih edilir
-    const renderKayit = kayit.creatomate?.find(r => r.url && r.status === 'succeeded')
+    // Render URL veya orijinal görsel — URL varsa kullan (status fark etmez)
+    const renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
     const medyaUrl    = renderKayit?.url || kayit.gorsel_url || ''
     const isVideo     = medyaUrl.includes('.mp4')
 
