@@ -263,18 +263,26 @@ async function renderPngFormat(fmt, haber) {
   grad.addColorStop(1, 'rgba(0,0,0,0.88)')
   ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h)
 
-  // 3. PNG katmanları
-  const layers = ['ustBant', 'altBant', 'pil', 'tarihImg'].filter(k => cfg[k])
-  for (const key of layers) {
+  // 3. PNG katmanları — sıra önemli: önce alt/üst bantlar, sonra üstteki detaylar
+  for (const key of ['altBant', 'ustBant']) {
     const layer = cfg[key]
+    if (!layer) continue
     const img = await loadPngAsset(layer.src)
     if (!img) continue
-    // Alt bant her zaman alt kenara yapışık
     if (key === 'altBant') {
       ctx.drawImage(img, layer.x, h - layer.h, layer.w, layer.h)
     } else {
       ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
     }
+  }
+  // Pil ve tarih görseli — üst bantten sonra çizilmeli
+  for (const key of ['pil', 'tarihImg']) {
+    const layer = cfg[key]
+    if (!layer) continue
+    const img = await loadPngAsset(layer.src)
+    if (!img) { console.warn(key, 'yüklenemedi'); continue }
+    console.log(key, 'çiziliyor:', layer.x, layer.y, layer.w, layer.h)
+    ctx.drawImage(img, layer.x, layer.y, layer.w, layer.h)
   }
 
   // 4. Metinler
