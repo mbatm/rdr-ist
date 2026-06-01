@@ -298,52 +298,65 @@ async function renderPngFormat(fmt, haber) {
   ctx.fillText(tarih, tm.x, tm.y)
   ctx.textAlign = 'left'
 
-  // Başlık — auto-size
+  // Alt bant başlangıcı — metinler buraya taşmamalı
+  const altBantY = cfg.altBant ? (h - cfg.altBant.h - 20) : h * 0.82
+  const PAD_BOTTOM = 30
+
+  // Spot — önce spot satırlarını hesapla (alttan yukarı layout)
+  const sm = cfg.spot
+  let sFontSize = sm.fontSize
+  const minSFont = sm.fontSize * 0.45
+  let sLines = []
+  if (spot) {
+    ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+    sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
+    while (sFontSize > minSFont) {
+      ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
+      sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
+      if (sLines.length * sFontSize * 1.4 <= sm.fontSize * sm.maxLines * 1.5) break
+      sFontSize *= 0.92
+    }
+  }
+  const sLineH   = sFontSize * 1.38
+  const spotBlockH = sLines.length > 0 ? sLines.length * sLineH + sFontSize * 0.6 : 0
+
+  // Başlık — auto-size, spotun üstüne yerleş
   const bm = cfg.baslik
   let bFontSize = bm.fontSize
   const minBFont = bm.fontSize * 0.5
   ctx.font = `700 ${bFontSize}px Poppins,Arial`
   let bLines = wrapText(ctx, baslik, bm.maxW, bm.maxLines)
-  // Font küçült — tüm satırlar sığana kadar
   while (bFontSize > minBFont) {
     ctx.font = `700 ${bFontSize}px Poppins,Arial`
     bLines = wrapText(ctx, baslik, bm.maxW, bm.maxLines)
-    const totalH = bLines.length * bFontSize * 1.25
-    if (totalH <= bm.fontSize * bm.maxLines * 1.35) break
+    if (bLines.length * bFontSize * 1.25 <= bm.fontSize * bm.maxLines * 1.35) break
     bFontSize *= 0.92
   }
-  const bLineH = bFontSize * 1.28
+  const bLineH     = bFontSize * 1.28
+  const titleBlockH = bLines.length * bLineH
+
+  // Alttan yukarı hesapla
+  const totalBlockH = titleBlockH + spotBlockH
+  const blockBottom = altBantY - PAD_BOTTOM
+  const blockTop    = blockBottom - totalBlockH
+  const titleY      = blockTop + bFontSize * 0.9
+  const spotY       = blockTop + titleBlockH + sFontSize * 1.1
+
+  // Başlık çiz
   ctx.font = `700 ${bFontSize}px Poppins,Arial`
   ctx.fillStyle = '#fff'
   ctx.shadowColor = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 1
-  bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, bm.y + i * bLineH))
+  bLines.forEach((ln, i) => ctx.fillText(ln, bm.x, titleY + i * bLineH))
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
 
   // Sol kırmızı şerit
   const strW = Math.max(4, Math.round(w * 0.004))
   ctx.fillStyle = '#ED1C24'
-  ctx.fillRect(bm.x - strW - Math.round(w * 0.012), bm.y - bFontSize * 0.85, strW, bLines.length * bLineH)
+  ctx.fillRect(bm.x - strW - Math.round(w * 0.012), titleY - bFontSize * 0.85, strW, titleBlockH)
 
-  // Spot — auto-size
-  if (spot) {
-    const sm = cfg.spot
-    let sFontSize = sm.fontSize
-    const minSFont = sm.fontSize * 0.45
+  // Spot çiz
+  if (spot && sLines.length) {
     ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
-    let sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
-    while (sFontSize > minSFont) {
-      ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
-      sLines = wrapText(ctx, spot, sm.maxW, sm.maxLines)
-      const totalH = sLines.length * sFontSize * 1.4
-      if (totalH <= sm.fontSize * sm.maxLines * 1.5) break
-      sFontSize *= 0.92
-    }
-    const sLineH = sFontSize * 1.38
-    // Başlığın hemen altına yerleştir
-    const spotY = bm.y + bLines.length * bLineH + sFontSize * 0.6
-
-    ctx.font = `400 ${sFontSize}px "Open Sans",Arial`
-    // Highlight arka plan
     ctx.globalAlpha = 0.45; ctx.fillStyle = '#ED1C24'
     sLines.forEach((ln, i) => {
       const lw = ctx.measureText(ln).width
