@@ -2337,185 +2337,220 @@ function KayseradarModul({ user, onGeri }) {
             </div>
           )}
 
-          {/* ── ONAY & PAYLAŞIM ── */}
+          {/* ── ONAY — Render bekle ── */}
           {ekran==='onay' && onayKayit && (
-            <div style={{maxWidth:660}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:'1rem'}}>
-                <div style={{fontSize:14,fontWeight:600}}>Onay & Paylaşım</div>
-                <span style={{fontSize:11,color:onayKayit.durum==='yayinda'?'#00D4AA':'#FFB700',
-                  background:onayKayit.durum==='yayinda'?'rgba(0,212,170,.1)':'rgba(255,183,0,.1)',
-                  padding:'2px 8px',borderRadius:10,border:`0.5px solid ${onayKayit.durum==='yayinda'?'rgba(0,212,170,.3)':'rgba(255,183,0,.3)'}`}}>
-                  {onayKayit.durum==='yayinda'?'✓ Yayında':'⏳ Onay Bekliyor'}
-                </span>
-              </div>
-
-              {/* Başlık düzenle */}
-              <div style={{marginBottom:10}}>
+            <div style={{maxWidth:600}}>
+              {/* Başlık */}
+              <div style={{marginBottom:12}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
                 <input value={onayKayit.baslik} onChange={e=>onayGuncelle('baslik',e.target.value)}
                   style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
               </div>
 
-              {/* Render önizleme — görsel veya video */}
-              {Object.keys(videoRenders).length > 0 && (
-                <div style={{marginBottom:12}}>
-                  {Object.entries(videoRenders).map(([fmt,r])=>(
-                    <div key={fmt} style={{marginBottom:8}}>
-                      {r.url && (r.status==='succeeded' || r.url.length > 10) ? (
-                        <div style={{position:'relative'}}>
-                          {/\.(jpg|jpeg|png|webp)/i.test(r.url) ? (
-                            // Görsel önizleme
-                            <img src={r.url} alt="render"
-                              style={{width:'100%',maxHeight:300,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}
-                              onError={e=>e.target.style.display='none'}/>
-                          ) : (
-                            // Video önizleme — hazır olunca yükle
-                            <video src={r.url} controls preload="metadata"
-                              style={{width:'100%',maxHeight:300,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
-                          )}
-                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4,gap:6}}>
-                            <span style={{fontSize:10,color:'#00D4AA'}}>✓ {fmt==='dikey'?'Dikey':'Yatay'} hazır</span>
-                            <div style={{display:'flex',gap:4}}>
-                              <a href={r.url} target="_blank" rel="noreferrer"
-                                style={{fontSize:10,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'2px 8px',borderRadius:4}}>
-                                Aç →
-                              </a>
-                              <a href={r.url} download={r.tip==='gorsel'?'radar.jpg':'radar.mp4'} target="_blank"
-                                style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>
-                                ↓ İndir
-                              </a>
-                            </div>
+              {/* Render durumu */}
+              <div style={{marginBottom:16}}>
+                {Object.entries(videoRenders).map(([fmt,r])=>(
+                  <div key={fmt} style={{marginBottom:8}}>
+                    {r.url && r.url.length > 10 ? (
+                      <>
+                        {/\.mp4/i.test(r.url)
+                          ? <video src={r.url} controls preload="metadata" style={{width:'100%',maxHeight:340,borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}}/>
+                          : <img src={r.url} alt="render" style={{width:'100%',maxHeight:340,objectFit:'contain',borderRadius:'var(--radius-md)',border:'0.5px solid rgba(0,212,170,.3)',background:'#000'}} onError={e=>e.target.style.display='none'}/>
+                        }
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:4}}>
+                          <span style={{fontSize:11,color:'#00D4AA'}}>✓ Hazır</span>
+                          <div style={{display:'flex',gap:4}}>
+                            <a href={r.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'2px 8px',borderRadius:4}}>Aç →</a>
+                            <a href={r.url} download={/\.mp4/i.test(r.url)?'radar.mp4':'radar.jpg'} target="_blank" style={{fontSize:10,color:'#00D4AA',border:'0.5px solid rgba(0,212,170,.3)',padding:'2px 8px',borderRadius:4}}>↓ İndir</a>
                           </div>
                         </div>
-                      ) : r.status==='failed' ? (
-                        <div style={{fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>
-                          ✗ {fmt==='dikey'?'Dikey':'Yatay'} render başarısız
+                      </>
+                    ) : (
+                      <div style={{padding:'14px 16px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:10}}>
+                        <Ic n="loader-2" size={18} style={{color:'#FFB700'}}/>
+                        <div>
+                          <div style={{fontSize:13,color:'#FFB700',fontWeight:500}}>İşleniyor…</div>
+                          <div style={{fontSize:11,color:'rgba(255,183,0,.6)',marginTop:2}}>Hazır olunca "Yayınla" butonu aktif olacak</div>
                         </div>
-                      ) : (
-                        <div style={{fontSize:12,color:'#FFB700',padding:'8px 12px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8}}>
-                          <Ic n="loader-2" size={13}/> {fmt==='dikey'?'Dikey':'Yatay'} işleniyor…
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* Medya yoksa orijinal göster */}
+                {Object.keys(videoRenders).length === 0 && onayKayit.medyalar?.length > 0 && (
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {onayKayit.medyalar.map((m,i)=>(
+                      m.tip==='gorsel'
+                        ? <img key={i} src={m.url} alt="" style={{height:100,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                        : <video key={i} src={m.url} controls style={{height:120,borderRadius:'var(--radius-sm)'}}/>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-              {/* Orijinal medya önizleme — render yoksa */}
-              {Object.keys(videoRenders).length === 0 && onayKayit.medyalar?.length > 0 && (
-                <div style={{marginBottom:12,display:'flex',gap:8,flexWrap:'wrap'}}>
-                  {onayKayit.medyalar.map((m,i)=>(
-                    <div key={i}>
-                      {m.tip==='gorsel'
-                        ? <img src={m.url} alt="" style={{height:100,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
-                        : <div style={{height:80,width:120,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#ff7b7b'}}>
-                            <Ic n="player-play" size={18}/> Video
-                          </div>
-                      }
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Yayınla butonu — render hazırsa aktif */}
+              {(() => {
+                const renderHazir = Object.keys(videoRenders).length === 0 ||
+                  Object.values(videoRenders).some(r => r.url && r.url.length > 10)
+                return (
+                  <button
+                    onClick={()=>setEkran('yayinla')}
+                    disabled={!renderHazir}
+                    style={{
+                      fontSize:14, fontWeight:600, padding:'10px 20px',
+                      background: renderHazir ? 'rgba(0,212,170,.15)' : 'rgba(255,255,255,.05)',
+                      border: `0.5px solid ${renderHazir ? 'rgba(0,212,170,.4)' : 'var(--border)'}`,
+                      color: renderHazir ? '#00D4AA' : 'var(--muted)',
+                      cursor: renderHazir ? 'pointer' : 'not-allowed',
+                      display:'flex', alignItems:'center', gap:8, marginBottom:12,
+                    }}>
+                    <Ic n={renderHazir ? 'send' : 'loader-2'} size={14}/>
+                    {renderHazir ? 'Yayınla & Paylaş →' : 'Render bekleniyor…'}
+                  </button>
+                )
+              })()}
 
-              {/* Platform metinleri */}
-              {[['ig_metni','Instagram','#E1306C'],['tw_metni','Twitter/X','#1da1f2'],['fb_metni','Facebook','#4dabf7']].map(([alan,label,renk])=>(
-                <div key={alan} style={{marginBottom:10}}>
-                  <div style={{fontSize:11,color:renk,marginBottom:4}}>{label} metni</div>
-                  <textarea value={onayKayit[alan]||''} onChange={e=>onayGuncelle(alan,e.target.value)} rows={3}
-                    style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box',borderColor:`${renk}33`}}/>
-                  {alan==='tw_metni'&&<div style={{fontSize:10,color:(onayKayit[alan]||'').length>260?'#ff7b7b':'var(--muted)',textAlign:'right'}}>{(onayKayit[alan]||'').length}/280</div>}
-                </div>
-              ))}
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={sifirla} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                  <Ic n="plus" size={11}/> Yeni Giriş
+                </button>
+                <button onClick={()=>sil(onayKayit.id,false)} style={{fontSize:12,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
+                  <Ic n="trash" size={11}/> Sil
+                </button>
+              </div>
+            </div>
+          )}
 
-              {/* Hesap seçimi + Paylaşım */}
-              <div style={{padding:12,background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',marginBottom:12}}>
-                {/* FB hesap seçimi */}
+          {/* ── YAYINLA ── */}
+          {ekran==='yayinla' && onayKayit && (
+            <div style={{maxWidth:700,display:'flex',gap:'1.5rem',flexWrap:'wrap'}}>
+
+              {/* Sol — önizleme */}
+              <div style={{flex:'0 0 280px'}}>
+                <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Önizleme</div>
+                {Object.values(videoRenders).find(r=>r.url) ? (() => {
+                  const r = Object.values(videoRenders).find(r=>r.url)
+                  return /\.mp4/i.test(r.url)
+                    ? <video src={r.url} controls style={{width:'100%',borderRadius:'var(--radius-md)',border:'0.5px solid var(--border)'}}/>
+                    : <img src={r.url} alt="" style={{width:'100%',borderRadius:'var(--radius-md)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                })() : onayKayit.medyalar?.[0] && (
+                  onayKayit.medyalar[0].tip==='gorsel'
+                    ? <img src={onayKayit.medyalar[0].url} alt="" style={{width:'100%',borderRadius:'var(--radius-md)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                    : <video src={onayKayit.medyalar[0].url} controls style={{width:'100%',borderRadius:'var(--radius-md)'}}/>
+                )}
+                <div style={{marginTop:10,fontSize:13,fontWeight:500,lineHeight:1.4}}>{onayKayit.baslik}</div>
+              </div>
+
+              {/* Sağ — hesap seçimi + metinler + paylaş */}
+              <div style={{flex:1,minWidth:280}}>
+
+                {/* Hesap seçimi */}
                 {hesaplar.facebook?.length > 0 && (
-                  <div style={{marginBottom:8}}>
-                    <div style={{fontSize:10,color:'#4dabf7',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{marginBottom:12,padding:'10px 12px',background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                    <div style={{fontSize:11,color:'#4dabf7',marginBottom:6,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                       Facebook
-                      <button onClick={()=>setSecilenFb(hesaplar.facebook.map(h=>h.page_id))} style={{fontSize:9,background:'transparent',border:'none',color:'#4dabf7',cursor:'pointer'}}>Tümü</button>
-                      <button onClick={()=>setSecilenFb([])} style={{fontSize:9,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>Temizle</button>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={()=>setSecilenFb(hesaplar.facebook.map(h=>h.page_id))} style={{fontSize:9,background:'transparent',border:'none',color:'#4dabf7',cursor:'pointer'}}>Tümü</button>
+                        <button onClick={()=>setSecilenFb([])} style={{fontSize:9,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>Temizle</button>
+                      </div>
                     </div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
                       {hesaplar.facebook.map(h=>(
                         <label key={h.page_id} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,cursor:'pointer',
-                          padding:'3px 7px',borderRadius:4,
-                          background:secilenFb.includes(h.page_id)?'rgba(77,171,247,.12)':'transparent',
-                          border:`0.5px solid ${secilenFb.includes(h.page_id)?'rgba(77,171,247,.4)':'var(--border)'}`}}>
+                          padding:'4px 8px',borderRadius:4,
+                          background:secilenFb.includes(h.page_id)?'rgba(77,171,247,.15)':'transparent',
+                          border:`0.5px solid ${secilenFb.includes(h.page_id)?'rgba(77,171,247,.5)':'var(--border)'}`}}>
                           <input type="checkbox" style={{width:11,height:11}}
                             checked={secilenFb.includes(h.page_id)}
                             onChange={e=>setSecilenFb(p=>e.target.checked?[...p,h.page_id]:p.filter(x=>x!==h.page_id))}/>
-                          {h.page_name}
+                          <span style={{color:secilenFb.includes(h.page_id)?'#4dabf7':'var(--text)'}}>{h.page_name}</span>
                         </label>
                       ))}
                     </div>
                   </div>
                 )}
-                {/* IG hesap seçimi */}
+
                 {hesaplar.instagram?.length > 0 && (
-                  <div style={{marginBottom:8}}>
-                    <div style={{fontSize:10,color:'#E1306C',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{marginBottom:12,padding:'10px 12px',background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+                    <div style={{fontSize:11,color:'#E1306C',marginBottom:6,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                       Instagram
-                      <button onClick={()=>setSecilenIg(hesaplar.instagram.map(h=>h.ig_id))} style={{fontSize:9,background:'transparent',border:'none',color:'#E1306C',cursor:'pointer'}}>Tümü</button>
-                      <button onClick={()=>setSecilenIg([])} style={{fontSize:9,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>Temizle</button>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={()=>setSecilenIg(hesaplar.instagram.map(h=>h.ig_id))} style={{fontSize:9,background:'transparent',border:'none',color:'#E1306C',cursor:'pointer'}}>Tümü</button>
+                        <button onClick={()=>setSecilenIg([])} style={{fontSize:9,background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer'}}>Temizle</button>
+                      </div>
                     </div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
                       {hesaplar.instagram.map(h=>(
                         <label key={h.ig_id} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,cursor:'pointer',
-                          padding:'3px 7px',borderRadius:4,
-                          background:secilenIg.includes(h.ig_id)?'rgba(225,48,108,.12)':'transparent',
-                          border:`0.5px solid ${secilenIg.includes(h.ig_id)?'rgba(225,48,108,.4)':'var(--border)'}`}}>
+                          padding:'4px 8px',borderRadius:4,
+                          background:secilenIg.includes(h.ig_id)?'rgba(225,48,108,.15)':'transparent',
+                          border:`0.5px solid ${secilenIg.includes(h.ig_id)?'rgba(225,48,108,.5)':'var(--border)'}`}}>
                           <input type="checkbox" style={{width:11,height:11}}
                             checked={secilenIg.includes(h.ig_id)}
                             onChange={e=>setSecilenIg(p=>e.target.checked?[...p,h.ig_id]:p.filter(x=>x!==h.ig_id))}/>
-                          @{h.username}
+                          <span style={{color:secilenIg.includes(h.ig_id)?'#E1306C':'var(--text)'}}>@{h.username}</span>
                         </label>
                       ))}
                     </div>
                   </div>
                 )}
+
+                {/* Metinler */}
+                {[
+                  ['ig_metni','Instagram Metni','#E1306C'],
+                  ['fb_metni','Facebook Metni','#4dabf7'],
+                  ['tw_metni','Twitter/X Metni','#1da1f2'],
+                ].map(([alan,label,renk])=>(
+                  <div key={alan} style={{marginBottom:10}}>
+                    <div style={{fontSize:11,color:renk,marginBottom:3,fontWeight:500}}>{label}</div>
+                    <textarea value={onayKayit[alan]||''} onChange={e=>onayGuncelle(alan,e.target.value)}
+                      rows={alan==='ig_metni'?4:2}
+                      style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+                    {alan==='tw_metni' && <div style={{fontSize:10,color:(onayKayit[alan]||'').length>260?'#ff7b7b':'var(--muted)',textAlign:'right'}}>{(onayKayit[alan]||'').length}/280</div>}
+                  </div>
+                ))}
+
                 {/* Paylaş butonları */}
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',paddingTop:8,borderTop:'0.5px solid var(--border)'}}>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',paddingTop:10,borderTop:'0.5px solid var(--border)',marginTop:4}}>
                   {[['facebook','FB','#4dabf7'],['instagram','IG','#E1306C'],['twitter','𝕏','#1da1f2']].map(([p,l,renk])=>(
                     <button key={p} disabled={paylasiyor} onClick={()=>paylas(onayKayit,[p],secilenFb,secilenIg)}
-                      style={{fontSize:12,background:`${renk}11`,border:`0.5px solid ${renk}44`,color:renk,padding:'5px 10px'}}>
+                      style={{fontSize:12,padding:'6px 14px',background:`${renk}18`,border:`0.5px solid ${renk}55`,color:renk,fontWeight:500}}>
                       {paylasiyor?<Ic n="loader-2" size={11}/>:null} {l}
                     </button>
                   ))}
                   <button disabled={paylasiyor} onClick={()=>paylas(onayKayit,['facebook','instagram'],secilenFb,secilenIg)}
-                    style={{fontSize:12,background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',padding:'5px 10px'}}>
+                    style={{fontSize:12,padding:'6px 14px',background:'rgba(0,212,170,.12)',border:'0.5px solid rgba(0,212,170,.35)',color:'#00D4AA',fontWeight:500}}>
                     <Ic n="send" size={11}/> FB + IG
                   </button>
+                  <button disabled={paylasiyor} onClick={()=>paylas(onayKayit,['facebook','instagram','twitter'],secilenFb,secilenIg)}
+                    style={{fontSize:12,padding:'6px 14px',background:'rgba(255,255,255,.05)',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+                    Tümü
+                  </button>
                 </div>
-              </div>
 
-              {hata   && <div style={{marginBottom:10,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
-              {pSonuc && (
-                <div style={{marginBottom:10,padding:'8px 12px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>
-                  <div style={{fontSize:12,color:'#00D4AA',fontWeight:600,marginBottom:4}}>✓ Paylaşım tamamlandı!</div>
-                  {pSonuc.meta?.facebook && Object.entries(pSonuc.meta.facebook).map(([pid,s])=>(
-                    <div key={pid} style={{fontSize:11,color:'var(--muted)'}}>
-                      FB: {s.post_id ? `✓ ${s.page_name||pid}` : `✗ ${s.hata||'hata'}`}
-                    </div>
-                  ))}
-                  {pSonuc.meta?.instagram && Object.entries(pSonuc.meta.instagram).map(([igid,s])=>(
-                    <div key={igid} style={{fontSize:11,color:'var(--muted)'}}>
-                      IG: {s.post_id ? `✓ @${s.username||igid}` : `✗ ${s.hata||'hata'}`}
-                    </div>
-                  ))}
-                  {pSonuc.twitter?.basarili && <div style={{fontSize:11,color:'var(--muted)'}}>𝕏: ✓ Tweet atıldı</div>}
+                {/* Paylaşım sonucu */}
+                {hata && <div style={{marginTop:8,fontSize:12,color:'#ff7b7b',padding:'6px 10px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)'}}>{hata}</div>}
+                {pSonuc && (
+                  <div style={{marginTop:8,padding:'8px 12px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.3)',borderRadius:'var(--radius-sm)'}}>
+                    <div style={{fontSize:12,color:'#00D4AA',fontWeight:600,marginBottom:4}}>✓ Paylaşım tamamlandı!</div>
+                    {pSonuc.meta?.facebook && Object.entries(pSonuc.meta.facebook).map(([pid,s])=>(
+                      <div key={pid} style={{fontSize:11,color:'var(--muted)'}}>FB: {s.post_id?`✓ ${s.page_name||pid}`:`✗ ${s.hata||'hata'}`}</div>
+                    ))}
+                    {pSonuc.meta?.instagram && Object.entries(pSonuc.meta.instagram).map(([igid,s])=>(
+                      <div key={igid} style={{fontSize:11,color:'var(--muted)'}}>IG: {s.post_id?`✓ @${s.username||igid}`:`✗ ${s.hata||'hata'}`}</div>
+                    ))}
+                    {pSonuc.twitter?.basarili && <div style={{fontSize:11,color:'var(--muted)'}}>𝕏: ✓ Tweet atıldı</div>}
+                  </div>
+                )}
+
+                <div style={{display:'flex',gap:8,marginTop:12}}>
+                  <button onClick={()=>setEkran('onay')} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                    ← Geri
+                  </button>
+                  <button onClick={sifirla} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                    <Ic n="plus" size={11}/> Yeni Giriş
+                  </button>
                 </div>
-              )}
-
-              <div style={{display:'flex',gap:8,marginTop:8}}>
-                <button onClick={sifirla} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
-                  <Ic n="plus" size={11}/> Yeni Giriş
-                </button>
-                <button onClick={()=>sil(onayKayit.id,false)}
-                  style={{fontSize:12,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b'}}>
-                  <Ic n="trash" size={11}/> Sil
-                </button>
               </div>
             </div>
           )}
