@@ -2101,7 +2101,7 @@ function KayseradarModul({ user, onGeri }) {
 
   // Creatomate render takibi
   const takipBaslat = (renders, kadasId) => {
-    const bekleyenler = renders.filter(r => r.status !== 'succeeded')
+    const bekleyenler = renders.filter(r => r.status !== 'succeeded' && r.render_id && r.render_id !== 'null')
     if (!bekleyenler.length) return
     const interval = setInterval(async () => {
       let tumTamam = true
