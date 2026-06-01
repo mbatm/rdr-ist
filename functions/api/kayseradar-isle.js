@@ -145,15 +145,28 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         const aciklamaKey = isEkonomi ? 'aciklama-yapan' : 'aciklamayapan'
 
         modifications = {
-          'baslik.text':  aciklama,
-          'tarih.text':   tarihStr,
+          'baslik.text':       aciklama,
+          'baslik-92X.text':   aciklama, // ekonomi shadow layer
+          'baslik-4L7.text':   aciklama, // son dakika shadow layer
+          'tarih.text':        tarihStr,
         }
 
         if (ifadeEden) {
-          modifications[`${aciklamaKey}.text`] = ifadeEden
+          modifications[`${aciklamaKey}.text`]       = ifadeEden
+          // Shadow layerları da güncelle
+          if (isEkonomi) {
+            modifications['aciklama-yapan-7B5.text'] = ifadeEden
+          } else {
+            modifications['aciklamayapan-7XH.text']  = ifadeEden
+          }
         } else {
-          // İfade eden boşsa ekran dışına taşı
+          // İfade eden boşsa tüm layerları ekran dışına taşı
           modifications[`${aciklamaKey}.x`] = '200%'
+          if (isEkonomi) {
+            modifications['aciklama-yapan-7B5.x']    = '200%'
+          } else {
+            modifications['aciklamayapan-7XH.x']     = '200%'
+          }
         }
 
       } else {
