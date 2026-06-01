@@ -20,10 +20,44 @@ export async function onRequestPost({ request, env }) {
     const sonuclar = {}
     const API_KEY  = env.RSS_API_KEY
 
-    // Render URL veya orijinal görsel — URL varsa kullan (status fark etmez)
-    const renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
-    const medyaUrl    = renderKayit?.url || kayit.gorsel_url || ''
-    const isVideo     = medyaUrl.includes('.mp4')
+    // Render URL — önce KV'deki URL'ye bak, yoksa Creatomate'den direkt çek
+    let renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
+
+    // KV'de URL yoksa render_id ile Creatomate'den çek
+    if (!renderKayit) {
+      const bekleyen = kayit.creatomate?.find(r => r.render_id && !r.url)
+      if (bekleyen) {
+        try {
+          const crRes  = await fetch(`https://api.creatomate.com/v2/renders/${bekleyen.render_id}`, {
+            headers: { 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` }
+          })
+          if (crRes.ok) {
+            const crData = await crRes.json()
+            const render = Array.isArray(crData) ? crData[0] : crData
+            if (render.status === 'succeeded' && render.url) {
+              renderKayit = { ...bekleyen, url: render.url, status: 'succeeded' }
+              // KV'yi de güncelle
+              const guncellenmis = {
+                ...kayit,
+                creatomate: kayit.creatomate.map(r =>
+                  r.render_id === bekleyen.render_id ? { ...r, url: render.url, status: 'succeeded' } : r
+                )
+              }
+              await env.HABERLER.put(`radar:${id}`, JSON.stringify(guncellenmis))
+              // Liste kaydını da güncelle
+              const liste = await env.HABERLER.get('radar_liste', 'json') || []
+              const yeniListe = liste.map(li =>
+                li.id === id ? { ...li, render_url: render.url } : li
+              )
+              await env.HABERLER.put('radar_liste', JSON.stringify(yeniListe))
+            }
+          }
+        } catch(e) { console.warn('Render durum çekme hatası:', e.message) }
+      }
+    }
+
+    const medyaUrl = renderKayit?.url || kayit.gorsel_url || ''
+    const isVideo  = medyaUrl.includes('.mp4')
 
     // Hesapları al — UI'dan geldiyse kullan, yoksa tüm hesapları kullan
     let fbIds = fb_page_ids
