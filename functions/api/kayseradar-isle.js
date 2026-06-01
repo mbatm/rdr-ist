@@ -32,17 +32,18 @@ export async function onRequestPost({ request, env }) {
           role: 'user',
           content: `Sadece yazım ve imla hatalarını düzelt. Kelime değiştirme, cümle yapısı değiştirme, anlam ekleme veya çıkarma YAPMA. Noktalama işaretlerini düzelt.
 
-BAŞLIK: ${baslik || ''}
-METİN: ${metin || ''}
+BAŞLIK (ifade eden): ${baslik || ''}
+METİN (açıklama): ${metin || ''}
+ŞABLON: ${sablon}
 
 Sadece JSON döndür, başka hiçbir şey yazma:
 {
-  "duzeltilmis_baslik": "sadece imla düzeltilmiş başlık — kelime ekleme veya çıkarma yok",
-  "duzeltilmis_metin": "sadece imla düzeltilmiş metin — anlam değişikliği yok",
-  "instagram_metni": "başlık + metin aynen + #kayseradar #kayseri hashtag",
-  "twitter_metni": "başlık aynen, max 280 karakter",
-  "facebook_metni": "başlık + metin aynen",
-  "spot": "başlığın kendisi, max 15 kelime"
+  "duzeltilmis_baslik": "sadece imla düzeltilmiş başlık",
+  "duzeltilmis_metin": "sadece imla düzeltilmiş metin",
+  "instagram_metni": "${baslik ? baslik + '; ' : ''}metin aynen + #kayseradar #kayseri",
+  "twitter_metni": "${baslik ? baslik + '; ' : ''}metin aynen, max 280 karakter",
+  "facebook_metni": "${baslik ? baslik + '; ' : ''}metin aynen",
+  "spot": "metnin özü, max 15 kelime"
 }`,
         }],
       }),
@@ -90,6 +91,8 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'pati':         { video: '789cd38d-2cd1-4783-836d-0c22381a6d7b', gorsel: '49a6e9cb-a8a0-4db6-8500-0e2db1641f24' },
       'radar_yardim': { video: 'a63ab1d9-8417-4c69-87bf-42ed3eee7d53', gorsel: 'f39bcded-c7c0-4bf2-81d9-aa7331f5f925' },
       'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' }, // sadece image, video yok
+      'son_dakika_metin': { video: 'a0abb7e2-0c6b-4623-afc2-0498141bf81e' },
+      'ekonomi_metin':    { video: '3899e8d0-2aa7-49c5-b6bb-4a350b0b33fd' },
       // Henüz özel şablonu olmayan — fallback
       'genel':        { video: '348bec91-f26e-4184-92df-4b34d51c461d', gorsel: '7586e1f4-d6ab-409a-9995-c9a03d2647d1' },
     }
@@ -100,7 +103,8 @@ Sadece JSON döndür, başka hiçbir şey yazma:
     }
 
     let creatomateRenders = []
-    if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel || sablon === 'kan')) {
+    const isMetinSablon2 = sablon === 'son_dakika_metin' || sablon === 'ekonomi_metin'
+    if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel || sablon === 'kan' || isMetinSablon2)) {
       const tarihStr  = new Date().toLocaleDateString('tr-TR')
       const mediaUrl  = ilkVideo || ilkGorsel
       const isVideo   = !!ilkVideo
@@ -108,26 +112,54 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       // Şablonu belirle — görsel/video ayrı template
       const radarTpl   = RADAR_TEMPLATES[sablon]
       const templateId = (sablon === 'kan')
-        ? radarTpl?.gorsel                              // kan: her zaman gorsel template
-        : isVideo
-          ? (radarTpl?.video  || HABER_TEMPLATES.dikey)
-          : (radarTpl?.gorsel || HABER_TEMPLATES.dikey)
+        ? radarTpl?.gorsel
+        : isMetinSablon2
+          ? radarTpl?.video                             // metin şablonları: hep video template
+          : isVideo
+            ? (radarTpl?.video  || HABER_TEMPLATES.dikey)
+            : (radarTpl?.gorsel || HABER_TEMPLATES.dikey)
 
       // Modifikasyonlar — radar şablonu için
       const baslikMetni = (duzeltilmis.duzeltilmis_baslik || baslik || '').slice(0, 120)
       const metinMetni  = (duzeltilmis.duzeltilmis_metin  || metin  || '').slice(0, 300)
 
-      // Kan ilanı için özel modifikasyonlar
-      const isKan = sablon === 'kan'
-      const kanMetni = metinMetni || baslikMetni || 'Kan ilanı metni girilmedi'
-      console.log('Kan modif:', JSON.stringify({ isKan, kanMetni: kanMetni.slice(0,50) }))
-      const modifications = isKan ? {
-        'kan-ilan.text': kanMetni,
-      } : {
-        'video.source':    mediaUrl,
-        'baslik.text':     baslikMetni,
-        'baslik-X6C.text': baslikMetni,
-        'tarih.text':      tarihStr,
+      const isKan        = sablon === 'kan'
+      const isMetinSablon = sablon === 'son_dakika_metin' || sablon === 'ekonomi_metin'
+
+      // Modifikasyonları belirle
+      let modifications = {}
+
+      if (isKan) {
+        // Kan ilanı — sadece metin
+        const kanMetni = metinMetni || baslikMetni || 'Kan ilanı metni girilmedi'
+        modifications = { 'kan-ilan.text': kanMetni }
+
+      } else if (isMetinSablon) {
+        // Metin şablonları — video + baslik + aciklamayapan
+        // baslik = ifade eden, metin = açıklama
+        const ifadeEden  = baslik.trim()
+        const aciklama   = metinMetni || baslikMetni
+
+        modifications = {
+          'Video-H2H.source': mediaUrl || '',
+          'baslik.text':      aciklama,
+          'tarih.text':       tarihStr,
+        }
+        // İfade eden varsa göster, yoksa boş bırak (template gizler)
+        if (ifadeEden) {
+          modifications['aciklamayapan.text'] = ifadeEden
+        } else {
+          modifications['aciklamayapan.x']    = '200%' // ekran dışına taşı
+        }
+
+      } else {
+        // Normal şablonlar
+        modifications = {
+          'video.source':    mediaUrl,
+          'baslik.text':     baslikMetni,
+          'baslik-X6C.text': baslikMetni,
+          'tarih.text':      tarihStr,
+        }
       }
 
       try {

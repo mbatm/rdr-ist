@@ -1952,6 +1952,8 @@ const RADAR_SABLONLAR = [
   { id:'bulunmustur', label:'Bulunmuştur',   ic:'check-circle',   renk:'#00D4AA' },
   { id:'radar_yardim',label:'Radar Yardım',  ic:'heart-handshake',renk:'#4488FF' },
   { id:'sikayet',     label:'Şikayet',       ic:'message-report', renk:'#E63946' },
+  { id:'son_dakika_metin', label:'Son Dakika',   ic:'bolt',           renk:'#FF4500', metin_sablon:true },
+  { id:'ekonomi_metin',    label:'Ekonomi',      ic:'currency-lira',  renk:'#FFB700', metin_sablon:true },
 ]
 
 // Dosyayı base64'e çevirip yükle, public URL döndür
@@ -2270,30 +2272,50 @@ function KayseradarModul({ user, onGeri }) {
                 </div>
               </div>
 
-              {/* Başlık — kan ilanında gizle */}
-              {seciliSablon?.id !== 'kan' && (
-                <div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
-                  <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Haber başlığı..."
-                    style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
-                </div>
+              {/* Metin şablonları — son_dakika_metin, ekonomi_metin */}
+              {seciliSablon?.metin_sablon ? (
+                <>
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>İfade Eden <span style={{opacity:.6}}>(opsiyonel — örn: Cumhurbaşkanı Erdoğan)</span></div>
+                    <input value={baslik} onChange={e=>setBaslik(e.target.value)}
+                      placeholder="Cumhurbaşkanı Erdoğan, Bakan Şimşek..."
+                      style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Açıklama / Metin</div>
+                    <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows={5}
+                      placeholder="Açıklama metni..."
+                      style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Başlık — kan ilanında gizle */}
+                  {seciliSablon?.id !== 'kan' && (
+                    <div style={{marginBottom:10}}>
+                      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Başlık</div>
+                      <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Haber başlığı..."
+                        style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+                    </div>
+                  )}
+
+                  {/* Metin */}
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>
+                      {seciliSablon?.id === 'kan' ? 'Kan İlanı Metni' : 'Metin'}
+                    </div>
+                    <textarea value={metin} onChange={e=>setMetin(e.target.value)}
+                      rows={seciliSablon?.id === 'kan' ? 6 : 4}
+                      placeholder={seciliSablon?.id === 'kan'
+                        ? 'Hastane adı, kan grubu, iletişim numarası...'
+                        : 'Haber detayları...'}
+                      style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
+                  </div>
+                </>
               )}
 
-              {/* Metin */}
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>
-                  {seciliSablon?.id === 'kan' ? 'Kan İlanı Metni' : 'Metin'}
-                </div>
-                <textarea value={metin} onChange={e=>setMetin(e.target.value)}
-                  rows={seciliSablon?.id === 'kan' ? 6 : 4}
-                  placeholder={seciliSablon?.id === 'kan'
-                    ? 'Hastane adı, kan grubu, iletişim numarası...'
-                    : 'Haber detayları...'}
-                  style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
-              </div>
-
               {/* Medya yükleme — kan ilanında gizle */}
-              {seciliSablon?.id !== 'kan' && <div style={{marginBottom:14}}>
+              {seciliSablon?.id !== 'kan' && !seciliSablon?.metin_sablon && <div style={{marginBottom:14}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Görsel / Video Ekle</div>
                 <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:'none'}}
                   onChange={e=>dosyaSec(e.target.files)}/>
