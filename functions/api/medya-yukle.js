@@ -75,7 +75,7 @@ export async function onRequestPost({ request, env }) {
     // Public URL — R2 public bucket URL (Creatomate için direkt erişilebilir)
     const publicUrl = env.R2_PUBLIC_URL
       ? `${env.R2_PUBLIC_URL}/${key}`
-      : `https://pub-32335234789a400fb2dfd799a98dc5e0.r2.dev/${key}`
+      : `https://medya.rdr.ist/${key}`
 
     return Response.json({ ok: true, url: publicUrl, key, boyutMB: Math.round(boyutMB * 10) / 10 })
 
