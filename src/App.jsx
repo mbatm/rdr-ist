@@ -1569,6 +1569,22 @@ function Isleme({ content, processing, error, selectedHaber }) {
       </div>
       <Divider label="Sosyal medya görselleri" ic="photo"/>
       <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      {/* Galeri görselleri — kapak dışındakiler */}
+      {galeriGorseller.length > 1 && (
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Galeri ({galeriGorseller.length} görsel)</div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            {galeriGorseller.map((g,i)=>(
+              <div key={i} style={{position:'relative',width:64,height:64,borderRadius:'var(--radius-sm)',overflow:'hidden',
+                border:`1.5px solid ${g.kapak?'rgba(0,212,170,.6)':'var(--border)'}`}}>
+                <img src={g.url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}
+                  onError={e=>e.target.style.display='none'}/>
+                {g.kapak && <div style={{position:'absolute',top:2,left:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 4px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <Divider label="Paylaş" ic="send"/>
       <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders} galeriGorseller={galeriGorseller}/>
       <Divider label="X / Twitter" ic="brand-x"/>
