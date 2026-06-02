@@ -20,21 +20,15 @@ export async function onRequestPost({ request, env }) {
     const sonuclar = {}
     const API_KEY  = env.RSS_API_KEY
 
-    // Render URL — KV'den al, yoksa render_id'den Backblaze URL'sini tahmin et
-    let renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
+    // Render URL — KV'den al (polling tarafından yazılmış olmalı)
+    const renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
+    const medyaUrl    = renderKayit?.url || kayit.gorsel_url || ''
+    const isVideo     = medyaUrl.includes('.mp4')
 
-    // KV'de URL yoksa render_id'den Backblaze URL'sini oluştur (timeout yok)
-    if (!renderKayit) {
-      const bekleyen = kayit.creatomate?.find(r => r.render_id)
-      if (bekleyen) {
-        const ext = bekleyen.tip === 'video' ? 'mp4' : 'png'
-        const tahminiUrl = `https://f002.backblazeb2.com/file/creatomate-c8xg3hsxdu/${bekleyen.render_id}.${ext}`
-        renderKayit = { ...bekleyen, url: tahminiUrl }
-      }
+    console.log('Paylaşım medyaUrl:', medyaUrl, 'isVideo:', isVideo)
+    if (!medyaUrl) {
+      return Response.json({ hata: 'Render henüz hazır değil. Lütfen render tamamlanınca tekrar dene.' }, { status: 400 })
     }
-
-    const medyaUrl = renderKayit?.url || kayit.gorsel_url || ''
-    const isVideo  = medyaUrl.includes('.mp4')
 
     // Hesapları al — UI'dan geldiyse kullan, yoksa tüm hesapları kullan
     let fbIds = fb_page_ids

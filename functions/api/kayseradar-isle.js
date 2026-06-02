@@ -1,6 +1,37 @@
 // functions/api/kayseradar-isle.js
 // Kayseradar veri girişi — metin + medya al, Claude ile düzelt, KV'ye kaydet
 
+// PATCH — render URL güncelle
+export async function onRequestPatch({ request, env }) {
+  try {
+    const token = request.headers.get('X-Token')
+    if (!token) return Response.json({ hata: 'Token gerekli' }, { status: 401 })
+    const { id, render_id, render_url } = await request.json()
+    if (!id || !render_id || !render_url) return Response.json({ hata: 'id, render_id, render_url zorunlu' }, { status: 400 })
+
+    const kayit = await env.HABERLER.get(`radar:${id}`, 'json')
+    if (!kayit) return Response.json({ hata: 'Kayıt bulunamadı' }, { status: 404 })
+
+    // creatomate array'ini güncelle
+    const guncellenmis = {
+      ...kayit,
+      creatomate: (kayit.creatomate || []).map(r =>
+        r.render_id === render_id ? { ...r, url: render_url, status: 'succeeded' } : r
+      )
+    }
+    await env.HABERLER.put(`radar:${id}`, JSON.stringify(guncellenmis))
+
+    // Liste kaydını da güncelle
+    const liste = await env.HABERLER.get('radar_liste', 'json') || []
+    const yeniListe = liste.map(li => li.id === id ? { ...li, render_url } : li)
+    await env.HABERLER.put('radar_liste', JSON.stringify(yeniListe.slice(0, 200)))
+
+    return Response.json({ ok: true })
+  } catch(e) {
+    return Response.json({ hata: e.message }, { status: 500 })
+  }
+}
+
 export async function onRequestPost({ request, env }) {
   const token = request.headers.get('X-Token')
   if (!token) return Response.json({ hata: 'Token gerekli' }, { status: 401 })

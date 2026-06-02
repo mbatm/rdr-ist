@@ -2118,11 +2118,16 @@ function KayseradarModul({ user, onGeri }) {
             setListe(prev => prev.map(li => li.render_id === r.render_id ? { ...li, render_url: renderUrl } : li))
             // Detay ekranındaki kaydı güncelle
             setSecili(prev => prev ? { ...prev, creatomate: (prev.creatomate||[]).map(cr => cr.render_id===r.render_id ? {...cr, url:renderUrl, status:'succeeded'} : cr) } : prev)
-            // KV kaydını güncelle
-            setOnayKayit(p => p ? {
-              ...p,
-              [`video_${r.format}`]: { render_id: r.render_id, status: 'succeeded', url: data.url },
-            } : p)
+            // onayKayit güncelle
+            setOnayKayit(p => p ? { ...p, creatomate: (p.creatomate||[]).map(cr => cr.render_id===r.render_id ? {...cr, url:renderUrl, status:'succeeded'} : cr) } : p)
+            // KV'ye render URL yaz — paylaşımda kullanılacak
+            if (kadasId) {
+              fetch('/api/kayseradar-isle', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-Token': token },
+                body: JSON.stringify({ id: kadasId, render_id: r.render_id, render_url: renderUrl })
+              }).catch(e => console.warn('KV güncelleme:', e.message))
+            }
           } else if (data.status === 'failed') {
             setVideoRenders(p => ({ ...p, [r.format]: { ...p[r.format], status: 'failed' } }))
           } else {
