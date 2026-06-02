@@ -551,10 +551,10 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
 
 // ── META PAYLAŞIM ─────────────────────────────────────────────────────────
-function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={} }) {
+function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={}, galeriGorseller=[] }) {
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
-  const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
+  const [igTip,    setIgTip]   = useState(isVideo ? 'video' : (galeriGorseller.length > 1 ? 'carousel' : 'foto'))
   const [igStory,    setIgStory]    = useState(false)
   // story görseli — bileşen seviyesinde hesapla
   const storyGorselUrl = gorselUrls?.story ||
@@ -656,6 +656,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         ? (await fetch('/api/auth?token='+token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
         : 'editor'
       const metin = platform === 'instagram' ? igMetin : fbMetin
+      // Carousel: galeri görselleri (kapak hariç) URL listesi
+      const galeriUrls = galeriGorseller.filter(g=>!g.kapak).map(g=>g.url)
+      const isCarousel = platform === 'instagram' && tip === 'carousel' && galeriUrls.length > 0
+
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
         body: JSON.stringify({
@@ -666,6 +670,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           metin,
           platform,
           is_video:     tip === 'video',
+          is_carousel:  isCarousel,
+          galeri_urls:  isCarousel ? [gorselUrl, ...galeriUrls] : undefined,
           fb_page_ids:  secilenFb.length ? secilenFb : undefined,
           ig_ids:       secilenIg.length ? secilenIg : undefined,
           ig_story:     igStory,
@@ -715,12 +721,14 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
   const TipSec = ({ val, onChange, label }) => (
     <div style={{display:'flex',gap:4,marginBottom:8}}>
       <span style={{fontSize:11,color:'var(--muted)',marginRight:4}}>{label}:</span>
-      {[['foto','Fotoğraf'],['video','Video']].map(([v,l])=>(
-        <button key={v} onClick={()=>onChange(v)} disabled={v==='video'&&!isVideo}
+      {[['foto','Fotoğraf'],['video','Video'],['carousel','Galeri']].map(([v,l])=>(
+        <button key={v} onClick={()=>onChange(v)}
+          disabled={(v==='video'&&!isVideo)||(v==='carousel'&&galeriGorseller.length<2)}
           style={{fontSize:11,background:val===v?'rgba(24,119,242,.2)':'transparent',
             border:`0.5px solid ${val===v?'rgba(24,119,242,.4)':'var(--border)'}`,
-            color:val===v?'#4dabf7':'var(--muted)',opacity:v==='video'&&!isVideo?0.4:1}}>
-          {l}
+            color:val===v?'#4dabf7':'var(--muted)',
+            opacity:((v==='video'&&!isVideo)||(v==='carousel'&&galeriGorseller.length<2))?0.4:1}}>
+          {l}{v==='carousel'&&galeriGorseller.length>1?` (${galeriGorseller.length})`:''}
         </button>
       ))}
     </div>
@@ -1448,12 +1456,16 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const [gorselUrls,  setGUrls]    = useState({})
   const [videoRenders,setVRenders] = useState({})
   const [kaydediliyor,setKyd]      = useState(false)
+  const [galeriGorseller, setGaleri] = useState([]) // çoklu görsel
 
   useEffect(() => {
     if (content) {
       setEc({...content})
       setLink(content.kayserim_link || selectedHaber?.kayserim_link || '')
       setMode('edit'); setGUrls({})
+      // Mevcut görsel varsa galeri listesine ekle
+      const mevcutGorsel = selectedHaber?.gorsel_url || selectedHaber?.gorsel
+      setGaleri(mevcutGorsel ? [{ url: mevcutGorsel, kapak: true, adi: 'mevcut' }] : [])
       // KV'deki işlenmiş videoları yükle
       const vr = {}
       if (selectedHaber?.video_dikey) vr.dikey = { url: selectedHaber.video_dikey, snapshot: selectedHaber.video_dikey_snapshot }
@@ -1553,7 +1565,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Divider label="Sosyal medya görselleri" ic="photo"/>
       <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
       <Divider label="Paylaş" ic="send"/>
-      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
+      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders} galeriGorseller={galeriGorseller}/>
       <Divider label="X / Twitter" ic="brand-x"/>
       <TwitterPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
       <Divider label="YouTube" ic="brand-youtube"/>
@@ -1598,14 +1610,20 @@ function Isleme({ content, processing, error, selectedHaber }) {
       </div>
 
       {/* Manuel görsel ekleme */}
-      <ManuelGorselEkle selectedHaber={selectedHaber} onGorselEklendi={url=>{
-        if(selectedHaber) {
-          selectedHaber.gorsel_url = url
-          selectedHaber.gorsel     = url
-        }
-        // haberRef'i de güncelle ki OtoGorselUret yeni görseli görsün
-        if(refreshGorselRef) refreshGorselRef.current?.()
-      }}/>
+      <CokluGorselEkle
+        sourceId={selectedHaber?.source_id}
+        gorseller={galeriGorseller}
+        onGuncel={liste => {
+          setGaleri(liste)
+          // Kapak görseli editedHaber'a yaz
+          const kapak = liste.find(g=>g.kapak) || liste[0]
+          if (kapak && selectedHaber) {
+            selectedHaber.gorsel_url = kapak.url
+            selectedHaber.gorsel     = kapak.url
+          }
+          refreshGorselRef.current?.()
+        }}
+      />
 
       <Divider label="Sosyal medya metinleri" ic="share"/>
       <EField ec={ec} set={set} label="Instagram" field="instagram" multi rows={3}/>

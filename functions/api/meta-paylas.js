@@ -1,7 +1,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json()
-    const { gorsel_url, video_url, metin, platform = 'her_ikisi', is_video,
+    const { gorsel_url, video_url, metin, platform = 'her_ikisi', is_video, is_carousel, galeri_urls = [],
             fb_page_ids, ig_ids, fb_page_id, ig_id: reqIgId,
             source_id, baslik, ig_story, ig_story_gorsel, ig_kolabor,
             kayserim_link, video_dur } = body
@@ -80,8 +80,49 @@ export async function onRequestPost({ request, env }) {
       await Promise.all(secilenIgIds.map(async (igId) => {
         const sayfa = hesaplar.find(h=>String(h.ig_id)===String(igId)) || hesaplar[0]
 
+        // Carousel (çoklu görsel)
+        if (is_carousel && galeri_urls.length > 1) {
+          try {
+            // Her görsel için container oluştur
+            const containerIds = []
+            for (const imgUrl of galeri_urls) {
+              const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ image_url: imgUrl, is_carousel_item: true, access_token: userToken }),
+              })
+              const cData = await cRes.json()
+              if (!cData.error) containerIds.push(cData.id)
+            }
+            if (containerIds.length > 1) {
+              // Carousel container oluştur
+              const carRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({
+                  media_type: 'CAROUSEL',
+                  children: containerIds.join(','),
+                  caption: metin,
+                  access_token: userToken,
+                }),
+              })
+              const carData = await carRes.json()
+              if (!carData.error) {
+                await new Promise(r=>setTimeout(r,2000))
+                const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+                  method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ creation_id: carData.id, access_token: userToken }),
+                })
+                const pData = await pRes.json()
+                sonuclar.instagram[igId] = pData.error
+                  ? { hata: pData.error.message }
+                  : { ok:true, media_id: pData.id, ig_username: sayfa.ig_username, carousel: true }
+              } else {
+                sonuclar.instagram[igId] = { hata: carData.error.message }
+              }
+            }
+          } catch(e) { sonuclar.instagram[igId] = { hata: e.message } }
+        }
         // Feed post
-        if (is_video && video_url) {
+        else if (is_video && video_url) {
           const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
