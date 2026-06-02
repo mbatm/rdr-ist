@@ -1220,14 +1220,7 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
             </button>
           )}
           {gorseller.length > 0 && (
-            <button onClick={()=>{
-              // Tümünü silince orijinal varsa onu koy, yoksa boş bırak
-              if (orijinalGorsel) {
-                onGuncel([{url:orijinalGorsel, kapak:true, adi:'orijinal'}])
-              } else {
-                onGuncel([])
-              }
-            }}
+            <button onClick={()=>onGuncel([])}
               style={{fontSize:10,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',padding:'2px 8px',cursor:'pointer'}}>
               <Ic n="trash" size={10}/> Tümünü Sil
             </button>
@@ -1242,9 +1235,22 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
         onChange={e=>e.target.files.length&&yukle(e.target.files)}/>
 
       {gorseller.length === 0 ? (
-        <div onClick={()=>fileRef.current?.click()}
-          style={{border:'1px dashed var(--border)',borderRadius:'var(--radius-md)',padding:'20px',textAlign:'center',cursor:'pointer',color:'var(--muted)',fontSize:12}}>
-          <Ic n="photo-plus" size={20}/><div style={{marginTop:4}}>Görsel yükle veya tıkla</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          {orijinalGorsel && (
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)'}}>
+              <img src={orijinalGorsel} alt="" style={{width:48,height:36,objectFit:'cover',borderRadius:'var(--radius-sm)',flexShrink:0}}
+                onError={e=>e.target.style.display='none'}/>
+              <div style={{flex:1,fontSize:11,color:'var(--muted)'}}>RSS orijinal görsel</div>
+              <button onClick={()=>onGuncel([{url:orijinalGorsel,kapak:true,adi:'orijinal'}])}
+                style={{fontSize:10,color:'#FFB700',background:'rgba(255,183,0,.1)',border:'0.5px solid rgba(255,183,0,.3)',padding:'3px 8px',cursor:'pointer',borderRadius:3}}>
+                ↩ Geri Getir
+              </button>
+            </div>
+          )}
+          <div onClick={()=>fileRef.current?.click()}
+            style={{border:'1px dashed var(--border)',borderRadius:'var(--radius-md)',padding:'16px',textAlign:'center',cursor:'pointer',color:'var(--muted)',fontSize:12}}>
+            <Ic n="photo-plus" size={20}/><div style={{marginTop:4}}>Görsel yükle veya tıkla</div>
+          </div>
         </div>
       ) : (
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
