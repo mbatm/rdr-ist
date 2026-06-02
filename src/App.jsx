@@ -1729,11 +1729,16 @@ function Isleme({ content, processing, error, selectedHaber }) {
         orijinalGorsel={selectedHaber?.gorsel_url_orijinal || selectedHaber?.gorsel || null}
         onGuncel={liste => {
           setGaleri(liste)
-          // Kapak görseli editedHaber'a yaz
           const kapak = liste.find(g=>g.kapak) || liste[0]
-          if (kapak && selectedHaber) {
-            selectedHaber.gorsel_url = kapak.url
-            selectedHaber.gorsel     = kapak.url
+          if (selectedHaber) {
+            if (kapak) {
+              selectedHaber.gorsel_url = kapak.url
+              selectedHaber.gorsel     = kapak.url
+            } else {
+              // Tümü silindi — gorsel_url'yi orijinale çek veya sıfırla
+              const ori = selectedHaber.gorsel_url_orijinal || selectedHaber.gorsel
+              selectedHaber.gorsel_url = ori || ''
+            }
           }
           refreshGorselRef.current?.()
         }}
