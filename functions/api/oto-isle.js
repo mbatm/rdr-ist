@@ -156,7 +156,7 @@ async function isleHaber(haber, apiKey, strateji) {
     headers:{ 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01' },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2000,
+      max_tokens: 4000,
       system: 'Sadece geçerli JSON döndür. Başka hiçbir şey yazma.',
       messages:[{ role:'user', content: buildPrompt(haber, strateji) }]
     })
