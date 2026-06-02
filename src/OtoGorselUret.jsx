@@ -702,7 +702,7 @@ export default function OtoGorselUret({haber, onGorsellerHazir}){
       if(!stop){setBusy(false);onGorsellerHazir?.({items:acc,urls:urlAcc})}
     })()
     return()=>{stop=true}
-  },[haber?.source_id])
+  },[haber?.source_id, haber?.gorsel_url, haber?.gorsel])
 
   if(busy&&!Object.keys(items).length)
     return<div style={{padding:'10px 0',fontSize:12,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}><Ic n="loader-2" sz={14}/>Görseller hazırlanıyor…</div>

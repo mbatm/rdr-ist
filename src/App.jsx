@@ -1603,8 +1603,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
           selectedHaber.gorsel_url = url
           selectedHaber.gorsel     = url
         }
-        // Görsel değişince önizlemeyi yenile — gorselKey artacak
-        setGorselYeniKey?.(k => (k||0) + 1)
+        // haberRef'i de güncelle ki OtoGorselUret yeni görseli görsün
+        if(refreshGorselRef) refreshGorselRef.current?.()
       }}/>
 
       <Divider label="Sosyal medya metinleri" ic="share"/>
