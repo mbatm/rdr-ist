@@ -1220,7 +1220,14 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
             </button>
           )}
           {gorseller.length > 0 && (
-            <button onClick={()=>onGuncel([])}
+            <button onClick={()=>{
+              // Tümünü silince orijinal varsa onu koy, yoksa boş bırak
+              if (orijinalGorsel) {
+                onGuncel([{url:orijinalGorsel, kapak:true, adi:'orijinal'}])
+              } else {
+                onGuncel([])
+              }
+            }}
               style={{fontSize:10,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',padding:'2px 8px',cursor:'pointer'}}>
               <Ic n="trash" size={10}/> Tümünü Sil
             </button>
