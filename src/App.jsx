@@ -650,7 +650,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       const gorselUrl = gorselUrls?.[platform === 'facebook' ? 'facebook' : 'instagram'] ||
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-      const videoUrl = kvVideo?.dikey ||
+      // kvVideo.dikey obje olabilir — URL'yi çıkar
+      const videoUrl = (typeof kvVideo?.dikey === 'string' ? kvVideo?.dikey : kvVideo?.dikey?.url) ||
                       videoRenders?.dikey?.url ||
                       selectedHaber?.video_dikey ||
                       selectedHaber?.video || ''
@@ -662,8 +663,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         : 'editor'
       const metin = platform === 'instagram' ? igMetin : fbMetin
       // Carousel: galeri görselleri (kapak hariç) URL listesi
+      console.log('GALERI_STATE:', JSON.stringify(galeriGorseller))
       const galeriUrls = galeriGorseller.filter(g=>!g.kapak).map(g=>g.url)
-      const isCarousel = platform === 'instagram' && tip === 'carousel' && galeriUrls.length > 0
+      // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
+      const isCarousel = platform === 'instagram' && galeriUrls.length > 0
 
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
