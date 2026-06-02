@@ -229,7 +229,9 @@ async function renderPngFormat(fmt, haber) {
   // 1. Arka plan görseli
   const gUrl = haber.gorsel_url || haber.gorsel || ''
   if (gUrl) {
-    const bg = await loadImg('/api/gorsel-proxy?url=' + encodeURIComponent(gUrl), true)
+    // Tüm görseller proxy üzerinden — CORS sorununu çözer
+    const proxyUrl = gUrl.startsWith('/') ? gUrl : '/api/gorsel-proxy?url=' + encodeURIComponent(gUrl)
+    const bg = await loadImg(proxyUrl, true)
     if (bg) {
       await loadSmartCrop()
       let sx=0, sy=0, sw=bg.width, sh=bg.height
