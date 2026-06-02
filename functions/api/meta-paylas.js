@@ -77,7 +77,7 @@ export async function onRequestPost({ request, env }) {
     // ── INSTAGRAM FEED ────────────────────────────────────────────────────────
     if (platform === 'instagram' || platform === 'her_ikisi') {
       sonuclar.instagram = {}
-      for (const igId of secilenIgIds) {
+      await Promise.all(secilenIgIds.map(async (igId) => {
         const sayfa = hesaplar.find(h=>String(h.ig_id)===String(igId)) || hesaplar[0]
 
         // Feed post
@@ -91,9 +91,39 @@ export async function onRequestPost({ request, env }) {
             }),
           })
           const cData = await cRes.json()
-          sonuclar.instagram[igId] = cData.error
-            ? { hata:`Container(${cData.error.code}): ${cData.error.message}` }
-            : { bekliyor:true, container_id:cData.id, ig_username:sayfa.ig_username }
+          if (cData.error) {
+            sonuclar.instagram[igId] = { hata:`Container(${cData.error.code}): ${cData.error.message}` }
+          } else {
+            // Container hazır olana kadar bekle, sonra publish et
+            const containerId = cData.id
+            let published = false
+            for (let i = 0; i < 10; i++) {
+              await new Promise(r => setTimeout(r, 3000))
+              const statusRes = await fetch(
+                `https://graph.facebook.com/v19.0/${containerId}?fields=status_code&access_token=${userToken}`
+              )
+              const statusData = await statusRes.json()
+              if (statusData.status_code === 'FINISHED') {
+                const pRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+                  method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ creation_id: containerId, access_token: userToken }),
+                })
+                const pData = await pRes.json()
+                sonuclar.instagram[igId] = pData.error
+                  ? { hata: pData.error.message }
+                  : { ok:true, media_id: pData.id, ig_username: sayfa.ig_username }
+                published = true
+                break
+              } else if (statusData.status_code === 'ERROR') {
+                sonuclar.instagram[igId] = { hata: 'Video işleme hatası: ' + (statusData.status || 'ERROR') }
+                published = true
+                break
+              }
+            }
+            if (!published) {
+              sonuclar.instagram[igId] = { hata: 'Video işleme zaman aşımı — container: ' + containerId }
+            }
+          }
         } else if (gorsel_url) {
           const cRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
             method:'POST', headers:{'Content-Type':'application/json'},
@@ -147,7 +177,7 @@ export async function onRequestPost({ request, env }) {
             }
           }
         }
-      }
+      })) // end Promise.all
     }
 
     // Log kaydet
