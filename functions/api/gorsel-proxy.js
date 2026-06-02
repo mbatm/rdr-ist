@@ -16,8 +16,12 @@ export async function onRequestGet({ request }) {
     'cdn.1ha.com.tr',
     '1ha.com.tr',
     'rdr.ist',
+    'medya.rdr.ist',
     'kayserim.net',
     'www.kayserim.net',
+    'pub-32335234789a400fb2dfd799a98dc5e0.r2.dev',
+    'backblazeb2.com',
+    'f002.backblazeb2.com',
   ]
   const hostname = new URL(imageUrl).hostname
   if (!allowed.some(h => hostname === h || hostname.endsWith('.' + h))) {
