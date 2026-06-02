@@ -1132,17 +1132,23 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
 // ── MANUEL GÖRSEL EKLE (Kayserim.net modülü için) ────────────────────────────
 
 
-function GorselOnizleme({ editedHaber, onGorsellerHazir }) {
-  const [gorselKey, setGorselKey] = useState(editedHaber?.source_id)
+function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
+  const [gorselKey, setGorselKey] = useState(0)
+  const haberRef = useRef(editedHaber)
+  haberRef.current = editedHaber
+
+  // Dışarıdan tetikleme için callback
+  useEffect(() => { onSetRefresh?.(() => setGorselKey(k=>k+1)) }, [])
+
   return (
     <>
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:6}}>
-        <button onClick={()=>setGorselKey(editedHaber?.source_id + '_' + Date.now())}
+        <button onClick={()=>setGorselKey(k=>k+1)}
           style={{fontSize:11,color:'#FFB700',background:'rgba(255,183,0,.08)',border:'0.5px solid rgba(255,183,0,.3)',padding:'3px 10px',cursor:'pointer'}}>
           <Ic n="refresh" size={11}/> Görseli Yeniden Üret
         </button>
       </div>
-      <OtoGorselUret key={gorselKey} haber={editedHaber} onGorsellerHazir={onGorsellerHazir}/>
+      <OtoGorselUret key={`${editedHaber?.source_id}_${gorselKey}`} haber={haberRef.current} onGorsellerHazir={onGorsellerHazir}/>
     </>
   )
 }
@@ -1471,6 +1477,9 @@ function Isleme({ content, processing, error, selectedHaber }) {
     kayserim_link: link || selectedHaber.kayserim_link || '',
   } : null
 
+  const refreshGorselRef = useRef(null)
+  const setGorselYeniKey = (fn) => refreshGorselRef.current?.()
+
   const kaydet = async () => {
     setKyd(true)
     try {
@@ -1590,7 +1599,12 @@ function Isleme({ content, processing, error, selectedHaber }) {
 
       {/* Manuel görsel ekleme */}
       <ManuelGorselEkle selectedHaber={selectedHaber} onGorselEklendi={url=>{
-        if(selectedHaber) selectedHaber.gorsel_url = url
+        if(selectedHaber) {
+          selectedHaber.gorsel_url = url
+          selectedHaber.gorsel     = url
+        }
+        // Görsel değişince önizlemeyi yenile — gorselKey artacak
+        setGorselYeniKey?.(k => (k||0) + 1)
       }}/>
 
       <Divider label="Sosyal medya metinleri" ic="share"/>
@@ -1612,7 +1626,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
       )}
 
       <Divider label="Görsel önizleme" ic="photo"/>
-      <GorselOnizleme editedHaber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
+      <GorselOnizleme editedHaber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}
+        onSetRefresh={fn=>{ refreshGorselRef.current = fn }}/>
     </div>
   )
 }
