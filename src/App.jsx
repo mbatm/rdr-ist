@@ -554,7 +554,12 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={}, galeriGorseller=[] }) {
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
-  const [igTip,    setIgTip]   = useState(isVideo ? 'video' : (galeriGorseller.length > 1 ? 'carousel' : 'foto'))
+  const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
+  // Galeri görselleri 2+ olunca carousel'a geç
+  useEffect(() => {
+    if (!isVideo && galeriGorseller.length > 1) setIgTip('carousel')
+    else if (!isVideo && galeriGorseller.length <= 1) setIgTip('foto')
+  }, [galeriGorseller.length])
   const [igStory,    setIgStory]    = useState(false)
   // story görseli — bileşen seviyesinde hesapla
   const storyGorselUrl = gorselUrls?.story ||
