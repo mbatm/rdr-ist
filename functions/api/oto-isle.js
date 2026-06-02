@@ -224,7 +224,7 @@ export async function onRequestGet({ env, request }) {
           ...seo,
           source_id:haber.source_id, source_url:haber.source_url,
           baslik:haber.baslik, icerik:haber.icerik,
-          gorsel:haber.gorsel, gorsel_url:haber.gorsel, video:haber.video||'',
+          gorsel:haber.gorsel, gorsel_url:haber.gorsel, gorsel_url_orijinal:haber.gorsel, video:haber.video||'',
           tarih_iso:haber.tarih_iso, kaydedildi:new Date().toISOString(),
           kayserim_link:'', durum:'islendi'
         }

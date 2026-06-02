@@ -1169,7 +1169,7 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 }
 
 // ── ÇOKLU GÖRSEL YÜKLEYİCİ ────────────────────────────────────────────────────
-function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10 }) {
+function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, orijinalGorsel = null }) {
   const [yukleniyor, setYukleniyor] = useState(false)
   const [hata, setHata]             = useState(null)
   const fileRef = useRef(null)
@@ -1212,10 +1212,24 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10 })
     <div style={{marginBottom:'0.75rem'}}>
       <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <span>Görseller {gorseller.length > 0 && `(${gorseller.length})`}</span>
-        <button onClick={()=>fileRef.current?.click()} disabled={yukleniyor||gorseller.length>=maxGorsel}
-          style={{fontSize:10,background:'rgba(255,255,255,.06)',border:'0.5px solid var(--border)',color:'var(--muted)',padding:'2px 8px',cursor:'pointer'}}>
-          <Ic n={yukleniyor?'loader-2':'plus'} size={10}/> {yukleniyor?'Yükleniyor…':'Görsel Ekle'}
-        </button>
+        <div style={{display:'flex',gap:4}}>
+          {orijinalGorsel && gorseller.length > 0 && (
+            <button onClick={()=>onGuncel([{url:orijinalGorsel,kapak:true,adi:'orijinal'}])}
+              style={{fontSize:10,background:'rgba(255,183,0,.08)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700',padding:'2px 8px',cursor:'pointer'}}>
+              <Ic n="refresh" size={10}/> Orijinale Dön
+            </button>
+          )}
+          {gorseller.length > 0 && (
+            <button onClick={()=>onGuncel([])}
+              style={{fontSize:10,background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',padding:'2px 8px',cursor:'pointer'}}>
+              <Ic n="trash" size={10}/> Tümünü Sil
+            </button>
+          )}
+          <button onClick={()=>fileRef.current?.click()} disabled={yukleniyor||gorseller.length>=maxGorsel}
+            style={{fontSize:10,background:'rgba(255,255,255,.06)',border:'0.5px solid var(--border)',color:'var(--muted)',padding:'2px 8px',cursor:'pointer'}}>
+            <Ic n={yukleniyor?'loader-2':'plus'} size={10}/> {yukleniyor?'Yükleniyor…':'Görsel Ekle'}
+          </button>
+        </div>
       </div>
       <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:'none'}}
         onChange={e=>e.target.files.length&&yukle(e.target.files)}/>
@@ -1695,6 +1709,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <CokluGorselEkle
         sourceId={selectedHaber?.source_id}
         gorseller={galeriGorseller}
+        orijinalGorsel={selectedHaber?.gorsel || selectedHaber?.gorsel_url_orijinal || null}
         onGuncel={liste => {
           setGaleri(liste)
           // Kapak görseli editedHaber'a yaz
