@@ -1616,6 +1616,24 @@ function Isleme({ content, processing, error, selectedHaber }) {
         {selectedHaber?.kaynak==='manuel' && (
           <RssEkleButon sourceId={selectedHaber.source_id}/>
         )}
+        {/* Orijinale Dön — 1ha RSS haberleri için */}
+        {selectedHaber?.source_url && selectedHaber?.kaynak!=='manuel' && (
+          <button onClick={async ()=>{
+            if (!confirm('Tüm düzenlemeler silinecek, orijinal 1ha içeriğine dönülecek. Emin misiniz?')) return
+            setKyd(true)
+            try {
+              const res  = await fetch('/api/oto-isle?source_id='+encodeURIComponent(selectedHaber.source_id))
+              const data = await res.json()
+              if (data.hata) throw new Error(data.hata)
+              setEc({...data})
+              setLink(data.kayserim_link||'')
+            } catch(e) { console.error(e) }
+            setKyd(false)
+          }} disabled={kaydediliyor}
+            style={{fontSize:11,color:'#FFB700',background:'rgba(255,183,0,.08)',border:'0.5px solid rgba(255,183,0,.3)',whiteSpace:'nowrap',flexShrink:0}}>
+            <Ic n="refresh" size={11}/> Orijinale Dön
+          </button>
+        )}
       </div>
 
       <Divider label="SEO & web içeriği" ic="world"/>
