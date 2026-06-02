@@ -1496,6 +1496,10 @@ function Isleme({ content, processing, error, selectedHaber }) {
         setGaleri(selectedHaber.galeriMedyalar.map((m,i) => ({ ...m, kapak: m.kapak || i===0 })))
       } else {
         const mevcutGorsel = selectedHaber?.gorsel_url || selectedHaber?.gorsel
+        // gorsel_url_orijinal yoksa gorsel'i orijinal olarak kaydet
+        if (selectedHaber && !selectedHaber.gorsel_url_orijinal && selectedHaber.gorsel) {
+          selectedHaber.gorsel_url_orijinal = selectedHaber.gorsel
+        }
         setGaleri(mevcutGorsel ? [{ url: mevcutGorsel, kapak: true, adi: 'mevcut' }] : [])
       }
       // KV'deki işlenmiş videoları yükle
@@ -1716,7 +1720,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <CokluGorselEkle
         sourceId={selectedHaber?.source_id}
         gorseller={galeriGorseller}
-        orijinalGorsel={selectedHaber?.gorsel || selectedHaber?.gorsel_url_orijinal || null}
+        orijinalGorsel={selectedHaber?.gorsel_url_orijinal || selectedHaber?.gorsel || null}
         onGuncel={liste => {
           setGaleri(liste)
           // Kapak görseli editedHaber'a yaz
