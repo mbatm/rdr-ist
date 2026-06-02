@@ -96,7 +96,13 @@ SADECE şu JSON formatını döndür:
   "hedef_kelimeler": ["${katKw.split(',')[0].trim()}","kayseri son dakika","kayseri haber"],
   "kategori": "${kat}",
   "oncelik": "orta",
-  "gorsel_prompt": "realistic Turkish news photo, Kayseri Turkey, max 12 words"
+  "gorsel_prompt": "realistic Turkish news photo, Kayseri Turkey, max 12 words",
+  "alternatif_basliklar": [
+    "Merak uyandıran, soru veya sürpriz içeren 5-8 kelimelik başlık",
+    "Rakam veya çarpıcı detay öne çıkaran 5-8 kelimelik başlık",
+    "Duygusal bağ kuran veya yerel kimlik vurgulayan 5-8 kelimelik başlık"
+  ],
+  "optimize_icerik_kwh": "Orijinal metnin ünvanlarını, rakamlarını, özel isimleri değiştirmeden; hedef kelimeleri doğal biçimde metne yedirerek SEO optimize edilmiş 250-400 kelime Türk haber ajansı dili"
 }`
 }
 
@@ -167,8 +173,9 @@ async function isleHaber(haber, apiKey, strateji) {
 // ── ANA HANDLER ─────────────────────────────────────────────────────────────
 export async function onRequestGet({ env, request }) {
   try {
-    const url   = new URL(request.url)
-    const adet  = Math.min(parseInt(url.searchParams.get('adet')||'3'), 5)
+    const url      = new URL(request.url)
+    const sourceId = url.searchParams.get('source_id')
+    const adet     = Math.min(parseInt(url.searchParams.get('adet')||'3'), 5)
 
     // Ahrefs cache'i KV'den oku (varsa), yoksa fallback
     let strateji = STRATEJI_FALLBACK
@@ -186,6 +193,25 @@ export async function onRequestGet({ env, request }) {
     const items  = parseRSS(xml)
     let mevcut   = (await env.HABERLER.get('liste','json')) || []
     const mevcutIds = new Set(mevcut.map(h=>h.source_id))
+
+    // Tekil haber işleme (source_id ile)
+    if (sourceId) {
+      const hedefHaber = items.find(i=>i.source_id===sourceId)
+        || mevcut.find(h=>h.source_id===sourceId)
+      if (!hedefHaber) return Response.json({ hata:'Haber bulunamadı' }, { status:404 })
+      const seo = await isleHaber(hedefHaber, env.ANTHROPIC_API_KEY, strateji)
+      const kayit = {
+        ...seo,
+        source_id:hedefHaber.source_id, source_url:hedefHaber.source_url,
+        baslik:hedefHaber.baslik, icerik:hedefHaber.icerik,
+        gorsel:hedefHaber.gorsel, gorsel_url:hedefHaber.gorsel, video:hedefHaber.video||'',
+        tarih_iso:hedefHaber.tarih_iso, kaydedildi:new Date().toISOString(),
+        kayserim_link:hedefHaber.kayserim_link||'', durum:'islendi'
+      }
+      mevcut = [kayit, ...mevcut.filter(h=>h.source_id!==sourceId)].slice(0,200)
+      await env.HABERLER.put('liste', JSON.stringify(mevcut))
+      return Response.json(kayit)
+    }
 
     const yeniHaberler = items.filter(i=>!mevcutIds.has(i.source_id)).slice(0, adet)
     if (!yeniHaberler.length) return Response.json({ islendi:0, mesaj:'Yeni haber yok', kv_toplam:mevcut.length })
