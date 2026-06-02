@@ -2240,7 +2240,19 @@ function KayseradarModul({ user, onGeri }) {
                     <span style={{fontSize:10,color:item.durum==='yayinda'?'#00D4AA':'#FFB700',marginLeft:'auto'}}>{item.durum==='yayinda'?'✓ Yayında':'⏳ Bekliyor'}</span>
                   </div>
                   <div style={{fontSize:12,fontWeight:500,lineHeight:1.4,marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.baslik}</div>
-                  <div style={{fontSize:11,color:'var(--muted)'}}>{new Date(item.tarih).toLocaleString('tr-TR')}</div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:4}}>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>{new Date(item.tarih).toLocaleString('tr-TR')}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                      <span style={{fontSize:9,color:'rgba(255,255,255,0.25)',fontFamily:'monospace'}}>{item.id?.slice(-8)}</span>
+                      {item.render_url && (
+                        <a href={item.render_url} target="_blank" rel="noreferrer"
+                          onClick={e=>e.stopPropagation()}
+                          style={{fontSize:9,color:'#4488FF',border:'0.5px solid rgba(68,136,255,.3)',padding:'1px 5px',borderRadius:3,textDecoration:'none'}}>
+                          ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )

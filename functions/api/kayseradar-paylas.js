@@ -71,8 +71,9 @@ export async function onRequestPost({ request, env }) {
     // ── FACEBOOK / INSTAGRAM ──────────────────────────────────────────────────
     if (platformlar.includes('facebook') || platformlar.includes('instagram')) {
       const metaPayload = {
-        gorsel_url:  medyaUrl,
-        video_url:   isVideo ? medyaUrl : undefined,
+        gorsel_url:  isVideo ? undefined : medyaUrl,
+        video_url:   isVideo ? medyaUrl  : undefined,
+        is_video:    isVideo,
         metin:       platformlar.includes('instagram') ? kayit.ig_metni : kayit.fb_metni,
         baslik:      kayit.baslik,
         platform:    platformlar.includes('facebook') && platformlar.includes('instagram')
