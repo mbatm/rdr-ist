@@ -1470,9 +1470,13 @@ function Isleme({ content, processing, error, selectedHaber }) {
       setEc({...content})
       setLink(content.kayserim_link || selectedHaber?.kayserim_link || '')
       setMode('edit'); setGUrls({})
-      // Mevcut görsel varsa galeri listesine ekle
-      const mevcutGorsel = selectedHaber?.gorsel_url || selectedHaber?.gorsel
-      setGaleri(mevcutGorsel ? [{ url: mevcutGorsel, kapak: true, adi: 'mevcut' }] : [])
+      // Manuel haberden gelen galeri medyaları varsa onları kullan
+      if (selectedHaber?.galeriMedyalar?.length > 0) {
+        setGaleri(selectedHaber.galeriMedyalar.map((m,i) => ({ ...m, kapak: m.kapak || i===0 })))
+      } else {
+        const mevcutGorsel = selectedHaber?.gorsel_url || selectedHaber?.gorsel
+        setGaleri(mevcutGorsel ? [{ url: mevcutGorsel, kapak: true, adi: 'mevcut' }] : [])
+      }
       // KV'deki işlenmiş videoları yükle
       const vr = {}
       if (selectedHaber?.video_dikey) vr.dikey = { url: selectedHaber.video_dikey, snapshot: selectedHaber.video_dikey_snapshot }
@@ -3005,35 +3009,29 @@ function ManuelHaberModul({ user, onGeri }) {
 
   const KATEGORILER = ['Güncel','Asayiş','Spor','Ekonomi','Sağlık','Eğitim','Siyaset','Kültür','Turizm','Belediye Haberleri']
 
-  // Dosya yükle
+  // Dosya yükle — R2'ye multipart upload
   const dosyaSec = async (files) => {
     setYukM(true); setHata(null)
     const sid = `manuel_${Date.now()}`
     const yeni = []
     for (const file of Array.from(files)) {
       try {
-        const reader = new FileReader()
-        await new Promise((res,rej) => {
-          reader.onload = async (e) => {
-            try {
-              const b64  = e.target.result.split(',')[1]
-              const tip  = file.type.startsWith('video') ? 'video' : 'gorsel'
-              const r    = await fetch('/api/gorsel-yukle', {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ data:b64, source_id:sid, format:`${tip}_${Date.now()}` }),
-              })
-              const d = await r.json()
-              if (d.url) yeni.push({ url:d.url, tip, adi:file.name, mime:file.type })
-              else setHata(`${file.name}: ${d.hata||'Yükleme hatası'}`)
-              res()
-            } catch(err) { setHata(err.message); res() }
-          }
-          reader.onerror = () => { setHata('Dosya okunamadı'); res() }
-          reader.readAsDataURL(file)
-        })
+        const tip  = file.type.startsWith('video') ? 'video' : 'gorsel'
+        const form = new FormData()
+        form.append('file', file)
+        form.append('source_id', sid)
+        form.append('tip', tip)
+        const r = await fetch('/api/medya-yukle', { method:'POST', body:form })
+        const d = await r.json()
+        if (d.url) yeni.push({ url:d.url, tip, adi:file.name, mime:file.type, boyutMB:d.boyutMB })
+        else setHata(`${file.name}: ${d.hata||'Yükleme hatası'}`)
       } catch(e) { setHata(e.message) }
     }
-    setMedyalar(p => [...p, ...yeni])
+    setMedyalar(p => {
+      const tumu = [...p, ...yeni.map((m,i) => ({ ...m, kapak: p.length===0 && i===0 }))]
+      if (!tumu.some(x=>x.kapak) && tumu.length > 0) tumu[0].kapak = true
+      return tumu
+    })
     setYukM(false)
   }
 
@@ -3051,7 +3049,13 @@ function ManuelHaberModul({ user, onGeri }) {
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setSonuc(data.kayit)
+      // Medyaları kayite ekle — galeri paylaşımı için
+      const kayitWithMedia = {
+        ...data.kayit,
+        gorsel_url: medyalar.find(m=>m.kapak&&m.tip==='gorsel')?.url || medyalar.find(m=>m.tip==='gorsel')?.url || data.kayit.gorsel_url,
+        galeriMedyalar: medyalar,
+      }
+      setSonuc(kayitWithMedia)
       // Video render takibi
       if (data.kayit.creatomate?.length) {
         const rv = {}
@@ -3165,16 +3169,23 @@ function ManuelHaberModul({ user, onGeri }) {
                 {medyalar.length > 0 && (
                   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                     {medyalar.map((m,i)=>(
-                      <div key={i} style={{position:'relative'}}>
+                      <div key={i} style={{position:'relative',width:80}}>
                         {m.tip==='gorsel'
-                          ? <img src={m.url} alt="" style={{width:80,height:60,objectFit:'cover',borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                          ? <img src={m.url} alt="" style={{width:80,height:60,objectFit:'cover',borderRadius:'var(--radius-sm)',
+                              border:`1.5px solid ${m.kapak?'rgba(0,212,170,.6)':'var(--border)'}`}} onError={e=>e.target.style.display='none'}/>
                           : <div style={{width:80,height:60,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                               <Ic n="player-play" size={18} style={{color:'#ff7b7b'}}/>
                             </div>
                         }
-                        <div style={{fontSize:9,color:'var(--muted)',textAlign:'center',marginTop:2,width:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.adi}</div>
-                        <button onClick={()=>setMedyalar(p=>p.filter((_,j)=>j!==i))}
-                          style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#E63946',border:'none',color:'#fff',fontSize:9,cursor:'pointer',padding:0}}>×</button>
+                        {m.kapak && <div style={{position:'absolute',top:2,left:2,fontSize:7,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 3px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
+                        <div style={{display:'flex',gap:1,marginTop:2}}>
+                          {!m.kapak && m.tip==='gorsel' && (
+                            <button onClick={()=>setMedyalar(p=>p.map((x,j)=>({...x,kapak:j===i})))} title="Kapak yap"
+                              style={{flex:1,fontSize:8,border:'none',background:'rgba(0,212,170,.15)',color:'#00D4AA',cursor:'pointer',borderRadius:2,padding:'1px 0'}}>★</button>
+                          )}
+                          <button onClick={()=>setMedyalar(p=>{const f=p.filter((_,j)=>j!==i);if(f.length&&!f.some(x=>x.kapak))f[0].kapak=true;return f})}
+                            style={{flex:1,fontSize:8,border:'none',background:'rgba(230,57,70,.15)',color:'#ff7b7b',cursor:'pointer',borderRadius:2,padding:'1px 0'}}>✕</button>
+                        </div>
                       </div>
                     ))}
                   </div>
