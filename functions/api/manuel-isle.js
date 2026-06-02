@@ -58,7 +58,13 @@ SADECE şu JSON formatını döndür:
   "youtube_aciklama": "250-300 karakter özet. Sonuna 'Detaylar için: [LINK]'",
   "hedef_kelimeler": ["kelime1","kelime2","kelime3"],
   "kategori": "${kategori}",
-  "gorsel_prompt": "realistic Turkish news photo, Kayseri Turkey, max 12 words"
+  "gorsel_prompt": "realistic Turkish news photo, Kayseri Turkey, max 12 words",
+  "alternatif_basliklar": [
+    "Merak uyandıran, soru veya sürpriz içeren 5-8 kelimelik başlık",
+    "Rakam veya çarpıcı detay öne çıkaran 5-8 kelimelik başlık",
+    "Duygusal bağ kuran veya yerel kimlik vurgulayan 5-8 kelimelik başlık"
+  ],
+  "optimize_icerik_kwh": "Orijinal metnin ünvanlarını, rakamlarını, özel isimleri değiştirmeden; hedef kelimeleri doğal biçimde metne yedirerek SEO optimize edilmiş 250-400 kelime Türk haber ajansı dili"
 }`
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -160,6 +166,8 @@ SADECE şu JSON formatını döndür:
       video_yatay:      creatomateRenders.find(r=>r.format==='yatay')||null,
       // Claude SEO çıktısı — oto-isle ile aynı alan adları
       site_basligi:     icerik.site_basligi      || baslik || '',
+      alternatif_basliklar: icerik.alternatif_basliklar || [],
+      optimize_icerik_kwh: icerik.optimize_icerik_kwh || icerik.optimize_icerik || '',
       h1_basligi:       icerik.h1_basligi         || baslik || '',
       sosyal_baslik:    icerik.sosyal_baslik      || '',
       meta_description: icerik.meta_description   || '',

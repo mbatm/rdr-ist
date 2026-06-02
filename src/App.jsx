@@ -1622,10 +1622,47 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <EField ec={ec} set={set} label="Site başlığı (SEO)" field="site_basligi"/>
       <EField ec={ec} set={set} label="H1 başlığı" field="h1_basligi"/>
       <EField ec={ec} set={set} label="Sosyal medya başlığı" field="sosyal_baslik"/>
+
+      {/* Alternatif başlık önerileri */}
+      {ec.alternatif_basliklar?.length > 0 && (
+        <div style={{marginBottom:'0.75rem',padding:'8px 10px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)'}}>
+          <div style={{fontSize:10,color:'#FFB700',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+            💡 Alternatif Başlık Önerileri
+          </div>
+          {ec.alternatif_basliklar.map((alt,i) => (
+            <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+              <div style={{flex:1,fontSize:11,color:'var(--text)',lineHeight:1.4}}>{alt}</div>
+              <button onClick={()=>set('sosyal_baslik', alt)}
+                style={{fontSize:9,padding:'2px 6px',background:'rgba(255,183,0,.12)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700',cursor:'pointer',borderRadius:3,whiteSpace:'nowrap'}}>
+                Sosyal'e Koy
+              </button>
+              <button onClick={()=>{ set('site_basligi', alt); set('h1_basligi', alt) }}
+                style={{fontSize:9,padding:'2px 6px',background:'rgba(0,212,170,.08)',border:'0.5px solid rgba(0,212,170,.2)',color:'#00D4AA',cursor:'pointer',borderRadius:3,whiteSpace:'nowrap'}}>
+                Site'ye Koy
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <EField ec={ec} set={set} label="Meta description" field="meta_description"/>
       <EField ec={ec} set={set} label="URL slug" field="url_slug"/>
       <EField ec={ec} set={set} label="Özet" field="ozet"/>
-      <EField ec={ec} set={set} label="Optimize içerik" field="optimize_icerik" multi rows={6}/>
+
+      {/* SEO optimize içerik */}
+      {ec.optimize_icerik_kwh && ec.optimize_icerik_kwh !== ec.optimize_icerik && (
+        <div style={{marginBottom:'0.75rem'}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span>Optimize İçerik</span>
+            <button onClick={()=>set('optimize_icerik', ec.optimize_icerik_kwh)}
+              style={{fontSize:9,padding:'2px 8px',background:'rgba(68,136,255,.12)',border:'0.5px solid rgba(68,136,255,.3)',color:'#4488FF',cursor:'pointer',borderRadius:3}}>
+              🔑 SEO Versiyonunu Kullan
+            </button>
+          </div>
+          <textarea value={ec.optimize_icerik} onChange={e=>set('optimize_icerik',e.target.value)}
+            rows={6} style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+        </div>
+      ) || <EField ec={ec} set={set} label="Optimize içerik" field="optimize_icerik" multi rows={6}/>}
 
       <div style={{marginBottom:'0.75rem'}}>
         <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>
