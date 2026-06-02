@@ -11,7 +11,7 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ hata: 'Kayseradar yetkisi yok' }, { status: 403 })
 
   try {
-    const { id, platformlar = [], fb_page_ids = [], ig_ids = [], tw = false } = await request.json()
+    const { id, platformlar = [], fb_page_ids = [], ig_ids = [], tw = false, galeri_urls = [] } = await request.json()
     if (!id) return Response.json({ hata: 'id zorunlu' }, { status: 400 })
 
     const kayit = await env.HABERLER.get(`radar:${id}`, 'json')
@@ -41,10 +41,18 @@ export async function onRequestPost({ request, env }) {
 
     // ── FACEBOOK / INSTAGRAM ──────────────────────────────────────────────────
     if (platformlar.includes('facebook') || platformlar.includes('instagram')) {
+      // Galeri görselleri — kayit.medyalar'dan kapak dışındakileri al
+      const galeriUrls = galeri_urls.length > 0
+        ? galeri_urls
+        : (kayit.medyalar || []).filter(m => m.tip === 'gorsel' && m.url !== medyaUrl).map(m => m.url)
+      const isCarousel = !isVideo && platformlar.includes('instagram') && galeriUrls.length > 0
+
       const metaPayload = {
-        gorsel_url:  isVideo ? undefined : medyaUrl,
-        video_url:   isVideo ? medyaUrl  : undefined,
-        is_video:    isVideo,
+        gorsel_url:   isVideo ? undefined : medyaUrl,
+        video_url:    isVideo ? medyaUrl  : undefined,
+        is_video:     isVideo,
+        is_carousel:  isCarousel,
+        galeri_urls:  isCarousel ? [medyaUrl, ...galeriUrls] : undefined,
         metin:       platformlar.includes('instagram') ? kayit.ig_metni : kayit.fb_metni,
         baslik:      kayit.baslik,
         platform:    platformlar.includes('facebook') && platformlar.includes('instagram')

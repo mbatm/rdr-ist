@@ -663,7 +663,6 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         : 'editor'
       const metin = platform === 'instagram' ? igMetin : fbMetin
       // Carousel: galeri görselleri (kapak hariç) URL listesi
-      console.log('GALERI_STATE:', JSON.stringify(galeriGorseller))
       const galeriUrls = galeriGorseller.filter(g=>!g.kapak).map(g=>g.url)
       // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
       const isCarousel = platform === 'instagram' && galeriUrls.length > 0
@@ -2237,7 +2236,17 @@ function KayseradarModul({ user, onGeri }) {
         yeniMedyalar.push(m)
       } catch(e) { setHata(`${file.name}: ${e.message}`) }
     }
-    setMedyalar(p => [...p, ...yeniMedyalar])
+    setMedyalar(p => {
+      const mevcut = p
+      const yeni = yeniMedyalar.map((m, i) => ({
+        ...m,
+        kapak: mevcut.length === 0 && i === 0 // sadece ilk eklenen ilk görsel kapak
+      }))
+      // Kapak yoksa ilk görseli kapak yap
+      const tumu = [...mevcut, ...yeni]
+      if (!tumu.some(x=>x.kapak) && tumu.length > 0) tumu[0].kapak = true
+      return tumu
+    })
     setYukleniyorM(false)
   }
 
@@ -2528,14 +2537,21 @@ function KayseradarModul({ user, onGeri }) {
                     {medyalar.map((m,i)=>(
                       <div key={i} style={{position:'relative',width:80,flexShrink:0}}>
                         {m.tip==='gorsel'
-                          ? <img src={m.url} alt={m.adi} style={{width:80,height:60,objectFit:'cover',borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+                          ? <img src={m.url} alt={m.adi} style={{width:80,height:60,objectFit:'cover',borderRadius:'var(--radius-sm)',
+                              border:`1.5px solid ${m.kapak?'rgba(0,212,170,.6)':'var(--border)'}`}} onError={e=>e.target.style.display='none'}/>
                           : <div style={{width:80,height:60,background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                               <Ic n="player-play" size={20} style={{color:'#ff7b7b'}}/>
                             </div>
                         }
-                        <div style={{fontSize:9,color:'var(--muted)',textAlign:'center',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.adi}</div>
-                        <button onClick={()=>medyaSil(i)}
-                          style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#E63946',border:'none',color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}>×</button>
+                        {m.kapak && <div style={{position:'absolute',top:2,left:2,fontSize:7,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 3px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
+                        <div style={{display:'flex',gap:1,marginTop:2}}>
+                          {!m.kapak && m.tip==='gorsel' && (
+                            <button onClick={()=>setMedyalar(p=>p.map((x,j)=>({...x,kapak:j===i})))} title="Kapak yap"
+                              style={{flex:1,fontSize:8,border:'none',background:'rgba(0,212,170,.15)',color:'#00D4AA',cursor:'pointer',borderRadius:2,padding:'1px 0'}}>★</button>
+                          )}
+                          <button onClick={()=>medyaSil(i)}
+                            style={{flex:1,fontSize:8,border:'none',background:'rgba(230,57,70,.15)',color:'#ff7b7b',cursor:'pointer',borderRadius:2,padding:'1px 0'}}>✕</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2653,6 +2669,20 @@ function KayseradarModul({ user, onGeri }) {
                     : <video src={onayKayit.medyalar[0].url} controls style={{width:'100%',borderRadius:'var(--radius-md)'}}/>
                 )}
                 <div style={{marginTop:10,fontSize:13,fontWeight:500,lineHeight:1.4}}>{onayKayit.baslik}</div>
+                {/* Galeri görselleri */}
+                {onayKayit.medyalar?.filter(m=>m.tip==='gorsel').length > 1 && (
+                  <div style={{marginTop:8}}>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:4}}>Galeri ({onayKayit.medyalar.filter(m=>m.tip==='gorsel').length} görsel)</div>
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                      {onayKayit.medyalar.filter(m=>m.tip==='gorsel').map((m,i)=>(
+                        <img key={i} src={m.url} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:'var(--radius-sm)',
+                          border:`1.5px solid ${i===0?'rgba(0,212,170,.6)':'var(--border)'}`}}
+                          onError={e=>e.target.style.display='none'}/>
+                      ))}
+                    </div>
+                    <div style={{fontSize:9,color:'var(--muted)',marginTop:3}}>★ = Kapak (Creatomate şablonlu)</div>
+                  </div>
+                )}
               </div>
 
               {/* Sağ — hesap seçimi + metinler + paylaş */}
