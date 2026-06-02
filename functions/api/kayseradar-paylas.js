@@ -20,39 +20,16 @@ export async function onRequestPost({ request, env }) {
     const sonuclar = {}
     const API_KEY  = env.RSS_API_KEY
 
-    // Render URL — önce KV'deki URL'ye bak, yoksa Creatomate'den direkt çek
+    // Render URL — KV'den al, yoksa render_id'den Backblaze URL'sini tahmin et
     let renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
 
-    // KV'de URL yoksa render_id ile Creatomate'den çek
+    // KV'de URL yoksa render_id'den Backblaze URL'sini oluştur (timeout yok)
     if (!renderKayit) {
-      const bekleyen = kayit.creatomate?.find(r => r.render_id && !r.url)
+      const bekleyen = kayit.creatomate?.find(r => r.render_id)
       if (bekleyen) {
-        try {
-          const crRes  = await fetch(`https://api.creatomate.com/v2/renders/${bekleyen.render_id}`, {
-            headers: { 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` }
-          })
-          if (crRes.ok) {
-            const crData = await crRes.json()
-            const render = Array.isArray(crData) ? crData[0] : crData
-            if (render.status === 'succeeded' && render.url) {
-              renderKayit = { ...bekleyen, url: render.url, status: 'succeeded' }
-              // KV'yi de güncelle
-              const guncellenmis = {
-                ...kayit,
-                creatomate: kayit.creatomate.map(r =>
-                  r.render_id === bekleyen.render_id ? { ...r, url: render.url, status: 'succeeded' } : r
-                )
-              }
-              await env.HABERLER.put(`radar:${id}`, JSON.stringify(guncellenmis))
-              // Liste kaydını da güncelle
-              const liste = await env.HABERLER.get('radar_liste', 'json') || []
-              const yeniListe = liste.map(li =>
-                li.id === id ? { ...li, render_url: render.url } : li
-              )
-              await env.HABERLER.put('radar_liste', JSON.stringify(yeniListe))
-            }
-          }
-        } catch(e) { console.warn('Render durum çekme hatası:', e.message) }
+        const ext = bekleyen.tip === 'video' ? 'mp4' : 'png'
+        const tahminiUrl = `https://f002.backblazeb2.com/file/creatomate-c8xg3hsxdu/${bekleyen.render_id}.${ext}`
+        renderKayit = { ...bekleyen, url: tahminiUrl }
       }
     }
 
