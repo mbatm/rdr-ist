@@ -1400,6 +1400,18 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
                     ★
                   </button>
                 )}
+                <button onClick={()=>{
+                  setKadrajGorsel(g.url)
+                  kadrajCbRef.current = (kadraj) => {
+                    const yeni = gorseller.map((x,j) => j===i ? {...x, kadraj: kadraj||null} : x)
+                    onGuncel?.(yeni)
+                    setKadrajGorsel(null)
+                    kadrajCbRef.current = null
+                  }
+                }} title="Kadraj seç"
+                  style={{flex:1,fontSize:8,border:'none',background:'transparent',color:'#FFB700',cursor:'pointer',padding:'2px 0'}}>
+                  ✂
+                </button>
                 <button onClick={()=>sil(i)} title="Sil"
                   style={{flex:1,fontSize:8,border:'none',background:'transparent',color:'#ff7b7b',cursor:'pointer',padding:'2px 0'}}>
                   ✕
