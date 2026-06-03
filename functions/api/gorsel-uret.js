@@ -151,6 +151,17 @@ export async function onRequestGet({ request, env }) {
     if (!kaynakUrl) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
     if (!env.CREATOMATE_API_KEY) return Response.json({ hata: 'API key yok' }, { status: 500 })
 
+    // KV cache — aynı kaynak için tekrar render yok (7 gün)
+    if (env.HABERLER) {
+      try {
+        const kvKey  = `kadraj_onizleme:${kaynakUrl}`
+        const cached = await env.HABERLER.get(kvKey, 'json')
+        if (cached?.yatay && cached?.dikey) {
+          return Response.json(cached)
+        }
+      } catch(e) { /* devam */ }
+    }
+
     // Video ise mp4 → Creatomate otomatik kare alır
     // Her iki format için paralel render başlat
     const [yatayRes, dikeyRes] = await Promise.all([
@@ -197,6 +208,16 @@ export async function onRequestGet({ request, env }) {
       bekle(yatayRender.id),
       bekle(dikeyRender.id),
     ])
+
+    // KV'ye yaz
+    if (env.HABERLER && (yatayUrl || dikeyUrl)) {
+      try {
+        const kvKey = `kadraj_onizleme:${kaynakUrl}`
+        await env.HABERLER.put(kvKey, JSON.stringify({ yatay: yatayUrl, dikey: dikeyUrl }), {
+          expirationTtl: 60 * 60 * 24 * 7  // 7 gün
+        })
+      } catch(e) { /* devam */ }
+    }
 
     return Response.json({ yatay: yatayUrl, dikey: dikeyUrl })
   } catch(e) {
