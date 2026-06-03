@@ -536,20 +536,16 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
         {kadraj && <span style={{fontSize:10,color:'var(--muted)'}}>Odak: {(kadraj.oranX*100).toFixed(0)}% {(kadraj.oranY*100).toFixed(0)}%</span>}
       </div>
 
-      {/* Kadraj modalı — video snapshot > video kare > görsel */}
+      {/* Kadraj modalı — sadece snapshot varsa video karesi, yoksa görsel */}
       {kadrajAc && (() => {
         const snap   = renders?.dikey?.snapshot || renders?.yatay?.snapshot || ''
         const gorsel = haber?.gorsel_url || haber?.gorsel || ''
-        const video  = haber?.video || null
         return (
           <OnKadraj
             gorselUrl={snap || gorsel}
-            videoUrl={!snap && video ? video : null}
             baslik={snap
               ? '🎬 Video karesi üzerinde kadraj seç'
-              : video
-                ? '🎬 Videodan kare yükleniyor…'
-                : '🖼 Fotoğraf üzerinde kadraj seç'}
+              : '🖼 Görsel üzerinde kadraj seç (video render sonrası video karesi kullanılır)'}
             onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
             onIptal={() => setKadrajAc(false)}
           />
@@ -1238,11 +1234,14 @@ function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kad
   const [imgBoy,   setImgBoy]  = useState({ w: 1, h: 1 })
   const [frameUrl, setFrameUrl] = useState(null)
 
-  // Video varsa sayfadaki video elementinden anlık kare al
+  // Video varsa sayfadaki video elementinden kare al
   useEffect(() => {
     if (!videoUrl) return
     const videoEl = document.querySelector('video')
-    if (videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+    if (!videoEl) return
+
+    const kareCek = () => {
+      if (videoEl.videoWidth === 0) return false
       const canvas = document.createElement('canvas')
       canvas.width  = videoEl.videoWidth
       canvas.height = videoEl.videoHeight
@@ -1252,11 +1251,28 @@ function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kad
         if (url.length > 1000) {
           setFrameUrl(url)
           setImgBoy({ w: canvas.width, h: canvas.height })
-          return
+          return true
         }
       } catch(e) {}
+      return false
     }
-    // Video hazır değilse ya da CORS sorunu varsa fotoğraf kullan
+
+    // Hemen dene
+    if (kareCek()) return
+
+    // Video yüklenmemişse yükle ve kare al
+    const onReady = () => { kareCek() }
+    videoEl.addEventListener('loadeddata', onReady, { once: true })
+    videoEl.addEventListener('canplay',    onReady, { once: true })
+    // Video henüz src yüklemediyse başlat
+    if (videoEl.readyState < 2) {
+      videoEl.load()
+      videoEl.currentTime = 0.5
+    }
+    return () => {
+      videoEl.removeEventListener('loadeddata', onReady)
+      videoEl.removeEventListener('canplay',    onReady)
+    }
   }, [videoUrl])
 
   // Görsel boyutlarını al
