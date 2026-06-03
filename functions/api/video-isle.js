@@ -26,7 +26,7 @@ function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
     'video.y':        '50%',
     'video.x_anchor': '50%',
     'video.y_anchor': '50%',
-    'video.fit':      'fill',
+    'video.fit':      'cover',
   }
 }
 
