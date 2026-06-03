@@ -1272,20 +1272,28 @@ function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kad
   }
 
   const KadrajPanel = ({ fmt, imgUrl, pRef, baslat, setBaslat, secim, setSecim, surukle, setSurukle }) => (
-    <div style={{flex:1,display:'flex',flexDirection:'column',gap:8}}>
+    <div style={{flex: fmt==='dikey' ? '0 0 auto' : 1, display:'flex', flexDirection:'column', gap:8}}>
       <div style={{fontSize:11,color:'#00D4AA',textAlign:'center',textTransform:'uppercase',letterSpacing:'0.06em'}}>
         {fmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'}
       </div>
-      <div ref={pRef} style={{position:'relative',cursor:'crosshair',userSelect:'none',background:'#111'}}
-        onMouseDown={e=>{ e.preventDefault(); const p=getPos(pRef,e); setBaslat(p); setSecim(null); setSurukle(true) }}
-        onMouseMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
-        onMouseUp={()=>setSurukle(false)}
-        onTouchStart={e=>{ const p=getPos(pRef,e); setBaslat(p); setSecim(null); setSurukle(true) }}
-        onTouchMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
-        onTouchEnd={()=>setSurukle(false)}>
+      {/* ref doğrudan img üzerinde — koordinatlar img'ye göre hesaplanır */}
+      <div style={{position:'relative',cursor:'crosshair',userSelect:'none',display:'inline-block'}}>
         {imgUrl
-          ? <img src={imgUrl} alt={fmt} draggable={false} style={{display:'block',width:'100%',maxHeight: fmt==='dikey' ? '55vh' : '45vh', objectFit:'cover'}}/>
-          : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16',background:'#222',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',fontSize:12}}>Yükleniyor…</div>
+          ? <img ref={pRef} src={imgUrl} alt={fmt} draggable={false}
+              style={{
+                display:'block',
+                maxWidth: fmt==='dikey' ? '220px' : '100%',
+                maxHeight: fmt==='yatay' ? '40vh' : '52vh',
+                width: 'auto',
+                height: 'auto',
+              }}
+              onMouseDown={e=>{ e.preventDefault(); const p=getPos(pRef,e); setBaslat(p); setSecim(null); setSurukle(true) }}
+              onMouseMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
+              onMouseUp={()=>setSurukle(false)}
+              onTouchStart={e=>{ const p=getPos(pRef,e); setBaslat(p); setSecim(null); setSurukle(true) }}
+              onTouchMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
+              onTouchEnd={()=>setSurukle(false)}/>
+          : <div style={{width: fmt==='dikey'?'150px':'100%', aspectRatio: fmt==='yatay'?'16/9':'9/16',background:'#222',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',fontSize:12}}>Yükleniyor…</div>
         }
         {secim && secim.w > 0.02 && (
           <div style={{
