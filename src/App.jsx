@@ -1226,64 +1226,82 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 
 
 // ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
-function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kadraj seç — görselde hedeflemek istediğin alanı çiz' }) {
-  const canvasRef = useRef(null)
-  const [baslat,   setBaslat]  = useState(null)
-  const [secim,    setSecim]   = useState(null)
-  const [surukle,  setSurukle] = useState(false)
-  const [imgBoy,   setImgBoy]  = useState({ w: 1, h: 1 })
-  const [frameUrl, setFrameUrl] = useState(null)
+function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
+  // Yatay kadraj state
+  const yatayRef  = useRef(null)
+  const [yatayBaslat,  setYatayBaslat]  = useState(null)
+  const [yataySecim,   setYataySecim]   = useState(null)
+  const [yataySurukle, setYataySurukle] = useState(false)
 
-  // Video varsa sayfadaki video elementinden kare al
+  // Dikey kadraj state
+  const dikeyRef  = useRef(null)
+  const [dikeyBaslat,  setDikeyBaslat]  = useState(null)
+  const [dikeySecim,   setDikeySecim]   = useState(null)
+  const [dikeySurukle, setDikeySurukle] = useState(false)
+
+  // Önizleme URL'leri
+  const [onizleme, setOnizleme] = useState({ yatay: null, dikey: null })
+  const [yukleniyor, setYukleniyor] = useState(true)
+
+  // Creatomate kadraj şablonundan önizleme al
   useEffect(() => {
-    if (!videoUrl) return
-    const videoEl = document.querySelector('video')
-    if (!videoEl) return
+    if (!gorselUrl) return
+    setYukleniyor(true)
+    fetch(`/api/gorsel-uret?kadraj_onizleme=1&gorsel_url=${encodeURIComponent(gorselUrl)}`)
+      .then(r => r.json())
+      .then(data => {
+        setOnizleme({ yatay: data.yatay || gorselUrl, dikey: data.dikey || gorselUrl })
+        setYukleniyor(false)
+      })
+      .catch(() => {
+        setOnizleme({ yatay: gorselUrl, dikey: gorselUrl })
+        setYukleniyor(false)
+      })
+  }, [gorselUrl])
 
-    const kareCek = () => {
-      if (videoEl.videoWidth === 0) return false
-      const canvas = document.createElement('canvas')
-      canvas.width  = videoEl.videoWidth
-      canvas.height = videoEl.videoHeight
-      try {
-        canvas.getContext('2d').drawImage(videoEl, 0, 0)
-        const url = canvas.toDataURL('image/jpeg', 0.85)
-        if (url.length > 1000) {
-          setFrameUrl(url)
-          setImgBoy({ w: canvas.width, h: canvas.height })
-          return true
+  const getPos = (ref, e) => {
+    const rect = ref.current.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return {
+      x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height)),
+    }
+  }
+
+  const KadrajPanel = ({ fmt, imgUrl, pRef, baslat, setBaslat, secim, setSecim, surukle, setSurukle }) => (
+    <div style={{flex:1,display:'flex',flexDirection:'column',gap:8}}>
+      <div style={{fontSize:11,color:'#00D4AA',textAlign:'center',textTransform:'uppercase',letterSpacing:'0.06em'}}>
+        {fmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'}
+      </div>
+      <div ref={pRef} style={{position:'relative',cursor:'crosshair',userSelect:'none',background:'#111'}}
+        onMouseDown={e=>{ e.preventDefault(); const p=getPos(pRef,e); setBaslat(p); setSecim(null); setSurukle(true) }}
+        onMouseMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
+        onMouseUp={()=>setSurukle(false)}
+        onTouchStart={e=>{ const p=getPos(pRef,e); setBaslat(p); setSecim(null); setSurukle(true) }}
+        onTouchMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
+        onTouchEnd={()=>setSurukle(false)}>
+        {imgUrl
+          ? <img src={imgUrl} alt={fmt} draggable={false} style={{display:'block',width:'100%'}}/>
+          : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16',background:'#222',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',fontSize:12}}>Yükleniyor…</div>
         }
-      } catch(e) {}
-      return false
-    }
-
-    // Hemen dene
-    if (kareCek()) return
-
-    // Video yüklenmemişse yükle ve kare al
-    const onReady = () => { kareCek() }
-    videoEl.addEventListener('loadeddata', onReady, { once: true })
-    videoEl.addEventListener('canplay',    onReady, { once: true })
-    // Video henüz src yüklemediyse başlat
-    if (videoEl.readyState < 2) {
-      videoEl.load()
-      videoEl.currentTime = 0.5
-    }
-    return () => {
-      videoEl.removeEventListener('loadeddata', onReady)
-      videoEl.removeEventListener('canplay',    onReady)
-    }
-  }, [videoUrl])
-
-  // Görsel boyutlarını al
-  useEffect(() => {
-    if (frameUrl) return
-    const img = new Image()
-    img.onload = () => setImgBoy({ w: img.naturalWidth, h: img.naturalHeight })
-    img.src = gorselUrl
-  }, [gorselUrl, frameUrl])
-
-  const gosterilecekUrl = frameUrl || gorselUrl
+        {secim && secim.w > 0.02 && (
+          <div style={{
+            position:'absolute',
+            left:`${secim.x*100}%`, top:`${secim.y*100}%`,
+            width:`${secim.w*100}%`, height:`${secim.h*100}%`,
+            border:'2px solid #00D4AA', background:'rgba(0,212,170,.12)',
+            boxShadow:'0 0 0 9999px rgba(0,0,0,.5)',
+            pointerEvents:'none',
+          }}/>
+        )}
+      </div>
+      {secim && secim.w > 0.02
+        ? <div style={{fontSize:10,color:'#00D4AA',textAlign:'center'}}>✓ Kadraj seçildi</div>
+        : <div style={{fontSize:10,color:'var(--muted)',textAlign:'center'}}>Sürükleyerek alan seç</div>
+      }
+    </div>
+  )
 
   const getPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
@@ -1331,40 +1349,37 @@ function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kad
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:20}}>
-      <div style={{fontSize:13,color:'#fff',marginBottom:4}}>
-        {baslik}
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.92)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:16,overflowY:'auto'}}>
+      <div style={{fontSize:13,color:'#fff',marginBottom:4,textAlign:'center'}}>
+        ✂ Kadraj Seç — her format için ayrı alan seç
+        {yukleniyor && <span style={{fontSize:11,color:'var(--muted)',marginLeft:8}}>⏳ Önizleme hazırlanıyor…</span>}
       </div>
 
-      {/* Canvas */}
-      <div ref={canvasRef} style={{position:'relative',maxWidth:'90vw',maxHeight:'70vh',cursor:'crosshair',userSelect:'none'}}
-        onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
-        onTouchStart={onMouseDown} onTouchMove={onMouseMove} onTouchEnd={onMouseUp}>
-        <img src={gosterilecekUrl} alt="kadraj" draggable={false}
-          style={{display:'block',maxWidth:'90vw',maxHeight:'70vh',objectFit:'contain',borderRadius:6}}/>
-        {secim && secim.w > 0.01 && (
-          <div style={{
-            position:'absolute',
-            left:   `${secim.x * 100}%`,
-            top:    `${secim.y * 100}%`,
-            width:  `${secim.w * 100}%`,
-            height: `${secim.h * 100}%`,
-            border: '2px solid #00D4AA',
-            background: 'rgba(0,212,170,.12)',
-            boxShadow: '0 0 0 2000px rgba(0,0,0,.45)',
-            pointerEvents: 'none',
-          }}/>
-        )}
+      {/* İki panel yan yana */}
+      <div style={{display:'flex',gap:16,maxWidth:'95vw',width:'100%',alignItems:'flex-start'}}>
+        <KadrajPanel fmt="yatay" imgUrl={onizleme.yatay}
+          pRef={yatayRef}
+          baslat={yatayBaslat} setBaslat={setYatayBaslat}
+          secim={yataySecim}   setSecim={setYataySecim}
+          surukle={yataySurukle} setSurukle={setYataySurukle}/>
+        <KadrajPanel fmt="dikey" imgUrl={onizleme.dikey}
+          pRef={dikeyRef}
+          baslat={dikeyBaslat} setBaslat={setDikeyBaslat}
+          secim={dikeySecim}   setSecim={setDikeySecim}
+          surukle={dikeySurukle} setSurukle={setDikeySurukle}/>
       </div>
 
-      <div style={{display:'flex',gap:8}}>
+      <div style={{display:'flex',gap:8,marginTop:4}}>
         <button onClick={()=>onOnayla(null)}
           style={{fontSize:12,padding:'6px 16px',background:'rgba(255,255,255,.08)',border:'0.5px solid rgba(255,255,255,.2)',color:'#aaa',cursor:'pointer'}}>
           Seçimsiz Devam Et
         </button>
-        <button onClick={onayla}
+        <button onClick={()=>{
+          const mk = (s) => s && s.w > 0.02 ? { oranX: s.x, oranY: s.y, oranW: s.w, oranH: s.h } : null
+          onOnayla({ yatay: mk(yataySecim), dikey: mk(dikeySecim) })
+        }}
           style={{fontSize:12,padding:'6px 16px',background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.4)',color:'#00D4AA',cursor:'pointer'}}>
-          ✓ Kadrajı Onayla
+          ✓ Kadrajları Onayla
         </button>
         <button onClick={onIptal}
           style={{fontSize:12,padding:'6px 16px',background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',cursor:'pointer'}}>

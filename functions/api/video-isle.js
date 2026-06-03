@@ -60,11 +60,12 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Kadraj modifikasyonları
-    // Kullanıcı kadrajı varsa merkez noktasını kullan, yoksa otomatik hesapla
+    // Kadraj artık { yatay, dikey } objesi
     const kadrajMods = kadrajHesapla(genislik, yukseklik)
-    if (kadraj) {
-      kadrajMods['video.x_anchor'] = `${((kadraj.oranX + kadraj.oranW/2) * 100).toFixed(1)}%`
-      kadrajMods['video.y_anchor'] = `${((kadraj.oranY + kadraj.oranH/2) * 100).toFixed(1)}%`
+    const kadrajFmt  = kadraj?.[fmt] || kadraj  // formata göre kadraj
+    if (kadrajFmt) {
+      kadrajMods['video.x_anchor'] = `${((kadrajFmt.oranX + kadrajFmt.oranW/2) * 100).toFixed(1)}%`
+      kadrajMods['video.y_anchor'] = `${((kadrajFmt.oranY + kadrajFmt.oranH/2) * 100).toFixed(1)}%`
     }
     const kadraj_mods = kadrajMods
 

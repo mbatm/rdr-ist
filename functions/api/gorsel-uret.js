@@ -8,6 +8,12 @@ const SABLON = {
   dikey: 'aad1d3c0-4378-4dd0-8133-93a4b61c28b7',
 }
 
+// Kadraj önizleme şablonları — sadece görsel, bant/yazı yok
+const KADRAJ_SABLON = {
+  yatay: 'd1eb4857-9801-474d-a65b-b7aef4d8cfe5',
+  dikey: '0ff5b73d-9639-419d-bafd-2b359faf3ace',
+}
+
 // Şablondaki element ID'leri (tarih text elementleri)
 // Yatay: track 9 = "99f283bc-..." = tarih text
 // Dikey: track 9 = "99f283bc-..." = tarih text
@@ -34,10 +40,10 @@ export async function onRequestPost({ request, env }) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     })
 
-    // Kadraj varsa odak noktasını ayarla — Creatomate fit:cover ile x_anchor/y_anchor kullanır
-    // Kadraj seçilmemişse görsel merkezi varsayılan (50% 50%)
-    const cx = kadraj ? (kadraj.oranX + kadraj.oranW / 2) : 0.5  // 0..1
-    const cy = kadraj ? (kadraj.oranY + kadraj.oranH / 2) : 0.5  // 0..1
+    // Kadraj artık { yatay, dikey } objesi — formata göre doğru kadrajı kullan
+    const kadrajFmt = kadraj?.[format] || kadraj  // eski tek kadraj uyumluluğu
+    const cx = kadrajFmt ? (kadrajFmt.oranX + kadrajFmt.oranW / 2) : 0.5
+    const cy = kadrajFmt ? (kadrajFmt.oranY + kadrajFmt.oranH / 2) : 0.5
 
     const videoMods = {
       'video':            gorsel_url,
@@ -127,6 +133,70 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ hata: 'Render zaman aşımı (60s)' }, { status: 504 })
 
   } catch (e) {
+    return Response.json({ hata: e.message }, { status: 500 })
+  }
+}
+
+/**
+ * GET /api/gorsel-uret?kadraj_onizleme=1&gorsel_url=...
+ * Kadraj önizleme için hızlı render — sadece görsel, bant/yazı yok
+ * Her iki format için paralel render başlatır
+ */
+export async function onRequestGet({ request, env }) {
+  try {
+    const url      = new URL(request.url)
+    const gorselUrl = url.searchParams.get('gorsel_url')
+    if (!gorselUrl) return Response.json({ hata: 'gorsel_url gerekli' }, { status: 400 })
+    if (!env.CREATOMATE_API_KEY) return Response.json({ hata: 'API key yok' }, { status: 500 })
+
+    // Her iki format için paralel render başlat
+    const [yatayRes, dikeyRes] = await Promise.all([
+      fetch('https://api.creatomate.com/v1/renders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+        body: JSON.stringify({
+          template_id: KADRAJ_SABLON.yatay,
+          output_format: 'png',
+          modifications: { 'video': gorselUrl },
+        }),
+      }),
+      fetch('https://api.creatomate.com/v1/renders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+        body: JSON.stringify({
+          template_id: KADRAJ_SABLON.dikey,
+          output_format: 'png',
+          modifications: { 'video': gorselUrl },
+        }),
+      }),
+    ])
+
+    const [yatayData, dikeyData] = await Promise.all([yatayRes.json(), dikeyRes.json()])
+    const yatayRender = Array.isArray(yatayData) ? yatayData[0] : yatayData
+    const dikeyRender = Array.isArray(dikeyData) ? dikeyData[0] : dikeyData
+
+    // Tamamlanana kadar polling
+    const bekle = async (renderId) => {
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const res  = await fetch(`https://api.creatomate.com/v1/renders/${renderId}`, {
+          headers: { 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+        })
+        const data = await res.json()
+        const r    = Array.isArray(data) ? data[0] : data
+        if (r.status === 'succeeded') return r.url
+        if (r.status === 'failed')    return null
+      }
+      return null
+    }
+
+    const [yatayUrl, dikeyUrl] = await Promise.all([
+      bekle(yatayRender.id),
+      bekle(dikeyRender.id),
+    ])
+
+    return Response.json({ yatay: yatayUrl, dikey: dikeyUrl })
+  } catch(e) {
     return Response.json({ hata: e.message }, { status: 500 })
   }
 }
