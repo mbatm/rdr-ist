@@ -1303,51 +1303,6 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
     </div>
   )
 
-  const getPos = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect()
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    return {
-      x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
-      y: Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height)),
-    }
-  }
-
-  const onMouseDown = (e) => {
-    e.preventDefault()
-    const pos = getPos(e)
-    setBaslat(pos)
-    setSecim(null)
-    setSurukle(true)
-  }
-
-  const onMouseMove = (e) => {
-    if (!surukle || !baslat) return
-    const pos = getPos(e)
-    setSecim({
-      x: Math.min(baslat.x, pos.x),
-      y: Math.min(baslat.y, pos.y),
-      w: Math.abs(pos.x - baslat.x),
-      h: Math.abs(pos.y - baslat.y),
-    })
-  }
-
-  const onMouseUp = () => setSurukle(false)
-
-  const onayla = () => {
-    if (!secim || secim.w < 0.05 || secim.h < 0.05) {
-      // Seçim yoksa veya çok küçükse — tam görsel
-      onOnayla(null)
-      return
-    }
-    // Piksel koordinatlarına çevir
-    const x = Math.round(secim.x * imgBoy.w)
-    const y = Math.round(secim.y * imgBoy.h)
-    const w = Math.round(secim.w * imgBoy.w)
-    const h = Math.round(secim.h * imgBoy.h)
-    onOnayla({ x, y, w, h, oranX: secim.x, oranY: secim.y, oranW: secim.w, oranH: secim.h })
-  }
-
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.92)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:16,overflowY:'auto'}}>
       <div style={{fontSize:13,color:'#fff',marginBottom:4,textAlign:'center'}}>
