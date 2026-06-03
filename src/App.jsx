@@ -536,16 +536,20 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
         {kadraj && <span style={{fontSize:10,color:'var(--muted)'}}>Odak: {(kadraj.oranX*100).toFixed(0)}% {(kadraj.oranY*100).toFixed(0)}%</span>}
       </div>
 
-      {/* Kadraj modalı — video snapshot > görsel sıralaması */}
+      {/* Kadraj modalı — video snapshot > video kare > görsel */}
       {kadrajAc && (() => {
-        const snap = renders?.dikey?.snapshot || renders?.yatay?.snapshot || ''
+        const snap   = renders?.dikey?.snapshot || renders?.yatay?.snapshot || ''
         const gorsel = haber?.gorsel_url || haber?.gorsel || ''
-        // Snapshot varsa video karesi, yoksa görsel
-        const kadrajGorsel = snap || gorsel
+        const video  = haber?.video || null
         return (
           <OnKadraj
-            gorselUrl={kadrajGorsel}
-            baslik={snap ? '🎬 Video karesi üzerinde kadraj seç' : '🖼 Fotoğraf üzerinde kadraj seç (video karesi henüz yok)'}
+            gorselUrl={snap || gorsel}
+            videoUrl={!snap && video ? video : null}
+            baslik={snap
+              ? '🎬 Video karesi üzerinde kadraj seç'
+              : video
+                ? '🎬 Videodan kare yükleniyor…'
+                : '🖼 Fotoğraf üzerinde kadraj seç'}
             onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
             onIptal={() => setKadrajAc(false)}
           />
