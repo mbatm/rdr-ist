@@ -104,7 +104,8 @@ export async function onRequestPost({ request, env }) {
             output_format: outputFormat,
             ...(isVideo ? { frame_rate: 30 } : {}),
             modifications: baseMods,
-            metadata: source_id ? { source_id, format: fmt, tip: 'video' } : undefined,
+            webhook_url: `https://rdr.ist/api/creatomate-webhook`,
+            metadata:    source_id ? JSON.stringify({ source_id, format: fmt, tip: 'video' }) : undefined,
           }),
         }
       )

@@ -77,7 +77,8 @@ export async function onRequestPost({ request, env }) {
         template_id:   sablonId,
         output_format: 'png',
         modifications,
-        metadata: source_id ? { source_id, format, tip: 'gorsel' } : undefined,
+        webhook_url:   `https://rdr.ist/api/creatomate-webhook`,
+        metadata:      source_id ? JSON.stringify({ source_id, format, tip: 'gorsel' }) : undefined,
       }),
     })
 

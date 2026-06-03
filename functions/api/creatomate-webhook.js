@@ -8,7 +8,7 @@ export async function onRequestPost({ request, env }) {
     const data = await request.json()
 
     // Creatomate webhook payload
-    const { id: renderId, status, url, snapshot_url, template_id, metadata } = data
+    const { id: renderId, status, url, snapshot_url, template_id, metadata: metadataRaw } = data
 
     if (status !== 'succeeded' || !url) {
       return Response.json({ ok: true, skipped: true })
@@ -18,10 +18,15 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: false, hata: 'KV bağlı değil' }, { status: 500 })
     }
 
-    // metadata'dan source_id ve format al (render başlatılırken göndereceğiz)
-    const sourceId = metadata?.source_id
-    const format   = metadata?.format
-    const tip      = metadata?.tip // 'gorsel' veya 'video'
+    // metadata string veya obje olabilir
+    let meta = {}
+    try {
+      meta = typeof metadataRaw === 'string' ? JSON.parse(metadataRaw) : (metadataRaw || {})
+    } catch(e) {}
+
+    const sourceId = meta.source_id
+    const format   = meta.format
+    const tip      = meta.tip // 'gorsel' veya 'video'
 
     if (sourceId && format) {
       if (tip === 'gorsel') {
