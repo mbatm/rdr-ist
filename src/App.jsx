@@ -1230,19 +1230,44 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 
 
 // ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
-function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç — görselde hedeflemek istediğin alanı çiz' }) {
+function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kadraj seç — görselde hedeflemek istediğin alanı çiz' }) {
   const canvasRef = useRef(null)
-  const [baslat, setBaslat] = useState(null)
-  const [secim,  setSecim]  = useState(null)
-  const [surukle, setSurukle] = useState(false)
-  const [imgBoy,  setImgBoy]  = useState({ w: 1, h: 1 })
+  const [baslat,   setBaslat]  = useState(null)
+  const [secim,    setSecim]   = useState(null)
+  const [surukle,  setSurukle] = useState(false)
+  const [imgBoy,   setImgBoy]  = useState({ w: 1, h: 1 })
+  const [frameUrl, setFrameUrl] = useState(null)
+
+  // Video varsa sayfadaki video elementinden anlık kare al
+  useEffect(() => {
+    if (!videoUrl) return
+    const videoEl = document.querySelector('video')
+    if (videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+      const canvas = document.createElement('canvas')
+      canvas.width  = videoEl.videoWidth
+      canvas.height = videoEl.videoHeight
+      try {
+        canvas.getContext('2d').drawImage(videoEl, 0, 0)
+        const url = canvas.toDataURL('image/jpeg', 0.85)
+        if (url.length > 1000) {
+          setFrameUrl(url)
+          setImgBoy({ w: canvas.width, h: canvas.height })
+          return
+        }
+      } catch(e) {}
+    }
+    // Video hazır değilse ya da CORS sorunu varsa fotoğraf kullan
+  }, [videoUrl])
 
   // Görsel boyutlarını al
   useEffect(() => {
+    if (frameUrl) return
     const img = new Image()
     img.onload = () => setImgBoy({ w: img.naturalWidth, h: img.naturalHeight })
     img.src = gorselUrl
-  }, [gorselUrl])
+  }, [gorselUrl, frameUrl])
+
+  const gosterilecekUrl = frameUrl || gorselUrl
 
   const getPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
@@ -1299,7 +1324,7 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç — gör
       <div ref={canvasRef} style={{position:'relative',maxWidth:'90vw',maxHeight:'70vh',cursor:'crosshair',userSelect:'none'}}
         onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
         onTouchStart={onMouseDown} onTouchMove={onMouseMove} onTouchEnd={onMouseUp}>
-        <img src={gorselUrl} alt="kadraj" draggable={false}
+        <img src={gosterilecekUrl} alt="kadraj" draggable={false}
           style={{display:'block',maxWidth:'90vw',maxHeight:'70vh',objectFit:'contain',borderRadius:6}}/>
         {secim && secim.w > 0.01 && (
           <div style={{
