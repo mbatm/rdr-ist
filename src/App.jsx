@@ -407,8 +407,8 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
   const [loading,   setLoading]  = useState({}) // { dikey: bool, yatay: bool }
   const [hatalar,   setHatalar]  = useState({})
   const [format,    setFormat]   = useState('dikey')
-  const [kadraj,    setKadraj]   = useState(null)  // seçilen kadraj
-  const [kadrajAc,  setKadrajAc] = useState(false) // kadraj modalı
+  const [kadraj,      setKadraj]      = useState({ yatay: null, dikey: null })
+  const [kadrajAcFmt, setKadrajAcFmt] = useState(null)  // 'yatay' | 'dikey' | null
 
   // KV'den kayıtlı videoları yükle
   useEffect(() => {
@@ -467,7 +467,7 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           tarih: haber.tarih,
           source_id: haber.source_id,
           format: fmt,
-          kadraj: kadraj || undefined,
+          kadraj: kadraj || undefined,  // { yatay, dikey } objesi
         }),
       })
       const data = await res.json()
@@ -521,32 +521,39 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
   return (
     <div style={{marginBottom:8}}>
-      {/* Kadraj */}
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <button onClick={()=>setKadrajAc(true)}
-          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700',cursor:'pointer'}}>
-          ✂ Kadraj Seç {kadraj ? '✓' : ''}
+      {/* Kadraj — yatay ve dikey için ayrı butonlar */}
+      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+        <button onClick={()=>setKadrajAcFmt('yatay')}
+          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.yatay?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.yatay?'#00D4AA':'#FFB700',cursor:'pointer'}}>
+          ✂ Yatay Kadraj {kadraj.yatay ? '✓' : ''}
         </button>
-        {kadraj && (
-          <button onClick={()=>setKadraj(null)}
+        <button onClick={()=>setKadrajAcFmt('dikey')}
+          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.dikey?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.dikey?'#00D4AA':'#FFB700',cursor:'pointer'}}>
+          ✂ Dikey Kadraj {kadraj.dikey ? '✓' : ''}
+        </button>
+        {(kadraj.yatay || kadraj.dikey) && (
+          <button onClick={()=>setKadraj({ yatay: null, dikey: null })}
             style={{fontSize:11,padding:'4px 8px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)',cursor:'pointer'}}>
-            × Kadrajı Sıfırla
+            × Sıfırla
           </button>
         )}
-        {kadraj && <span style={{fontSize:10,color:'var(--muted)'}}>Odak: {(kadraj.oranX*100).toFixed(0)}% {(kadraj.oranY*100).toFixed(0)}%</span>}
       </div>
 
-      {/* Kadraj modalı — video varsa video URL'sini geçir, Creatomate kare alır */}
-      {kadrajAc && (() => {
+      {/* Kadraj modalı — tek format için */}
+      {kadrajAcFmt && (() => {
         const gorsel   = haber?.gorsel_url || haber?.gorsel || ''
         const videoSrc = haber?.video || null
         return (
           <OnKadraj
             gorselUrl={gorsel}
             videoUrl={videoSrc}
-            baslik={videoSrc ? '🎬 Video karesi üzerinde kadraj seç' : '🖼 Görsel üzerinde kadraj seç'}
-            onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
-            onIptal={() => setKadrajAc(false)}
+            fmt={kadrajAcFmt}
+            baslik={`${videoSrc ? '🎬 Video' : '🖼 Görsel'} — ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} kadraj seç`}
+            onOnayla={k => {
+              setKadraj(prev => ({ ...prev, [kadrajAcFmt]: k }))
+              setKadrajAcFmt(null)
+            }}
+            onIptal={() => setKadrajAcFmt(null)}
           />
         )
       })()}
@@ -1225,7 +1232,7 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 
 
 // ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
-function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
+function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
   // Yatay kadraj state
   const yatayRef  = useRef(null)
   const [yatayBaslat,  setYatayBaslat]  = useState(null)
@@ -1320,18 +1327,22 @@ function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kad
         {yukleniyor && <span style={{fontSize:11,color:'var(--muted)',marginLeft:8}}>⏳ Önizleme hazırlanıyor…</span>}
       </div>
 
-      {/* İki panel yan yana */}
-      <div style={{display:'flex',gap:16,maxWidth:'95vw',width:'100%',alignItems:'flex-start'}}>
-        <KadrajPanel fmt="yatay" imgUrl={onizleme.yatay}
-          pRef={yatayRef}
-          baslat={yatayBaslat} setBaslat={setYatayBaslat}
-          secim={yataySecim}   setSecim={setYataySecim}
-          surukle={yataySurukle} setSurukle={setYataySurukle}/>
-        <KadrajPanel fmt="dikey" imgUrl={onizleme.dikey}
-          pRef={dikeyRef}
-          baslat={dikeyBaslat} setBaslat={setDikeyBaslat}
-          secim={dikeySecim}   setSecim={setDikeySecim}
-          surukle={dikeySurukle} setSurukle={setDikeySurukle}/>
+      {/* Tek veya iki panel */}
+      <div style={{display:'flex',gap:16,maxWidth:'95vw',width:'100%',alignItems:'flex-start',justifyContent:'center'}}>
+        {(!fmt || fmt==='yatay') && (
+          <KadrajPanel fmt="yatay" imgUrl={onizleme.yatay}
+            pRef={yatayRef}
+            baslat={yatayBaslat} setBaslat={setYatayBaslat}
+            secim={yataySecim}   setSecim={setYataySecim}
+            surukle={yataySurukle} setSurukle={setYataySurukle}/>
+        )}
+        {(!fmt || fmt==='dikey') && (
+          <KadrajPanel fmt="dikey" imgUrl={onizleme.dikey}
+            pRef={dikeyRef}
+            baslat={dikeyBaslat} setBaslat={setDikeyBaslat}
+            secim={dikeySecim}   setSecim={setDikeySecim}
+            surukle={dikeySurukle} setSurukle={setDikeySurukle}/>
+        )}
       </div>
 
       <div style={{display:'flex',gap:8,margin:'12px 0',flexShrink:0}}>
@@ -1341,7 +1352,13 @@ function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kad
         </button>
         <button onClick={()=>{
           const mk = (s) => s && s.w > 0.02 ? { oranX: s.x, oranY: s.y, oranW: s.w, oranH: s.h } : null
-          onOnayla({ yatay: mk(yataySecim), dikey: mk(dikeySecim) })
+          if (fmt === 'yatay') {
+            onOnayla(mk(yataySecim))
+          } else if (fmt === 'dikey') {
+            onOnayla(mk(dikeySecim))
+          } else {
+            onOnayla({ yatay: mk(yataySecim), dikey: mk(dikeySecim) })
+          }
         }}
           style={{fontSize:12,padding:'6px 16px',background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.4)',color:'#00D4AA',cursor:'pointer'}}>
           ✓ Kadrajları Onayla
