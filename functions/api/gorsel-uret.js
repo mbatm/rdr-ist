@@ -145,16 +145,20 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet({ request, env }) {
   try {
     const url      = new URL(request.url)
-    const gorselUrl = url.searchParams.get('gorsel_url')
-    const videoUrl  = url.searchParams.get('video_url')   // video varsa öncelikli kullan
-    const kaynakUrl = videoUrl || gorselUrl
+    const gorselUrl  = url.searchParams.get('gorsel_url')
+    const videoUrl   = url.searchParams.get('video_url')   // video varsa öncelikli kullan
+    const fmtParam   = url.searchParams.get('fmt')         // 'yatay' | 'dikey' | null (ikisi birden)
+    const kaynakUrl  = videoUrl || gorselUrl
     if (!kaynakUrl) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
     if (!env.CREATOMATE_API_KEY) return Response.json({ hata: 'API key yok' }, { status: 500 })
+
+    // KV cache — fmt dahil key
+    const cacheKey = fmtParam ? `${kaynakUrl}:${fmtParam}` : kaynakUrl
 
     // KV cache — aynı kaynak için tekrar render yok (7 gün)
     if (env.HABERLER) {
       try {
-        const kvKey  = `kadraj_onizleme:${kaynakUrl}`
+        const kvKey  = `kadraj_onizleme:${cacheKey}`
         const cached = await env.HABERLER.get(kvKey, 'json')
         if (cached?.yatay && cached?.dikey) {
           return Response.json(cached)
@@ -162,35 +166,12 @@ export async function onRequestGet({ request, env }) {
       } catch(e) { /* devam */ }
     }
 
-    // Video ise mp4 → Creatomate otomatik kare alır
-    // Her iki format için paralel render başlat
-    const [yatayRes, dikeyRes] = await Promise.all([
-      fetch('https://api.creatomate.com/v1/renders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-        body: JSON.stringify({
-          template_id: KADRAJ_SABLON.yatay,
-          output_format: 'png',
-          modifications: { 'video': kaynakUrl },
-        }),
-      }),
-      fetch('https://api.creatomate.com/v1/renders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-        body: JSON.stringify({
-          template_id: KADRAJ_SABLON.dikey,
-          output_format: 'png',
-          modifications: { 'video': kaynakUrl },
-        }),
-      }),
-    ])
+    // fmt'ye göre hangi formatların render alınacağını belirle
+    const renderYatay = !fmtParam || fmtParam === 'yatay'
+    const renderDikey = !fmtParam || fmtParam === 'dikey'
 
-    const [yatayData, dikeyData] = await Promise.all([yatayRes.json(), dikeyRes.json()])
-    const yatayRender = Array.isArray(yatayData) ? yatayData[0] : yatayData
-    const dikeyRender = Array.isArray(dikeyData) ? dikeyData[0] : dikeyData
-
-    // Tamamlanana kadar polling
     const bekle = async (renderId) => {
+      if (!renderId) return null
       for (let i = 0; i < 15; i++) {
         await new Promise(r => setTimeout(r, 2000))
         const res  = await fetch(`https://api.creatomate.com/v1/renders/${renderId}`, {
@@ -204,22 +185,33 @@ export async function onRequestGet({ request, env }) {
       return null
     }
 
+    const renderIste = async (sablonId) => {
+      const res = await fetch('https://api.creatomate.com/v1/renders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
+        body: JSON.stringify({ template_id: sablonId, output_format: 'png', modifications: { 'video': kaynakUrl } }),
+      })
+      const data = await res.json()
+      const r    = Array.isArray(data) ? data[0] : data
+      return r.id ? bekle(r.id) : null
+    }
+
     const [yatayUrl, dikeyUrl] = await Promise.all([
-      bekle(yatayRender.id),
-      bekle(dikeyRender.id),
+      renderYatay ? renderIste(KADRAJ_SABLON.yatay) : Promise.resolve(null),
+      renderDikey ? renderIste(KADRAJ_SABLON.dikey) : Promise.resolve(null),
     ])
+
+    const sonuc = { yatay: yatayUrl, dikey: dikeyUrl }
 
     // KV'ye yaz
     if (env.HABERLER && (yatayUrl || dikeyUrl)) {
       try {
-        const kvKey = `kadraj_onizleme:${kaynakUrl}`
-        await env.HABERLER.put(kvKey, JSON.stringify({ yatay: yatayUrl, dikey: dikeyUrl }), {
-          expirationTtl: 60 * 60 * 24 * 7  // 7 gün
-        })
+        const kvKey = `kadraj_onizleme:${cacheKey}`
+        await env.HABERLER.put(kvKey, JSON.stringify(sonuc), { expirationTtl: 60 * 60 * 24 * 7 })
       } catch(e) { /* devam */ }
     }
 
-    return Response.json({ yatay: yatayUrl, dikey: dikeyUrl })
+    return Response.json(sonuc)
   } catch(e) {
     return Response.json({ hata: e.message }, { status: 500 })
   }
