@@ -19,7 +19,7 @@ const TARIH_TEXT_ID = {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json()
-    const { gorsel_url, baslik, spot, kategori, tarih, format = 'yatay', kadraj = null } = body
+    const { gorsel_url, baslik, spot, kategori, tarih, format = 'yatay', kadraj = null, source_id = null, force_refresh = false } = body
 
     if (!gorsel_url || !baslik) {
       return Response.json({ hata: 'gorsel_url ve baslik zorunlu' }, { status: 400 })
@@ -54,6 +54,17 @@ export async function onRequestPost({ request, env }) {
       'spot-baslik-ss':               spot || '',
       'kategori':                     (kategori || 'GÜNCEL').toUpperCase(),
       [`${TARIH_TEXT_ID[format] || TARIH_TEXT_ID.yatay}.text`]: tarihStr,
+    }
+
+    // KV'de kayıtlı görsel var mı kontrol et (force_refresh ise atla)
+    if (source_id && env.HABERLER && !force_refresh) {
+      try {
+        const kvKey = `gorsel:${source_id}:${format}`
+        const kayitli = await env.HABERLER.get(kvKey)
+        if (kayitli) {
+          return Response.json({ ok: true, url: kayitli, format, cached: true })
+        }
+      } catch(e) { /* KV hatası — devam et */ }
     }
 
     const renderRes = await fetch('https://api.creatomate.com/v1/renders', {
@@ -96,6 +107,12 @@ export async function onRequestPost({ request, env }) {
       const r2        = Array.isArray(checkData) ? checkData[0] : checkData
 
       if (r2.status === 'succeeded') {
+        // KV'ye kaydet
+        if (source_id && env.HABERLER) {
+          try {
+            await env.HABERLER.put(`gorsel:${source_id}:${format}`, r2.url, { expirationTtl: 60*60*24*30 }) // 30 gün
+          } catch(e) { /* KV hatası */ }
+        }
         return Response.json({ ok: true, url: r2.url, format })
       }
       if (r2.status === 'failed') {

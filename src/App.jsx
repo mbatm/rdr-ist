@@ -1175,23 +1175,24 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
 
 
 function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
-  const [gorselKey, setGorselKey] = useState(0)
+  const [gorselKey,     setGorselKey]     = useState(0)
+  const [forceRefresh,  setForceRefresh]  = useState(false)
   const haberRef = useRef(editedHaber)
   haberRef.current = editedHaber
 
-  // Dışarıdan tetikleme için callback
-  useEffect(() => { onSetRefresh?.(() => setGorselKey(k=>k+1)) }, [])
+  useEffect(() => { onSetRefresh?.(() => { setForceRefresh(true); setGorselKey(k=>k+1) }) }, [])
 
   return (
     <>
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:6}}>
-        <button onClick={()=>setGorselKey(k=>k+1)}
+        <button onClick={()=>{ setForceRefresh(true); setGorselKey(k=>k+1) }}
           style={{fontSize:11,color:'#FFB700',background:'rgba(255,183,0,.08)',border:'0.5px solid rgba(255,183,0,.3)',padding:'3px 10px',cursor:'pointer'}}>
           <Ic n="refresh" size={11}/> Görseli Yeniden Üret
         </button>
       </div>
       <OtoGorselUret key={`${editedHaber?.source_id}_${gorselKey}`} haber={haberRef.current} onGorsellerHazir={onGorsellerHazir}
-        kadraj={haberRef.current?.kapakKadraj || null}/>
+        kadraj={haberRef.current?.kapakKadraj || null}
+        forceRefresh={forceRefresh}/>
     </>
   )
 }
