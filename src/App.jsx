@@ -536,16 +536,15 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
         {kadraj && <span style={{fontSize:10,color:'var(--muted)'}}>Odak: {(kadraj.oranX*100).toFixed(0)}% {(kadraj.oranY*100).toFixed(0)}%</span>}
       </div>
 
-      {/* Kadraj modalı — sadece snapshot varsa video karesi, yoksa görsel */}
+      {/* Kadraj modalı — video varsa video URL'sini geçir, Creatomate kare alır */}
       {kadrajAc && (() => {
-        const snap   = renders?.dikey?.snapshot || renders?.yatay?.snapshot || ''
-        const gorsel = haber?.gorsel_url || haber?.gorsel || ''
+        const gorsel   = haber?.gorsel_url || haber?.gorsel || ''
+        const videoSrc = haber?.video || null
         return (
           <OnKadraj
-            gorselUrl={snap || gorsel}
-            baslik={snap
-              ? '🎬 Video karesi üzerinde kadraj seç'
-              : '🖼 Görsel üzerinde kadraj seç (video render sonrası video karesi kullanılır)'}
+            gorselUrl={gorsel}
+            videoUrl={videoSrc}
+            baslik={videoSrc ? '🎬 Video karesi üzerinde kadraj seç' : '🖼 Görsel üzerinde kadraj seç'}
             onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
             onIptal={() => setKadrajAc(false)}
           />
@@ -1226,7 +1225,7 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 
 
 // ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
-function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
+function OnKadraj({ gorselUrl, videoUrl = null, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
   // Yatay kadraj state
   const yatayRef  = useRef(null)
   const [yatayBaslat,  setYatayBaslat]  = useState(null)
@@ -1247,7 +1246,10 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
   useEffect(() => {
     if (!gorselUrl) return
     setYukleniyor(true)
-    fetch(`/api/gorsel-uret?kadraj_onizleme=1&gorsel_url=${encodeURIComponent(gorselUrl)}`)
+    const kadrajApiUrl = videoUrl
+      ? `/api/gorsel-uret?kadraj_onizleme=1&video_url=${encodeURIComponent(videoUrl)}&gorsel_url=${encodeURIComponent(gorselUrl)}`
+      : `/api/gorsel-uret?kadraj_onizleme=1&gorsel_url=${encodeURIComponent(gorselUrl)}`
+    fetch(kadrajApiUrl)
       .then(r => r.json())
       .then(data => {
         setOnizleme({ yatay: data.yatay || gorselUrl, dikey: data.dikey || gorselUrl })
@@ -1257,7 +1259,7 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
         setOnizleme({ yatay: gorselUrl, dikey: gorselUrl })
         setYukleniyor(false)
       })
-  }, [gorselUrl])
+  }, [gorselUrl, videoUrl])
 
   const getPos = (ref, e) => {
     const rect = ref.current.getBoundingClientRect()

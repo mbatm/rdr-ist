@@ -146,9 +146,12 @@ export async function onRequestGet({ request, env }) {
   try {
     const url      = new URL(request.url)
     const gorselUrl = url.searchParams.get('gorsel_url')
-    if (!gorselUrl) return Response.json({ hata: 'gorsel_url gerekli' }, { status: 400 })
+    const videoUrl  = url.searchParams.get('video_url')   // video varsa öncelikli kullan
+    const kaynakUrl = videoUrl || gorselUrl
+    if (!kaynakUrl) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
     if (!env.CREATOMATE_API_KEY) return Response.json({ hata: 'API key yok' }, { status: 500 })
 
+    // Video ise mp4 → Creatomate otomatik kare alır
     // Her iki format için paralel render başlat
     const [yatayRes, dikeyRes] = await Promise.all([
       fetch('https://api.creatomate.com/v1/renders', {
@@ -157,7 +160,7 @@ export async function onRequestGet({ request, env }) {
         body: JSON.stringify({
           template_id: KADRAJ_SABLON.yatay,
           output_format: 'png',
-          modifications: { 'video': gorselUrl },
+          modifications: { 'video': kaynakUrl },
         }),
       }),
       fetch('https://api.creatomate.com/v1/renders', {
@@ -166,7 +169,7 @@ export async function onRequestGet({ request, env }) {
         body: JSON.stringify({
           template_id: KADRAJ_SABLON.dikey,
           output_format: 'png',
-          modifications: { 'video': gorselUrl },
+          modifications: { 'video': kaynakUrl },
         }),
       }),
     ])
