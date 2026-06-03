@@ -1382,21 +1382,22 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
       ) : (
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {gorseller.map((g, i) => (
-            <div key={i} style={{position:'relative',width:72,height:72,borderRadius:'var(--radius-sm)',overflow:'hidden',
-              border:`1.5px solid ${g.kapak?'rgba(0,212,170,.6)':'var(--border)'}`}}>
-              <img src={g.url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}
-                onError={e=>e.target.style.display='none'}/>
-              {/* Kapak rozeti */}
-              {g.kapak && (
-                <div style={{position:'absolute',top:2,left:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 4px',borderRadius:2,fontWeight:700}}>
-                  KAPAK
-                </div>
-              )}
-              {/* Kontroller */}
-              <div style={{position:'absolute',bottom:0,left:0,right:0,display:'flex',gap:1,background:'rgba(0,0,0,.65)'}}>
+            <div key={i} style={{display:'flex',flexDirection:'column',gap:2,width:80}}>
+              <div style={{position:'relative',width:80,height:60,borderRadius:'var(--radius-sm)',overflow:'hidden',
+                border:`1.5px solid ${g.kapak?'rgba(0,212,170,.6)':'var(--border)'}`}}>
+                <img src={g.url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}
+                  onError={e=>e.target.style.display='none'}/>
+                {g.kapak && (
+                  <div style={{position:'absolute',top:2,left:2,fontSize:7,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 3px',borderRadius:2,fontWeight:700}}>
+                    KAPAK
+                  </div>
+                )}
+              </div>
+              {/* Butonlar — görsel altında */}
+              <div style={{display:'flex',gap:2}}>
                 {!g.kapak && (
                   <button onClick={()=>kapakYap(i)} title="Kapak yap"
-                    style={{flex:1,fontSize:8,border:'none',background:'transparent',color:'#00D4AA',cursor:'pointer',padding:'2px 0'}}>
+                    style={{flex:1,fontSize:9,border:'0.5px solid rgba(0,212,170,.3)',background:'rgba(0,212,170,.08)',color:'#00D4AA',cursor:'pointer',padding:'2px 0',borderRadius:2}}>
                     ★
                   </button>
                 )}
@@ -1409,11 +1410,11 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
                     kadrajCbRef.current = null
                   }
                 }} title="Kadraj seç"
-                  style={{flex:1,fontSize:8,border:'none',background:'transparent',color:'#FFB700',cursor:'pointer',padding:'2px 0'}}>
+                  style={{flex:1,fontSize:9,border:'0.5px solid rgba(255,183,0,.3)',background:'rgba(255,183,0,.08)',color:'#FFB700',cursor:'pointer',padding:'2px 0',borderRadius:2}}>
                   ✂
                 </button>
                 <button onClick={()=>sil(i)} title="Sil"
-                  style={{flex:1,fontSize:8,border:'none',background:'transparent',color:'#ff7b7b',cursor:'pointer',padding:'2px 0'}}>
+                  style={{flex:1,fontSize:9,border:'0.5px solid rgba(255,123,123,.3)',background:'rgba(255,123,123,.08)',color:'#ff7b7b',cursor:'pointer',padding:'2px 0',borderRadius:2}}>
                   ✕
                 </button>
               </div>
