@@ -147,12 +147,11 @@ export async function onRequestGet({ request, env }) {
     const url      = new URL(request.url)
     const gorselUrl  = url.searchParams.get('gorsel_url')
     const videoUrl   = url.searchParams.get('video_url')   // video varsa öncelikli kullan
-    const fmtParam   = url.searchParams.get('fmt')         // 'yatay' | 'dikey' | null (ikisi birden)
+    const fmtParam   = url.searchParams.get('fmt')         // 'yatay' | 'dikey' — hangi render alınacak
     const kaynakUrl  = videoUrl || gorselUrl
     if (!kaynakUrl) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
     if (!env.CREATOMATE_API_KEY) return Response.json({ hata: 'API key yok' }, { status: 500 })
 
-    // KV cache — fmt dahil key
     const cacheKey = fmtParam ? `${kaynakUrl}:${fmtParam}` : kaynakUrl
 
     // KV cache — aynı kaynak için tekrar render yok (7 gün)
@@ -166,7 +165,8 @@ export async function onRequestGet({ request, env }) {
       } catch(e) { /* devam */ }
     }
 
-    // fmt'ye göre hangi formatların render alınacağını belirle
+    // fmtParam'a göre sadece ilgili formatı render al
+    // yatay kaynak → yatay render, dikey kaynak → dikey render
     const renderYatay = !fmtParam || fmtParam === 'yatay'
     const renderDikey = !fmtParam || fmtParam === 'dikey'
 

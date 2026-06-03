@@ -530,20 +530,16 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
     <div style={{marginBottom:8}}>
       {/* Kadraj — kaynak orientasyonuna göre ilgili butonlar */}
       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-        {/* Yatay kadraj — kaynak yatay veya bilinmiyorsa göster */}
-        {(!kaynakOrientation || kaynakOrientation === 'yatay') && (
-          <button onClick={()=>setKadrajAcFmt('yatay')}
-            style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.yatay?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.yatay?'#00D4AA':'#FFB700',cursor:'pointer'}}>
-            ✂ Yatay Kadraj {kadraj.yatay ? '✓' : ''}
-          </button>
-        )}
-        {/* Dikey kadraj — kaynak dikey veya bilinmiyorsa göster */}
-        {(!kaynakOrientation || kaynakOrientation === 'dikey') && (
-          <button onClick={()=>setKadrajAcFmt('dikey')}
-            style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.dikey?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.dikey?'#00D4AA':'#FFB700',cursor:'pointer'}}>
-            ✂ Dikey Kadraj {kadraj.dikey ? '✓' : ''}
-          </button>
-        )}
+        {/* Kadraj butonları — her zaman ikisi de gösterilir
+             Ama API'ye gönderilen render kaynağın orientasyonuna göre seçilir */}
+        <button onClick={()=>setKadrajAcFmt('yatay')}
+          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.yatay?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.yatay?'#00D4AA':'#FFB700',cursor:'pointer'}}>
+          ✂ Yatay Kadraj {kadraj.yatay ? '✓' : ''}
+        </button>
+        <button onClick={()=>setKadrajAcFmt('dikey')}
+          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.dikey?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.dikey?'#00D4AA':'#FFB700',cursor:'pointer'}}>
+          ✂ Dikey Kadraj {kadraj.dikey ? '✓' : ''}
+        </button>
         {(kadraj.yatay || kadraj.dikey) && (
           <button onClick={()=>setKadraj({ yatay: null, dikey: null })}
             style={{fontSize:11,padding:'4px 8px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)',cursor:'pointer'}}>
@@ -560,7 +556,7 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           <OnKadraj
             gorselUrl={gorsel}
             videoUrl={videoSrc}
-            fmt={kadrajAcFmt}
+            fmt={kaynakOrientation || kadrajAcFmt}
             baslik={`${videoSrc ? '🎬 Video' : '🖼 Görsel'} — ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} kadraj seç`}
             onOnayla={k => {
               setKadraj(prev => ({ ...prev, [kadrajAcFmt]: k }))
@@ -1263,24 +1259,31 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
   const [yukleniyor, setYukleniyor] = useState(true)
 
   // Creatomate kadraj şablonundan önizleme al
+  // Kaynak yatay → yatay render, kaynak dikey → dikey render
+  // Alınan tek render her iki panelde de aynı görsel olarak gösterilir
   useEffect(() => {
     if (!gorselUrl) return
     setYukleniyor(true)
+
+    // fmt varsa sadece o formatı iste, yoksa ikisi
     const fmtQs = fmt ? `&fmt=${fmt}` : ''
     const kadrajApiUrl = videoUrl
       ? `/api/gorsel-uret?kadraj_onizleme=1&video_url=${encodeURIComponent(videoUrl)}&gorsel_url=${encodeURIComponent(gorselUrl)}${fmtQs}`
       : `/api/gorsel-uret?kadraj_onizleme=1&gorsel_url=${encodeURIComponent(gorselUrl)}${fmtQs}`
+
     fetch(kadrajApiUrl)
       .then(r => r.json())
       .then(data => {
-        setOnizleme({ yatay: data.yatay || gorselUrl, dikey: data.dikey || gorselUrl })
+        // Gelen render'ı her iki panele de ata — kullanıcı aynı görsel üzerinde her iki kadrajı seçer
+        const url = data.yatay || data.dikey || gorselUrl
+        setOnizleme({ yatay: url, dikey: url })
         setYukleniyor(false)
       })
       .catch(() => {
         setOnizleme({ yatay: gorselUrl, dikey: gorselUrl })
         setYukleniyor(false)
       })
-  }, [gorselUrl, videoUrl])
+  }, [gorselUrl, videoUrl, fmt])
 
   const getPos = (ref, e) => {
     const rect = ref.current.getBoundingClientRect()
