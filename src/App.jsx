@@ -534,11 +534,11 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
              Ama API'ye gönderilen render kaynağın orientasyonuna göre seçilir */}
         <button onClick={()=>setKadrajAcFmt('yatay')}
           style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.yatay?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.yatay?'#00D4AA':'#FFB700',cursor:'pointer'}}>
-          ✂ Yatay Kadraj {kadraj.yatay ? '✓' : ''}
+          ✂ Yatay Odak {kadraj.yatay ? `✓ ${(kadraj.yatay.x*100).toFixed(0)}%` : ''}
         </button>
         <button onClick={()=>setKadrajAcFmt('dikey')}
           style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.dikey?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.dikey?'#00D4AA':'#FFB700',cursor:'pointer'}}>
-          ✂ Dikey Kadraj {kadraj.dikey ? '✓' : ''}
+          ✂ Dikey Odak {kadraj.dikey ? `✓ ${(kadraj.dikey.x*100).toFixed(0)}%` : ''}
         </button>
         {(kadraj.yatay || kadraj.dikey) && (
           <button onClick={()=>setKadraj({ yatay: null, dikey: null })}
@@ -559,8 +559,8 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
             fmt={kaynakOrientation || kadrajAcFmt}
             baslik={`${videoSrc ? '🎬 Video' : '🖼 Görsel'} — ${kadrajAcFmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'} kadraj seç`}
             onOnayla={k => {
-              // Seçilen kadrajı ilgili formata kaydet
-              setKadraj(prev => ({ ...prev, [kadrajAcFmt]: k }))
+              // k = { yatay: {x,y}, dikey: {x,y} } veya null
+              if (k) setKadraj({ yatay: k.yatay || null, dikey: k.dikey || null })
               setKadrajAcFmt(null)
             }}
             onIptal={() => setKadrajAcFmt(null)}
@@ -1243,33 +1243,24 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 
 // ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
 function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
-  // Kadraj kutu state — yatay ve dikey için ayrı
-  const yatayRef = useRef(null)
-  const dikeyRef = useRef(null)
-  const [yataySecim, setYataySecim] = useState(null)
-  const [dikeySecim, setDikeySecim] = useState(null)
-
-  // Önizleme URL'leri
-  const [onizleme, setOnizleme] = useState({ yatay: null, dikey: null })
+  const [onizleme,  setOnizleme]  = useState({ yatay: null, dikey: null })
   const [yukleniyor, setYukleniyor] = useState(true)
+  // Her panel için odak noktası { x, y } — 0..1 arası
+  const [odakYatay, setOdakYatay] = useState({ x: 0.5, y: 0.5 })
+  const [odakDikey, setOdakDikey] = useState({ x: 0.5, y: 0.5 })
+  const yatayImgRef = useRef(null)
+  const dikeyImgRef = useRef(null)
 
-  // Creatomate kadraj şablonundan önizleme al
-  // Kaynak yatay → yatay render, kaynak dikey → dikey render
-  // Alınan tek render her iki panelde de aynı görsel olarak gösterilir
   useEffect(() => {
     if (!gorselUrl) return
     setYukleniyor(true)
-
-    // fmt varsa sadece o formatı iste, yoksa ikisi
     const fmtQs = fmt ? `&fmt=${fmt}` : ''
-    const kadrajApiUrl = videoUrl
+    const apiUrl = videoUrl
       ? `/api/gorsel-uret?kadraj_onizleme=1&video_url=${encodeURIComponent(videoUrl)}&gorsel_url=${encodeURIComponent(gorselUrl)}${fmtQs}`
       : `/api/gorsel-uret?kadraj_onizleme=1&gorsel_url=${encodeURIComponent(gorselUrl)}${fmtQs}`
-
-    fetch(kadrajApiUrl)
+    fetch(apiUrl)
       .then(r => r.json())
       .then(data => {
-        // Gelen render'ı her iki panele de ata — kullanıcı aynı görsel üzerinde her iki kadrajı seçer
         const url = data.yatay || data.dikey || gorselUrl
         setOnizleme({ yatay: url, dikey: url })
         setYukleniyor(false)
@@ -1281,7 +1272,8 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
   }, [gorselUrl, videoUrl, fmt])
 
   const getPos = (ref, e) => {
-    const rect = ref.current.getBoundingClientRect()
+    const rect = ref.current?.getBoundingClientRect()
+    if (!rect) return { x: 0.5, y: 0.5 }
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     return {
@@ -1290,177 +1282,78 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
     }
   }
 
-  // Sabit oran kutusu: 16:9 (yatay) veya 9:16 (dikey)
-  // Koordinatlar 0..1 arası — görsel boyutuna göre normalize
-  // Yatay: w/h = 16/9 → h = w*9/16
-  // Dikey: w/h = 9/16 → h = w*16/9
-  const kutuhOran = (fmt, w) => fmt === 'yatay' ? w * (9/16) : w * (16/9)
-
-  const KadrajPanel = ({ fmt, imgUrl, pRef, secim, setSecim }) => {
-    const [drag, setDrag] = useState(null)
-
-    // img yüklenince veya fmt değişince görsel'in gerçek oranını hesapla
-    // pRef görsel container'ına bağlı, içindeki img'nin boyutuna göre kutu oluştur
-    const imgRef = useRef(null)
-
-    const initKutu = () => {
-      const img = imgRef.current
-      if (!img || !img.naturalWidth) return
-      // Görsel tam genişlikte, height:auto — kutu oranı px'den hesapla
-      const iw = img.clientWidth || img.naturalWidth
-      const ih = img.clientHeight || img.naturalHeight
-      if (!iw || !ih) return
-      // Kutu: yatay 16:9 (h=w*9/16), dikey 9:16 (h=w*16/9)
-      const boxW = 0.7
-      const boxH = fmt === 'yatay' ? boxW * iw * (9/16) / ih : boxW * iw * (16/9) / ih
-      const x = (1 - boxW) / 2
-      const y = (1 - boxH) / 2
-      setSecim({
-        x: Math.max(0, x),
-        y: Math.max(0, Math.min(y, 1 - boxH)),
-        w: boxW,
-        h: Math.min(boxH, 0.99)
-      })
-    }
-
-    useEffect(() => {
-      if (secim) return  // zaten seçim var
-      // Görsel yüklenince başlat
-      const img = imgRef.current
-      if (!img) return
-      if (img.complete && img.naturalWidth) { initKutu(); return }
-      img.addEventListener('load', initKutu, { once: true })
-      return () => img.removeEventListener('load', initKutu)
-    }, [fmt, imgUrl])
-
-    const getRelPos = (e) => {
-      const rect = pRef.current?.getBoundingClientRect()
-      if (!rect || !rect.width) return { x: 0, y: 0 }
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY
-      return {
-        x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
-        y: Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height)),
-      }
-    }
-
-    const onContainerMouseMove = (e) => {
-      if (!drag || !secim) return
-      const p = getRelPos(e)
-      const dx = p.x - drag.startX
-      const dy = p.y - drag.startY
-
-      if (drag.mode === 'move') {
-        const nx = Math.max(0, Math.min(1 - drag.s.w, drag.s.x + dx))
-        const ny = Math.max(0, Math.min(1 - drag.s.h, drag.s.y + dy))
-        setSecim({ ...drag.s, x: nx, y: ny })
-      } else if (drag.mode === 'resize') {
-        // Koordinatlar img'ye göre normalize — doğrudan oran hesabı
-        const nw = Math.max(0.1, Math.min(1 - drag.s.x, drag.s.w + dx))
-        const nh = fmt === 'yatay' ? nw * (9/16) : nw * (16/9)
-        if (nh <= 1 - drag.s.y) {
-          setSecim({ ...drag.s, w: nw, h: nh })
-        }
-      }
-    }
-
-    const onContainerMouseUp = () => setDrag(null)
-
-    const onBoxMouseDown = (e) => {
-      e.preventDefault(); e.stopPropagation()
-      const p = getRelPos(e)
-      setDrag({ mode: 'move', startX: p.x, startY: p.y, s: { ...secim } })
-    }
-
-    const onResizeMouseDown = (e) => {
-      e.preventDefault(); e.stopPropagation()
-      const p = getRelPos(e)
-      setDrag({ mode: 'resize', startX: p.x, startY: p.y, s: { ...secim } })
-    }
-
-    return (
-      <div style={{flex:1, display:'flex', flexDirection:'column', gap:6, minWidth:0}}>
-        <div style={{fontSize:11, color:'#00D4AA', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.06em'}}>
-          {fmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'}
-        </div>
-        <div ref={pRef}
-          style={{position:'relative', userSelect:'none', background:'#111',
-            cursor: drag?.mode==='move' ? 'grabbing' : 'default',
-            lineHeight: 0}}
-          onMouseMove={onContainerMouseMove} onMouseUp={onContainerMouseUp} onMouseLeave={onContainerMouseUp}
-          onTouchMove={onContainerMouseMove} onTouchEnd={onContainerMouseUp}>
-          {imgUrl
-            ? <img ref={imgRef} src={imgUrl} alt={fmt} draggable={false}
-                style={{display:'block', width:'100%', height:'auto',
-                  maxHeight: fmt==='dikey' ? '55vh' : '40vh'}}/>
-            : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16', background:'#222',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                color:'var(--muted)', fontSize:12, minHeight:120}}>Yükleniyor…</div>
-          }
-          {secim && <>
-            {/* Karartma — 4 parça */}
-            <div style={{position:'absolute',left:0,right:0,top:0,height:`${secim.y*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            <div style={{position:'absolute',left:0,right:0,top:`${(secim.y+secim.h)*100}%`,bottom:0,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            <div style={{position:'absolute',left:0,top:`${secim.y*100}%`,width:`${secim.x*100}%`,height:`${secim.h*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            <div style={{position:'absolute',left:`${(secim.x+secim.w)*100}%`,right:0,top:`${secim.y*100}%`,height:`${secim.h*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            {/* Kutu */}
-            <div onMouseDown={onBoxMouseDown} onTouchStart={onBoxMouseDown}
-              style={{position:'absolute', left:`${secim.x*100}%`, top:`${secim.y*100}%`,
-                width:`${secim.w*100}%`, height:`${secim.h*100}%`,
-                border:'2px solid #00D4AA', cursor:'grab', boxSizing:'border-box', touchAction:'none'}}>
-              {/* Resize tutamacı — sağ alt */}
-              <div onMouseDown={onResizeMouseDown} onTouchStart={onResizeMouseDown}
-                style={{position:'absolute', right:-7, bottom:-7, width:14, height:14,
-                  background:'#00D4AA', borderRadius:2, cursor:'nwse-resize', touchAction:'none'}}/>
-            </div>
-          </>}
-        </div>
-        <div style={{fontSize:10, color:'var(--muted)', textAlign:'center'}}>
-          ↔ Kutuyu sürükle &nbsp;·&nbsp; ◢ Köşeden boyutlandır
-        </div>
+  const OdakPanel = ({ fmt: panelFmt, imgUrl, imgRef, odak, setOdak }) => (
+    <div style={{flex:1, display:'flex', flexDirection:'column', gap:6, minWidth:0}}>
+      <div style={{fontSize:11, color:'#00D4AA', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.06em'}}>
+        {panelFmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'}
       </div>
-    )
-  }
+      <div style={{position:'relative', cursor:'crosshair', lineHeight:0, background:'#111'}}
+        onClick={e => setOdak(getPos(imgRef, e))}
+        onTouchEnd={e => { e.preventDefault(); setOdak(getPos(imgRef, e)) }}>
+        {imgUrl
+          ? <img ref={imgRef} src={imgUrl} alt={panelFmt} draggable={false}
+              style={{display:'block', width:'100%', maxHeight: panelFmt==='dikey'?'55vh':'40vh', objectFit:'contain'}}/>
+          : <div style={{aspectRatio: panelFmt==='yatay'?'16/9':'9/16', background:'#222',
+              display:'flex', alignItems:'center', justifyContent:'center', color:'var(--muted)', fontSize:12, minHeight:120}}>
+              Yükleniyor…
+            </div>
+        }
+        {/* Odak noktası göstergesi */}
+        {imgUrl && (() => {
+          const ref = imgRef.current
+          if (!ref) return null
+          return (
+            <div style={{
+              position:'absolute',
+              left: `${odak.x * 100}%`,
+              top:  `${odak.y * 100}%`,
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}>
+              {/* Artı işareti */}
+              <div style={{position:'absolute', left:-20, top:-1, width:40, height:2, background:'#00D4AA', opacity:0.9}}/>
+              <div style={{position:'absolute', top:-20, left:-1, width:2, height:40, background:'#00D4AA', opacity:0.9}}/>
+              {/* Merkez nokta */}
+              <div style={{position:'absolute', left:-6, top:-6, width:12, height:12,
+                border:'2px solid #00D4AA', borderRadius:'50%', background:'rgba(0,212,170,.3)'}}/>
+            </div>
+          )
+        })()}
+      </div>
+      <div style={{fontSize:10, color:'var(--muted)', textAlign:'center'}}>
+        Tıklayarak odak noktası seç · Şu an: {(odak.x*100).toFixed(0)}% {(odak.y*100).toFixed(0)}%
+      </div>
+    </div>
+  )
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.92)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',padding:'16px 16px 0',overflowY:'auto'}}>
-      <div style={{fontSize:13,color:'#fff',marginBottom:8,textAlign:'center',paddingTop:8}}>
-        ✂ Kadraj Seç — her format için ayrı alan seç
-        {yukleniyor && <span style={{fontSize:11,color:'var(--muted)',marginLeft:8}}>⏳ Önizleme hazırlanıyor…</span>}
+    <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.92)', zIndex:1000,
+      display:'flex', flexDirection:'column', alignItems:'center',
+      justifyContent:'flex-start', padding:'16px 16px 0', overflowY:'auto'}}>
+      <div style={{fontSize:13, color:'#fff', marginBottom:8, textAlign:'center', paddingTop:8}}>
+        ✂ Kadraj Seç — görsele tıklayarak odak noktası belirle
+        {yukleniyor && <span style={{fontSize:11, color:'var(--muted)', marginLeft:8}}>⏳ Hazırlanıyor…</span>}
       </div>
-
-      {/* İki panel — her biri kendi oranında sabit kutu */}
-      <div style={{display:'flex',gap:12,maxWidth:'95vw',width:'100%',alignItems:'flex-start',justifyContent:'center'}}>
-        <KadrajPanel fmt="yatay"
-          imgUrl={onizleme.yatay || onizleme.dikey}
-          pRef={yatayRef}
-          secim={yataySecim} setSecim={setYataySecim}/>
-        <KadrajPanel fmt="dikey"
-          imgUrl={onizleme.yatay || onizleme.dikey}
-          pRef={dikeyRef}
-          secim={dikeySecim} setSecim={setDikeySecim}/>
+      <div style={{display:'flex', gap:12, maxWidth:'95vw', width:'100%', alignItems:'flex-start', justifyContent:'center'}}>
+        <OdakPanel panelFmt="yatay" fmt="yatay" imgUrl={onizleme.yatay} imgRef={yatayImgRef} odak={odakYatay} setOdak={setOdakYatay}/>
+        <OdakPanel panelFmt="dikey" fmt="dikey" imgUrl={onizleme.dikey} imgRef={dikeyImgRef} odak={odakDikey} setOdak={setOdakDikey}/>
       </div>
-
-      <div style={{display:'flex',gap:8,margin:'12px 0',flexShrink:0}}>
+      <div style={{display:'flex', gap:8, margin:'12px 0', flexShrink:0}}>
         <button onClick={()=>onOnayla(null)}
-          style={{fontSize:12,padding:'6px 16px',background:'rgba(255,255,255,.08)',border:'0.5px solid rgba(255,255,255,.2)',color:'#aaa',cursor:'pointer'}}>
+          style={{fontSize:12, padding:'6px 16px', background:'rgba(255,255,255,.08)', border:'0.5px solid rgba(255,255,255,.2)', color:'#aaa', cursor:'pointer'}}>
           Seçimsiz Devam Et
         </button>
-        <button onClick={()=>{
-          const mk = (s) => s && s.w > 0.02 ? { oranX: s.x, oranY: s.y, oranW: s.w, oranH: s.h } : null
-          onOnayla({ yatay: mk(yataySecim), dikey: mk(dikeySecim) })
-        }}
-          style={{fontSize:12,padding:'6px 16px',background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.4)',color:'#00D4AA',cursor:'pointer'}}>
-          ✓ Kadrajları Onayla
+        <button onClick={()=>onOnayla({ yatay: odakYatay, dikey: odakDikey })}
+          style={{fontSize:12, padding:'6px 16px', background:'rgba(0,212,170,.15)', border:'0.5px solid rgba(0,212,170,.4)', color:'#00D4AA', cursor:'pointer'}}>
+          ✓ Odak Noktalarını Onayla
         </button>
         <button onClick={onIptal}
-          style={{fontSize:12,padding:'6px 16px',background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',cursor:'pointer'}}>
+          style={{fontSize:12, padding:'6px 16px', background:'rgba(230,57,70,.1)', border:'0.5px solid rgba(230,57,70,.3)', color:'#ff7b7b', cursor:'pointer'}}>
           İptal
         </button>
       </div>
-
-      <div style={{fontSize:10,color:'rgba(255,255,255,.3)',marginBottom:12}}>
-        Seçim yapmazsan tam görsel kullanılır
+      <div style={{fontSize:10, color:'rgba(255,255,255,.3)', marginBottom:12}}>
+        Seçim yapmazsan merkez (50% 50%) kullanılır
       </div>
     </div>
   )

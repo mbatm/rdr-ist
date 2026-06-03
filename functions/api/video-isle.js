@@ -66,10 +66,15 @@ export async function onRequestPost({ request, env }) {
       // Görsel ise sadece dikey, yatay şablon yok
       if (!isVideo && fmt === 'yatay') continue
 
-      // Kadraj — her format için ayrı hesapla
+      // Kadraj — her format için ayrı odak noktası
       const kadrajMods = kadrajHesapla(genislik, yukseklik)
-      const kadrajFmt  = kadraj?.[fmt] ?? (kadraj?.oranX !== undefined ? kadraj : null)
-      if (kadrajFmt?.oranX !== undefined) {
+      const kadrajFmt  = kadraj?.[fmt] ?? null
+      if (kadrajFmt?.x !== undefined) {
+        // Yeni format: { x, y } — doğrudan merkez koordinat
+        kadrajMods['video.x_anchor'] = `${(kadrajFmt.x * 100).toFixed(1)}%`
+        kadrajMods['video.y_anchor'] = `${(kadrajFmt.y * 100).toFixed(1)}%`
+      } else if (kadrajFmt?.oranX !== undefined) {
+        // Eski format uyumluluğu
         kadrajMods['video.x_anchor'] = `${((kadrajFmt.oranX + kadrajFmt.oranW/2) * 100).toFixed(1)}%`
         kadrajMods['video.y_anchor'] = `${((kadrajFmt.oranY + kadrajFmt.oranH/2) * 100).toFixed(1)}%`
       }

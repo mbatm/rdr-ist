@@ -41,9 +41,12 @@ export async function onRequestPost({ request, env }) {
     })
 
     // Kadraj artık { yatay, dikey } objesi — formata göre doğru kadrajı kullan
-    const kadrajFmt = kadraj?.[format] || kadraj  // eski tek kadraj uyumluluğu
-    const cx = kadrajFmt ? (kadrajFmt.oranX + kadrajFmt.oranW / 2) : 0.5
-    const cy = kadrajFmt ? (kadrajFmt.oranY + kadrajFmt.oranH / 2) : 0.5
+    const kadrajFmt = kadraj?.[format] ?? kadraj ?? null
+    // Yeni format: { x, y }, eski: { oranX, oranY, oranW, oranH }
+    const cx = kadrajFmt?.x !== undefined ? kadrajFmt.x
+             : kadrajFmt?.oranX !== undefined ? (kadrajFmt.oranX + kadrajFmt.oranW / 2) : 0.5
+    const cy = kadrajFmt?.y !== undefined ? kadrajFmt.y
+             : kadrajFmt?.oranY !== undefined ? (kadrajFmt.oranY + kadrajFmt.oranH / 2) : 0.5
 
     const videoMods = {
       'video':            gorsel_url,
