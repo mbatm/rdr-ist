@@ -1304,8 +1304,8 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
   )
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.92)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:16,overflowY:'auto'}}>
-      <div style={{fontSize:13,color:'#fff',marginBottom:4,textAlign:'center'}}>
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.92)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',padding:'16px 16px 0',overflowY:'auto'}}>
+      <div style={{fontSize:13,color:'#fff',marginBottom:8,textAlign:'center',paddingTop:8}}>
         ✂ Kadraj Seç — her format için ayrı alan seç
         {yukleniyor && <span style={{fontSize:11,color:'var(--muted)',marginLeft:8}}>⏳ Önizleme hazırlanıyor…</span>}
       </div>
@@ -1324,7 +1324,7 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
           surukle={dikeySurukle} setSurukle={setDikeySurukle}/>
       </div>
 
-      <div style={{display:'flex',gap:8,marginTop:4}}>
+      <div style={{display:'flex',gap:8,margin:'12px 0',flexShrink:0}}>
         <button onClick={()=>onOnayla(null)}
           style={{fontSize:12,padding:'6px 16px',background:'rgba(255,255,255,.08)',border:'0.5px solid rgba(255,255,255,.2)',color:'#aaa',cursor:'pointer'}}>
           Seçimsiz Devam Et
@@ -1342,7 +1342,7 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
         </button>
       </div>
 
-      <div style={{fontSize:10,color:'rgba(255,255,255,.3)'}}>
+      <div style={{fontSize:10,color:'rgba(255,255,255,.3)',marginBottom:12}}>
         Seçim yapmazsan tam görsel kullanılır
       </div>
     </div>
