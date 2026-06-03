@@ -34,14 +34,16 @@ export async function onRequestPost({ request, env }) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     })
 
-    // Kadraj varsa video elementinin x/y/w/h'ını ayarla
-    // Creatomate'de video elementi tam görsel, kadraj ile odak noktasını belirleriz
-    const videoMods = kadraj ? {
-      'video':        gorsel_url,
-      'video.x':      `${50 + (0.5 - kadraj.oranX - kadraj.oranW/2) * 100}%`,
-      'video.y':      `${50 + (0.5 - kadraj.oranY - kadraj.oranH/2) * 100}%`,
-    } : {
-      'video': gorsel_url,
+    // Kadraj varsa odak noktasını ayarla — Creatomate fit:cover ile x_anchor/y_anchor kullanır
+    // Kadraj seçilmemişse görsel merkezi varsayılan (50% 50%)
+    const cx = kadraj ? (kadraj.oranX + kadraj.oranW / 2) : 0.5  // 0..1
+    const cy = kadraj ? (kadraj.oranY + kadraj.oranH / 2) : 0.5  // 0..1
+
+    const videoMods = {
+      'video':            gorsel_url,
+      'video.x_anchor':   `${(cx * 100).toFixed(1)}%`,
+      'video.y_anchor':   `${(cy * 100).toFixed(1)}%`,
+      'video.fit':        'cover',
     }
 
     const modifications = {
