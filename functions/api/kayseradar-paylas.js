@@ -11,7 +11,7 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ hata: 'Kayseradar yetkisi yok' }, { status: 403 })
 
   try {
-    const { id, platformlar = [], fb_page_ids = [], ig_ids = [], tw = false, galeri_urls = [] } = await request.json()
+    const { id, platformlar = [], fb_page_ids = [], ig_ids = [], tw = false, galeri_urls = [], ig_kolabor = [] } = await request.json()
     if (!id) return Response.json({ hata: 'id zorunlu' }, { status: 400 })
 
     const kayit = await env.HABERLER.get(`radar:${id}`, 'json')
@@ -53,6 +53,7 @@ export async function onRequestPost({ request, env }) {
         is_video:     isVideo,
         is_carousel:  isCarousel,
         galeri_urls:  isCarousel ? [medyaUrl, ...galeriUrls] : undefined,
+        ig_kolabor:   ig_kolabor.length ? ig_kolabor : undefined,
         metin:       platformlar.includes('instagram') ? kayit.ig_metni : kayit.fb_metni,
         baslik:      kayit.baslik,
         platform:    platformlar.includes('facebook') && platformlar.includes('instagram')

@@ -2451,6 +2451,7 @@ function KayseradarModul({ user, onGeri }) {
   const [paylasiyor,   setPaylasiyor] = useState(false)
   const [hata,         setHata]       = useState(null)
   const [pSonuc,       setPSonuc]     = useState(null)
+  const [radarKolabor, setRadarKolabor] = useState('')
   const [videoRenders, setVideoRenders] = useState({})
   const [hesaplar,     setHesaplar]     = useState({ facebook:[], instagram:[] })
   const [secilenFb,    setSecilenFb]    = useState([])
@@ -2581,7 +2582,8 @@ function KayseradarModul({ user, onGeri }) {
       const res  = await fetch('/api/kayseradar-paylas', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body:    JSON.stringify({ id: kayit.id, platformlar, fb_page_ids: fbIds, ig_ids: igIds, tw: platformlar.includes('twitter') }),
+        body:    JSON.stringify({ id: kayit.id, platformlar, fb_page_ids: fbIds, ig_ids: igIds, tw: platformlar.includes('twitter'),
+          ig_kolabor: radarKolabor ? radarKolabor.split(',').map(s=>s.trim().replace('@','')).filter(Boolean) : undefined }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
@@ -2999,6 +3001,19 @@ function KayseradarModul({ user, onGeri }) {
                     {alan==='tw_metni' && <div style={{fontSize:10,color:(onayKayit[alan]||'').length>260?'#ff7b7b':'var(--muted)',textAlign:'right'}}>{(onayKayit[alan]||'').length}/280</div>}
                   </div>
                 ))}
+
+                {/* Instagram Kolaboratör */}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,color:'#E1306C',marginBottom:3}}>
+                    Instagram Kolaboratör <span style={{opacity:.6,color:'var(--muted)'}}>(virgülle ayır, @ olmadan)</span>
+                  </div>
+                  <input value={radarKolabor} onChange={e=>setRadarKolabor(e.target.value)}
+                    placeholder="ornek_hesap, diger_hesap"
+                    style={{width:'100%',fontSize:12,boxSizing:'border-box'}}/>
+                  {radarKolabor && <div style={{fontSize:10,color:'#4dabf7',marginTop:3}}>
+                    ℹ️ Davet gönderilir, karşı tarafın kabul etmesi gerekir
+                  </div>}
+                </div>
 
                 {/* Paylaş butonları */}
                 <div style={{display:'flex',gap:6,flexWrap:'wrap',paddingTop:10,borderTop:'0.5px solid var(--border)',marginTop:4}}>
