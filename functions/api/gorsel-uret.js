@@ -1,7 +1,6 @@
 /**
  * POST /api/gorsel-uret
  * Creatomate ile kayserim.net görseli üretir
- * Cloudflare Pages Function — setTimeout yok, fetch polling kullanılır
  */
 
 const SABLON = {
@@ -9,15 +8,12 @@ const SABLON = {
   dikey: 'aad1d3c0-4378-4dd0-8133-93a4b61c28b7',
 }
 
-// Cloudflare Workers'da setTimeout çalışmaz, scheduler.wait kullanılır
-async function bekle(ms) {
-  return new Promise(resolve => {
-    // Cloudflare'de setTimeout bazen çalışıyor, bazen değil
-    // waitUntil olmadığı için direkt polling yapıyoruz
-    const start = Date.now()
-    const check = () => { if (Date.now() - start >= ms) resolve(); else setTimeout(check, 100) }
-    setTimeout(resolve, ms)
-  })
+// Şablondaki element ID'leri (tarih text elementleri)
+// Yatay: track 9 = "99f283bc-..." = tarih text
+// Dikey: track 9 = "99f283bc-..." = tarih text
+const TARIH_TEXT_ID = {
+  yatay: '99f283bc-29cc-42d5-afe4-eb4e0a6de15d',
+  dikey: '99f283bc-29cc-42d5-afe4-eb4e0a6de15d',
 }
 
 export async function onRequestPost({ request, env }) {
@@ -38,17 +34,18 @@ export async function onRequestPost({ request, env }) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     })
 
+    // modifications — aynı isimli elementleri ID ile hedefle
     const modifications = {
-      'video':           gorsel_url,
-      'baslik':          baslik,
-      'baslikss':        baslik,
-      'spot-baslik':     spot || '',
-      'spot-baslik-ss':  spot || '',
-      'kategori':        (kategori || 'GÜNCEL').toUpperCase(),
-      'tarih':           tarihStr,
+      'video':                        gorsel_url,
+      'baslik':                       baslik,
+      'baslikss':                     baslik,
+      'spot-baslik':                  spot || '',
+      'spot-baslik-ss':               spot || '',
+      'kategori':                     (kategori || 'GÜNCEL').toUpperCase(),
+      // tarih text element — ID ile hedefle (image tarih'i atla)
+      [`${TARIH_TEXT_ID[format] || TARIH_TEXT_ID.yatay}.text`]: tarihStr,
     }
 
-    // Render başlat
     const renderRes = await fetch('https://api.creatomate.com/v1/renders', {
       method: 'POST',
       headers: {
@@ -78,18 +75,11 @@ export async function onRequestPost({ request, env }) {
       }, { status: 500 })
     }
 
-    // Polling — Cloudflare max 30 saniye CPU süresi var
-    // Her 3 saniyede bir kontrol, max 25 deneme = ~75 saniye
-    // Cloudflare Pages'da gerçek bekleme için fetch'i zincirleyelim
+    // Polling
     for (let i = 0; i < 20; i++) {
-      // Kısa fetch ile bekle (network latency kullanır)
-      await fetch('https://api.creatomate.com/v1/renders/' + render.id, {
-        headers: { 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
-      })
-
       await new Promise(r => setTimeout(r, 3000))
 
-      const checkRes  = await fetch('https://api.creatomate.com/v1/renders/' + render.id, {
+      const checkRes  = await fetch(`https://api.creatomate.com/v1/renders/${render.id}`, {
         headers: { 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
       })
       const checkData = await checkRes.json()
@@ -100,15 +90,14 @@ export async function onRequestPost({ request, env }) {
       }
       if (r2.status === 'failed') {
         return Response.json({
-          hata: `Render başarısız: ${JSON.stringify(r2)}`
+          hata: `Render başarısız: ${r2.error_message || JSON.stringify(r2)}`
         }, { status: 500 })
       }
-      // planned / rendering → devam et
     }
 
     return Response.json({ hata: 'Render zaman aşımı (60s)' }, { status: 504 })
 
   } catch (e) {
-    return Response.json({ hata: e.message + '\n' + e.stack }, { status: 500 })
+    return Response.json({ hata: e.message }, { status: 500 })
   }
 }
