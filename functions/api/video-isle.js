@@ -59,33 +59,31 @@ export async function onRequestPost({ request, env }) {
       dikey_gorsel: 'd8655c6b-e08d-45e4-8277-64b074164ac6', // kayserim.net görsel şablonu
     }
 
-    // Kadraj modifikasyonları
-    // Kadraj artık { yatay, dikey } objesi
-    const kadrajMods = kadrajHesapla(genislik, yukseklik)
-    const kadrajFmt  = kadraj?.[fmt] || kadraj  // formata göre kadraj
-    if (kadrajFmt) {
-      kadrajMods['video.x_anchor'] = `${((kadrajFmt.oranX + kadrajFmt.oranW/2) * 100).toFixed(1)}%`
-      kadrajMods['video.y_anchor'] = `${((kadrajFmt.oranY + kadrajFmt.oranH/2) * 100).toFixed(1)}%`
-    }
-    const kadraj_mods = kadrajMods
-
-    const baseMods = {
-      'video.source':        mediaUrl,
-      'baslik.text':         baslikStr,
-      'baslikss.text':       baslikStr,
-      'spot-baslik.text':    spotStr,
-      'spot-baslik-ss.text': spotStr,
-      'kategori.text':       katStr,
-      'tarih.text':          tarihStr,
-      ...kadraj_mods,
-    }
-
     const renders = []
     const formatlar = format === 'her_ikisi' ? ['dikey', 'yatay'] : [format]
 
     for (const fmt of formatlar) {
       // Görsel ise sadece dikey, yatay şablon yok
       if (!isVideo && fmt === 'yatay') continue
+
+      // Kadraj — her format için ayrı hesapla
+      const kadrajMods = kadrajHesapla(genislik, yukseklik)
+      const kadrajFmt  = kadraj?.[fmt] ?? (kadraj?.oranX !== undefined ? kadraj : null)
+      if (kadrajFmt?.oranX !== undefined) {
+        kadrajMods['video.x_anchor'] = `${((kadrajFmt.oranX + kadrajFmt.oranW/2) * 100).toFixed(1)}%`
+        kadrajMods['video.y_anchor'] = `${((kadrajFmt.oranY + kadrajFmt.oranH/2) * 100).toFixed(1)}%`
+      }
+
+      const baseMods = {
+        'video.source':        mediaUrl,
+        'baslik.text':         baslikStr,
+        'baslikss.text':       baslikStr,
+        'spot-baslik.text':    spotStr,
+        'spot-baslik-ss.text': spotStr,
+        'kategori.text':       katStr,
+        'tarih.text':          tarihStr,
+        ...kadrajMods,
+      }
 
       const templateId = isVideo
         ? (fmt === 'dikey' ? TEMPLATES.dikey_video  : TEMPLATES.yatay_video)
