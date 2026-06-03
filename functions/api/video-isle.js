@@ -36,7 +36,7 @@ export async function onRequestPost({ request, env }) {
       video_url, gorsel_url,
       genislik, yukseklik,
       baslik, spot, kategori, tarih, source_id,
-      format = 'dikey'
+      format = 'dikey', kadraj = null
     } = await request.json()
 
     if (!video_url && !gorsel_url)
@@ -60,7 +60,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Kadraj modifikasyonları
-    const kadraj = kadrajHesapla(genislik, yukseklik)
+    // Kullanıcı kadrajı varsa merkez noktasını kullan, yoksa otomatik hesapla
+    const kadrajMods = kadrajHesapla(genislik, yukseklik)
+    if (kadraj) {
+      kadrajMods['video.x_anchor'] = `${((kadraj.oranX + kadraj.oranW/2) * 100).toFixed(1)}%`
+      kadrajMods['video.y_anchor'] = `${((kadraj.oranY + kadraj.oranH/2) * 100).toFixed(1)}%`
+    }
+    const kadraj_mods = kadrajMods
 
     const baseMods = {
       'video.source':        mediaUrl,
@@ -70,7 +76,7 @@ export async function onRequestPost({ request, env }) {
       'spot-baslik-ss.text': spotStr,
       'kategori.text':       katStr,
       'tarih.text':          tarihStr,
-      ...kadraj,
+      ...kadraj_mods,
     }
 
     const renders = []

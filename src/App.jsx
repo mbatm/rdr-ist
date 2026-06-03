@@ -407,6 +407,8 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
   const [loading,   setLoading]  = useState({}) // { dikey: bool, yatay: bool }
   const [hatalar,   setHatalar]  = useState({})
   const [format,    setFormat]   = useState('dikey')
+  const [kadraj,    setKadraj]   = useState(null)  // seçilen kadraj
+  const [kadrajAc,  setKadrajAc] = useState(false) // kadraj modalı
 
   // KV'den kayıtlı videoları yükle
   useEffect(() => {
@@ -445,6 +447,7 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           tarih: haber.tarih,
           source_id: haber.source_id,
           format: fmt,
+          kadraj: kadraj || undefined,
         }),
       })
       const data = await res.json()
@@ -498,6 +501,30 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
   return (
     <div style={{marginBottom:8}}>
+      {/* Kadraj */}
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+        <button onClick={()=>setKadrajAc(true)}
+          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700',cursor:'pointer'}}>
+          ✂ Kadraj Seç {kadraj ? '✓' : ''}
+        </button>
+        {kadraj && (
+          <button onClick={()=>setKadraj(null)}
+            style={{fontSize:11,padding:'4px 8px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)',cursor:'pointer'}}>
+            × Kadrajı Sıfırla
+          </button>
+        )}
+        {kadraj && <span style={{fontSize:10,color:'var(--muted)'}}>Odak: {(kadraj.oranX*100).toFixed(0)}% {(kadraj.oranY*100).toFixed(0)}%</span>}
+      </div>
+
+      {/* Kadraj modalı */}
+      {kadrajAc && (
+        <OnKadraj
+          gorselUrl={haber?.gorsel_url || haber?.gorsel || ''}
+          onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
+          onIptal={() => setKadrajAc(false)}
+        />
+      )}
+
       {/* Format butonları */}
       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
         {FORMATLAR.map(({id,label,ic}) => (
