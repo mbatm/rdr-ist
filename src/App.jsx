@@ -1282,7 +1282,7 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç' }) {
         onTouchMove={e=>{ if(!surukle||!baslat) return; const p=getPos(pRef,e); setSecim({ x:Math.min(baslat.x,p.x), y:Math.min(baslat.y,p.y), w:Math.abs(p.x-baslat.x), h:Math.abs(p.y-baslat.y) }) }}
         onTouchEnd={()=>setSurukle(false)}>
         {imgUrl
-          ? <img src={imgUrl} alt={fmt} draggable={false} style={{display:'block',width:'100%'}}/>
+          ? <img src={imgUrl} alt={fmt} draggable={false} style={{display:'block',width:'100%',maxHeight: fmt==='dikey' ? '55vh' : '45vh', objectFit:'cover'}}/>
           : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16',background:'#222',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',fontSize:12}}>Yükleniyor…</div>
         }
         {secim && secim.w > 0.02 && (
