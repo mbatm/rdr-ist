@@ -19,7 +19,7 @@ const TARIH_TEXT_ID = {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json()
-    const { gorsel_url, baslik, spot, kategori, tarih, format = 'yatay' } = body
+    const { gorsel_url, baslik, spot, kategori, tarih, format = 'yatay', kadraj = null } = body
 
     if (!gorsel_url || !baslik) {
       return Response.json({ hata: 'gorsel_url ve baslik zorunlu' }, { status: 400 })
@@ -34,15 +34,23 @@ export async function onRequestPost({ request, env }) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     })
 
-    // modifications — aynı isimli elementleri ID ile hedefle
+    // Kadraj varsa video elementinin x/y/w/h'ını ayarla
+    // Creatomate'de video elementi tam görsel, kadraj ile odak noktasını belirleriz
+    const videoMods = kadraj ? {
+      'video':        gorsel_url,
+      'video.x':      `${50 + (0.5 - kadraj.oranX - kadraj.oranW/2) * 100}%`,
+      'video.y':      `${50 + (0.5 - kadraj.oranY - kadraj.oranH/2) * 100}%`,
+    } : {
+      'video': gorsel_url,
+    }
+
     const modifications = {
-      'video':                        gorsel_url,
+      ...videoMods,
       'baslik':                       baslik,
       'baslikss':                     baslik,
       'spot-baslik':                  spot || '',
       'spot-baslik-ss':               spot || '',
       'kategori':                     (kategori || 'GÜNCEL').toUpperCase(),
-      // tarih text element — ID ile hedefle (image tarih'i atla)
       [`${TARIH_TEXT_ID[format] || TARIH_TEXT_ID.yatay}.text`]: tarihStr,
     }
 

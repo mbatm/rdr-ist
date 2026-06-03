@@ -1163,8 +1163,119 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
           <Ic n="refresh" size={11}/> Görseli Yeniden Üret
         </button>
       </div>
-      <OtoGorselUret key={`${editedHaber?.source_id}_${gorselKey}`} haber={haberRef.current} onGorsellerHazir={onGorsellerHazir}/>
+      <OtoGorselUret key={`${editedHaber?.source_id}_${gorselKey}`} haber={haberRef.current} onGorsellerHazir={onGorsellerHazir}
+        kadraj={haberRef.current?.kapakKadraj || null}/>
     </>
+  )
+}
+
+
+// ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
+function OnKadraj({ gorselUrl, onOnayla, onIptal }) {
+  const canvasRef = useRef(null)
+  const [baslat, setBaslat] = useState(null)
+  const [secim,  setSecim]  = useState(null)
+  const [surukle, setSurukle] = useState(false)
+  const [imgBoy,  setImgBoy]  = useState({ w: 1, h: 1 })
+
+  // Görsel boyutlarını al
+  useEffect(() => {
+    const img = new Image()
+    img.onload = () => setImgBoy({ w: img.naturalWidth, h: img.naturalHeight })
+    img.src = gorselUrl
+  }, [gorselUrl])
+
+  const getPos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return {
+      x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height)),
+    }
+  }
+
+  const onMouseDown = (e) => {
+    e.preventDefault()
+    const pos = getPos(e)
+    setBaslat(pos)
+    setSecim(null)
+    setSurukle(true)
+  }
+
+  const onMouseMove = (e) => {
+    if (!surukle || !baslat) return
+    const pos = getPos(e)
+    setSecim({
+      x: Math.min(baslat.x, pos.x),
+      y: Math.min(baslat.y, pos.y),
+      w: Math.abs(pos.x - baslat.x),
+      h: Math.abs(pos.y - baslat.y),
+    })
+  }
+
+  const onMouseUp = () => setSurukle(false)
+
+  const onayla = () => {
+    if (!secim || secim.w < 0.05 || secim.h < 0.05) {
+      // Seçim yoksa veya çok küçükse — tam görsel
+      onOnayla(null)
+      return
+    }
+    // Piksel koordinatlarına çevir
+    const x = Math.round(secim.x * imgBoy.w)
+    const y = Math.round(secim.y * imgBoy.h)
+    const w = Math.round(secim.w * imgBoy.w)
+    const h = Math.round(secim.h * imgBoy.h)
+    onOnayla({ x, y, w, h, oranX: secim.x, oranY: secim.y, oranW: secim.w, oranH: secim.h })
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:20}}>
+      <div style={{fontSize:13,color:'#fff',marginBottom:4}}>
+        Kadraj seç — görselde hedeflemek istediğin alanı çiz
+      </div>
+
+      {/* Canvas */}
+      <div ref={canvasRef} style={{position:'relative',maxWidth:'90vw',maxHeight:'70vh',cursor:'crosshair',userSelect:'none'}}
+        onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
+        onTouchStart={onMouseDown} onTouchMove={onMouseMove} onTouchEnd={onMouseUp}>
+        <img src={gorselUrl} alt="kadraj" draggable={false}
+          style={{display:'block',maxWidth:'90vw',maxHeight:'70vh',objectFit:'contain',borderRadius:6}}/>
+        {secim && secim.w > 0.01 && (
+          <div style={{
+            position:'absolute',
+            left:   `${secim.x * 100}%`,
+            top:    `${secim.y * 100}%`,
+            width:  `${secim.w * 100}%`,
+            height: `${secim.h * 100}%`,
+            border: '2px solid #00D4AA',
+            background: 'rgba(0,212,170,.12)',
+            boxShadow: '0 0 0 2000px rgba(0,0,0,.45)',
+            pointerEvents: 'none',
+          }}/>
+        )}
+      </div>
+
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>onOnayla(null)}
+          style={{fontSize:12,padding:'6px 16px',background:'rgba(255,255,255,.08)',border:'0.5px solid rgba(255,255,255,.2)',color:'#aaa',cursor:'pointer'}}>
+          Seçimsiz Devam Et
+        </button>
+        <button onClick={onayla}
+          style={{fontSize:12,padding:'6px 16px',background:'rgba(0,212,170,.15)',border:'0.5px solid rgba(0,212,170,.4)',color:'#00D4AA',cursor:'pointer'}}>
+          ✓ Kadrajı Onayla
+        </button>
+        <button onClick={onIptal}
+          style={{fontSize:12,padding:'6px 16px',background:'rgba(230,57,70,.1)',border:'0.5px solid rgba(230,57,70,.3)',color:'#ff7b7b',cursor:'pointer'}}>
+          İptal
+        </button>
+      </div>
+
+      <div style={{fontSize:10,color:'rgba(255,255,255,.3)'}}>
+        Seçim yapmazsan tam görsel kullanılır
+      </div>
+    </div>
   )
 }
 
@@ -1172,14 +1283,16 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, orijinalGorsel = null }) {
   const [yukleniyor, setYukleniyor] = useState(false)
   const [hata, setHata]             = useState(null)
+  const [kadrajGorsel, setKadrajGorsel] = useState(null)  // kadraj bekleyen görsel
+  const [kadrajCallback, setKadrajCb]   = useState(null)  // kadraj onaylanınca çağrılacak
   const fileRef = useRef(null)
-  const token   = localStorage.getItem('cms_token') || ''
 
   const yukle = async (files) => {
     setYukleniyor(true); setHata(null)
-    const yeni = [...gorseller]
+    const yeniGorseller = []
+
     for (const file of Array.from(files)) {
-      if (yeni.length >= maxGorsel) break
+      if (gorseller.length + yeniGorseller.length >= maxGorsel) break
       try {
         const form = new FormData()
         form.append('file', file)
@@ -1187,14 +1300,29 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
         form.append('tip', 'gorsel')
         const res  = await fetch('/api/medya-yukle', { method: 'POST', body: form })
         const data = await res.json()
-        if (data.url) yeni.push({ url: data.url, adi: file.name, kapak: yeni.length === 0 })
+        if (data.url) yeniGorseller.push({ url: data.url, adi: file.name })
         else setHata(data.hata || 'Yükleme hatası')
       } catch(e) { setHata(e.message) }
     }
-    // İlk görsel her zaman kapak
-    if (yeni.length > 0) yeni[0].kapak = true
-    onGuncel?.(yeni)
+
     setYukleniyor(false)
+
+    if (yeniGorseller.length === 0) return
+
+    // İlk yüklenen görsel için kadraj aç
+    const ilkUrl = yeniGorseller[0].url
+    setKadrajGorsel(ilkUrl)
+    setKadrajCb(() => (kadraj) => {
+      const yeni = [...gorseller]
+      for (const g of yeniGorseller) {
+        // Kadraj bilgisini ekle
+        yeni.push({ ...g, kadraj: kadraj || null, kapak: yeni.length === 0 })
+      }
+      if (yeni.length > 0 && !yeni.some(x=>x.kapak)) yeni[0].kapak = true
+      onGuncel?.(yeni)
+      setKadrajGorsel(null)
+      setKadrajCb(null)
+    })
   }
 
   const kapakYap = (idx) => {
@@ -1293,6 +1421,15 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
         <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>
           ★ = Kapak (şablonlu), diğerleri galeri olarak paylaşılır
         </div>
+      )}
+
+      {/* Kadraj modalı */}
+      {kadrajGorsel && kadrajCallback && (
+        <OnKadraj
+          gorselUrl={kadrajGorsel}
+          onOnayla={kadraj => kadrajCallback(kadraj)}
+          onIptal={() => { setKadrajGorsel(null); setKadrajCb(null) }}
+        />
       )}
     </div>
   )
@@ -1732,12 +1869,13 @@ function Isleme({ content, processing, error, selectedHaber }) {
           const kapak = liste.find(g=>g.kapak) || liste[0]
           if (selectedHaber) {
             if (kapak) {
-              selectedHaber.gorsel_url = kapak.url
-              selectedHaber.gorsel     = kapak.url
+              selectedHaber.gorsel_url  = kapak.url
+              selectedHaber.gorsel      = kapak.url
+              selectedHaber.kapakKadraj = kapak.kadraj || null
             } else {
-              // Tümü silindi — gorsel_url'yi orijinale çek veya sıfırla
               const ori = selectedHaber.gorsel_url_orijinal || selectedHaber.gorsel
-              selectedHaber.gorsel_url = ori || ''
+              selectedHaber.gorsel_url  = ori || ''
+              selectedHaber.kapakKadraj = null
             }
           }
           refreshGorselRef.current?.()

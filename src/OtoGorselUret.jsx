@@ -6,7 +6,7 @@ const FORMATLAR = [
   { key: 'yatay', label: 'Yatay (FB/TW/YT)',  format: 'yatay' },
 ]
 
-export default function OtoGorselUret({ haber, onGorsellerHazir }) {
+export default function OtoGorselUret({ haber, onGorsellerHazir, kadraj = null }) {
   const [items, setItems] = useState({})
   const [busy,  setBusy]  = useState(false)
   const [hata,  setHata]  = useState(null)
@@ -40,7 +40,7 @@ export default function OtoGorselUret({ haber, onGorsellerHazir }) {
           const res  = await fetch('/api/gorsel-uret', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ gorsel_url: imgUrl, baslik, spot, kategori, tarih, format }),
+            body:    JSON.stringify({ gorsel_url: imgUrl, baslik, spot, kategori, tarih, format, kadraj }),
           })
           const data = await res.json()
           if (data.url && !stopRef.current) {
