@@ -1284,7 +1284,7 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
   const [yukleniyor, setYukleniyor] = useState(false)
   const [hata, setHata]             = useState(null)
   const [kadrajGorsel, setKadrajGorsel] = useState(null)  // kadraj bekleyen görsel
-  const [kadrajCallback, setKadrajCb]   = useState(null)  // kadraj onaylanınca çağrılacak
+  const kadrajCbRef = useRef(null)  // useRef — fonksiyon state'e konulamaz
   const fileRef = useRef(null)
 
   const yukle = async (files) => {
@@ -1312,17 +1312,16 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
     // İlk yüklenen görsel için kadraj aç
     const ilkUrl = yeniGorseller[0].url
     setKadrajGorsel(ilkUrl)
-    setKadrajCb(() => (kadraj) => {
+    kadrajCbRef.current = (kadraj) => {
       const yeni = [...gorseller]
       for (const g of yeniGorseller) {
-        // Kadraj bilgisini ekle
         yeni.push({ ...g, kadraj: kadraj || null, kapak: yeni.length === 0 })
       }
       if (yeni.length > 0 && !yeni.some(x=>x.kapak)) yeni[0].kapak = true
       onGuncel?.(yeni)
       setKadrajGorsel(null)
-      setKadrajCb(null)
-    })
+      kadrajCbRef.current = null
+    }
   }
 
   const kapakYap = (idx) => {
@@ -1424,11 +1423,11 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
       )}
 
       {/* Kadraj modalı */}
-      {kadrajGorsel && kadrajCallback && (
+      {kadrajGorsel && (
         <OnKadraj
           gorselUrl={kadrajGorsel}
-          onOnayla={kadraj => kadrajCallback(kadraj)}
-          onIptal={() => { setKadrajGorsel(null); setKadrajCb(null) }}
+          onOnayla={kadraj => kadrajCbRef.current?.(kadraj)}
+          onIptal={() => { setKadrajGorsel(null); kadrajCbRef.current = null }}
         />
       )}
     </div>
