@@ -104,6 +104,7 @@ export async function onRequestPost({ request, env }) {
             output_format: outputFormat,
             ...(isVideo ? { frame_rate: 30 } : {}),
             modifications: baseMods,
+            metadata: source_id ? { source_id, format: fmt, tip: 'video' } : undefined,
           }),
         }
       )

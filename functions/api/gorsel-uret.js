@@ -77,6 +77,7 @@ export async function onRequestPost({ request, env }) {
         template_id:   sablonId,
         output_format: 'png',
         modifications,
+        metadata: source_id ? { source_id, format, tip: 'gorsel' } : undefined,
       }),
     })
 
