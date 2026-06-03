@@ -536,18 +536,21 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
         {kadraj && <span style={{fontSize:10,color:'var(--muted)'}}>Odak: {(kadraj.oranX*100).toFixed(0)}% {(kadraj.oranY*100).toFixed(0)}%</span>}
       </div>
 
-      {/* Kadraj modalı — video snapshot varsa onu göster, yoksa görsel */}
-      {kadrajAc && (
-        <OnKadraj
-          gorselUrl={
-            renders?.dikey?.snapshot ||
-            renders?.yatay?.snapshot ||
-            haber?.gorsel_url || haber?.gorsel || ''
-          }
-          onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
-          onIptal={() => setKadrajAc(false)}
-        />
-      )}
+      {/* Kadraj modalı — video snapshot > görsel sıralaması */}
+      {kadrajAc && (() => {
+        const snap = renders?.dikey?.snapshot || renders?.yatay?.snapshot || ''
+        const gorsel = haber?.gorsel_url || haber?.gorsel || ''
+        // Snapshot varsa video karesi, yoksa görsel
+        const kadrajGorsel = snap || gorsel
+        return (
+          <OnKadraj
+            gorselUrl={kadrajGorsel}
+            baslik={snap ? '🎬 Video karesi üzerinde kadraj seç' : '🖼 Fotoğraf üzerinde kadraj seç (video karesi henüz yok)'}
+            onOnayla={k => { setKadraj(k); setKadrajAc(false) }}
+            onIptal={() => setKadrajAc(false)}
+          />
+        )
+      })()}
 
       {/* Format butonları */}
       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
@@ -1223,7 +1226,7 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
 
 
 // ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
-function OnKadraj({ gorselUrl, onOnayla, onIptal }) {
+function OnKadraj({ gorselUrl, onOnayla, onIptal, baslik = 'Kadraj seç — görselde hedeflemek istediğin alanı çiz' }) {
   const canvasRef = useRef(null)
   const [baslat, setBaslat] = useState(null)
   const [secim,  setSecim]  = useState(null)
@@ -1285,7 +1288,7 @@ function OnKadraj({ gorselUrl, onOnayla, onIptal }) {
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:1000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:20}}>
       <div style={{fontSize:13,color:'#fff',marginBottom:4}}>
-        Kadraj seç — görselde hedeflemek istediğin alanı çiz
+        {baslik}
       </div>
 
       {/* Canvas */}
