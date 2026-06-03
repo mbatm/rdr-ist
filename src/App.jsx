@@ -414,12 +414,32 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
   useEffect(() => {
     if (!haber?.source_id) return
     const kayitli = {}
-    const sid = haber.source_id
+
+    // 1. Haber objesinden direkt kontrol
     ;['dikey','yatay'].forEach(fmt => {
-      const url = haber[`video_${fmt}`]
+      const url  = haber[`video_${fmt}`]
       const snap = haber[`video_${fmt}_snapshot`]
       if (url) { kayitli[fmt] = { url, snapshot: snap }; onVideoHazir?.({ format: fmt, url, snapshot: snap }) }
     })
+
+    // 2. video-url API'den KV'yi sorgula
+    fetch(`/api/video-url?source_id=${encodeURIComponent(haber.source_id)}`)
+      .then(r => r.json())
+      .then(data => {
+        const yeni = {}
+        ;['dikey','yatay'].forEach(fmt => {
+          // video-url POST: data.dikey = url string, data.dikey_snapshot = snap string
+          const url  = data[fmt]
+          const snap = data[fmt + '_snapshot'] || ''
+          if (url) {
+            yeni[fmt] = { url, snapshot: snap }
+            onVideoHazir?.({ format: fmt, url, snapshot: snap })
+          }
+        })
+        if (Object.keys(yeni).length) setRenders(p => ({ ...p, ...yeni }))
+      })
+      .catch(() => {})
+
     if (Object.keys(kayitli).length) setRenders(kayitli)
   }, [haber?.source_id])
 
