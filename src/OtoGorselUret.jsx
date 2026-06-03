@@ -2,10 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 
 const FORMATLAR = [
-  { key: 'instagram', label: 'Instagram (Dikey)',  format: 'dikey' },
-  { key: 'facebook',  label: 'Facebook (Yatay)',   format: 'yatay' },
-  { key: 'twitter',   label: 'Twitter (Yatay)',    format: 'yatay' },
-  { key: 'youtube',   label: 'YouTube (Yatay)',    format: 'yatay' },
+  { key: 'dikey', label: 'Dikey (Instagram)', format: 'dikey' },
+  { key: 'yatay', label: 'Yatay (FB/TW/YT)',  format: 'yatay' },
 ]
 
 export default function OtoGorselUret({ haber, onGorsellerHazir }) {
@@ -30,10 +28,7 @@ export default function OtoGorselUret({ haber, onGorsellerHazir }) {
     const kategori = haber.kategori || 'GÜNCEL'
     const baslik   = haber.sosyal_baslik || haber.site_basligi || haber.baslik || ''
     const spot     = haber.ozet || ''
-
-    // Creatomate direkt URL ister — proxy yerine orijinal
-    const imgUrl = gorselUrl.startsWith('http') ? gorselUrl
-      : `https://rdr.ist${gorselUrl}`
+    const imgUrl   = gorselUrl.startsWith('http') ? gorselUrl : `https://rdr.ist${gorselUrl}`
 
     ;(async () => {
       const acc  = {}
@@ -62,7 +57,14 @@ export default function OtoGorselUret({ haber, onGorsellerHazir }) {
 
       if (!stopRef.current) {
         setBusy(false)
-        onGorsellerHazir?.({ items: acc, urls })
+        // gorselUrls uyumluluğu — eski formatlar
+        const compat = {
+          instagram: urls.dikey,
+          facebook:  urls.yatay,
+          twitter:   urls.yatay,
+          youtube:   urls.yatay,
+        }
+        onGorsellerHazir?.({ items: acc, urls: compat })
       }
     })()
 
@@ -71,7 +73,7 @@ export default function OtoGorselUret({ haber, onGorsellerHazir }) {
 
   if (busy && Object.keys(items).length === 0)
     return (
-      <div style={{ padding: '10px 0', fontSize: 12, color: 'var(--muted)', display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div style={{ padding: '10px 0', fontSize: 12, color: 'var(--muted)' }}>
         ⏳ Creatomate görsel üretiyor…
       </div>
     )
@@ -83,7 +85,7 @@ export default function OtoGorselUret({ haber, onGorsellerHazir }) {
     <div>
       {busy && (
         <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
-          ⏳ {Object.keys(items).length}/{FORMATLAR.length} görsel hazır, devam ediyor…
+          ⏳ {Object.keys(items).length}/{FORMATLAR.length} görsel hazır…
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
