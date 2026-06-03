@@ -1291,37 +1291,63 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
   }
 
   // Sabit oran kutusu: 16:9 (yatay) veya 9:16 (dikey)
-  // Kutu sürüklenebilir, boyutlandırılabilir
-  const KUTU_ORAN = { yatay: 16/9, dikey: 9/16 }
+  // Koordinatlar 0..1 arası — görsel boyutuna göre normalize
+  // Yatay: w/h = 16/9 → h = w*9/16
+  // Dikey: w/h = 9/16 → h = w*16/9
+  const kutuhOran = (fmt, w) => fmt === 'yatay' ? w * (9/16) : w * (16/9)
 
   const KadrajPanel = ({ fmt, imgUrl, pRef, secim, setSecim }) => {
-    const dragRef = useRef(null)
-    const [drag, setDrag] = useState(null)  // { mode: 'move'|'resize', startX, startY, startSecim }
+    const [drag, setDrag] = useState(null)
 
-    // Başlangıç kutu pozisyonu — merkez
+    // img yüklenince veya fmt değişince görsel'in gerçek oranını hesapla
+    // pRef görsel container'ına bağlı, içindeki img'nin boyutuna göre kutu oluştur
+    const imgRef = useRef(null)
+
+    const initKutu = () => {
+      const img = imgRef.current
+      if (!img || !img.naturalWidth) return
+      const iw = img.naturalWidth, ih = img.naturalHeight
+      // Görsel container içinde objectFit:contain ile gösteriliyor
+      // Kutunun piksel oranını doğru yapmak için görselin gerçek oranını kullanmamız lazım
+      // Ama biz normalize koordinat kullanıyoruz (0..1 = container boyutu)
+      // Container boyutunu al, görsel içinde ne kadar yer kaplıyor hesapla
+      const container = pRef.current
+      if (!container) return
+      const cw = container.clientWidth, ch = container.clientHeight
+      if (!cw || !ch) return
+
+      // Görsel contain ile gösteriliyor: görsel oranını koru
+      const imgAspect = iw / ih
+      const containerAspect = cw / ch
+      let visW, visH  // görsel ekrandaki piksel boyutu
+      if (imgAspect > containerAspect) { visW = cw; visH = cw / imgAspect }
+      else { visH = ch; visW = ch * imgAspect }
+
+      // Kutu oranı: yatay 16:9, dikey 9:16
+      // Kutunun container koordinatlarındaki genişlik/yükseklik
+      const boxWpx = visW * 0.7  // görsel genişliğinin %70'i
+      const boxHpx = fmt === 'yatay' ? boxWpx * (9/16) : boxWpx * (16/9)
+      // Container'a normalize et
+      const w = boxWpx / cw
+      const h = boxHpx / ch
+      const x = (1 - w) / 2
+      const y = (1 - h) / 2
+      setSecim({ x: Math.max(0,x), y: Math.max(0,y), w: Math.min(w,1), h: Math.min(h,1) })
+    }
+
     useEffect(() => {
-      if (secim) return
-      const oran = KUTU_ORAN[fmt]
-      if (fmt === 'yatay') {
-        // Yatay kutu: genişlik %70, yükseklik orana göre
-        const w = 0.7
-        const h = w / oran  // h = w * (9/16) for yatay? No: oran=16/9 → h = w/(16/9) = w*9/16
-        const x = (1 - w) / 2
-        const y = (1 - h) / 2
-        setSecim({ x, y, w, h })
-      } else {
-        // Dikey kutu: yükseklik %70, genişlik orana göre
-        const h = 0.7
-        const w = h * oran  // oran=9/16 → w = h*9/16
-        const x = (1 - w) / 2
-        const y = (1 - h) / 2
-        setSecim({ x, y, w, h })
-      }
+      if (secim) return  // zaten seçim var
+      // Görsel yüklenince başlat
+      const img = imgRef.current
+      if (!img) return
+      if (img.complete && img.naturalWidth) { initKutu(); return }
+      img.addEventListener('load', initKutu, { once: true })
+      return () => img.removeEventListener('load', initKutu)
     }, [fmt, imgUrl])
 
     const getRelPos = (e) => {
       const rect = pRef.current?.getBoundingClientRect()
-      if (!rect) return { x: 0, y: 0 }
+      if (!rect || !rect.width) return { x: 0, y: 0 }
       const clientX = e.touches ? e.touches[0].clientX : e.clientX
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
       return {
@@ -1330,80 +1356,86 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
       }
     }
 
-    const onMoveStart = (e) => {
-      e.preventDefault(); e.stopPropagation()
-      const p = getRelPos(e)
-      setDrag({ mode: 'move', startX: p.x, startY: p.y, startSecim: { ...secim } })
-    }
-
-    const onResizeStart = (e) => {
-      e.preventDefault(); e.stopPropagation()
-      const p = getRelPos(e)
-      setDrag({ mode: 'resize', startX: p.x, startY: p.y, startSecim: { ...secim } })
-    }
-
-    const onMouseMove = (e) => {
-      if (!drag) return
+    const onContainerMouseMove = (e) => {
+      if (!drag || !secim) return
       const p = getRelPos(e)
       const dx = p.x - drag.startX
       const dy = p.y - drag.startY
-      const oran = KUTU_ORAN[fmt]
 
       if (drag.mode === 'move') {
-        const nx = Math.max(0, Math.min(1 - drag.startSecim.w, drag.startSecim.x + dx))
-        const ny = Math.max(0, Math.min(1 - drag.startSecim.h, drag.startSecim.y + dy))
-        setSecim({ ...drag.startSecim, x: nx, y: ny })
-      } else {
-        // Resize — genişliği değiştir, yükseklik orana göre ayarla
-        const nw = Math.max(0.1, Math.min(1 - drag.startSecim.x, drag.startSecim.w + dx))
-        const nh = fmt === 'yatay' ? nw / oran : nw * (16/9)  // 9/16 oran → nh = nw/oran = nw*16/9
-        const nhSafe = Math.min(nh, 1 - drag.startSecim.y)
-        const nwSafe = fmt === 'yatay' ? nhSafe * oran : nhSafe / (16/9)
-        setSecim({ ...drag.startSecim, w: nwSafe, h: nhSafe })
+        const nx = Math.max(0, Math.min(1 - drag.s.w, drag.s.x + dx))
+        const ny = Math.max(0, Math.min(1 - drag.s.h, drag.s.y + dy))
+        setSecim({ ...drag.s, x: nx, y: ny })
+      } else if (drag.mode === 'resize') {
+        // Genişlik değişimi — yüksekliği orana göre ayarla
+        const container = pRef.current
+        if (!container) return
+        const cw = container.clientWidth, ch = container.clientHeight
+        const nwPx = Math.max(50, (drag.s.w + dx) * cw)
+        const nhPx = fmt === 'yatay' ? nwPx * (9/16) : nwPx * (16/9)
+        const nw = Math.min(nwPx / cw, 1 - drag.s.x)
+        const nh = Math.min(nhPx / ch, 1 - drag.s.y)
+        // Clamp sağ tarafa taşmasın
+        const nwFinal = Math.min(nw, 1 - drag.s.x)
+        const nhFinal = fmt === 'yatay' ? nwFinal * cw * (9/16) / ch : nwFinal * cw * (16/9) / ch
+        setSecim({ ...drag.s, w: nwFinal, h: Math.min(nhFinal, 1 - drag.s.y) })
       }
     }
 
-    const onMouseUp = () => setDrag(null)
+    const onContainerMouseUp = () => setDrag(null)
+
+    const onBoxMouseDown = (e) => {
+      e.preventDefault(); e.stopPropagation()
+      const p = getRelPos(e)
+      setDrag({ mode: 'move', startX: p.x, startY: p.y, s: { ...secim } })
+    }
+
+    const onResizeMouseDown = (e) => {
+      e.preventDefault(); e.stopPropagation()
+      const p = getRelPos(e)
+      setDrag({ mode: 'resize', startX: p.x, startY: p.y, s: { ...secim } })
+    }
 
     return (
-      <div style={{flex:1, display:'flex', flexDirection:'column', gap:8, minWidth:0}}>
+      <div style={{flex:1, display:'flex', flexDirection:'column', gap:6, minWidth:0}}>
         <div style={{fontSize:11, color:'#00D4AA', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.06em'}}>
           {fmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'}
         </div>
         <div ref={pRef}
-          style={{position:'relative', userSelect:'none', background:'#111', cursor: drag?.mode === 'move' ? 'grabbing' : 'default'}}
-          onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-          onTouchMove={onMouseMove} onTouchEnd={onMouseUp}>
+          style={{position:'relative', userSelect:'none', background:'#111',
+            cursor: drag?.mode==='move' ? 'grabbing' : 'default',
+            lineHeight: 0}}
+          onMouseMove={onContainerMouseMove} onMouseUp={onContainerMouseUp} onMouseLeave={onContainerMouseUp}
+          onTouchMove={onContainerMouseMove} onTouchEnd={onContainerMouseUp}>
           {imgUrl
-            ? <img src={imgUrl} alt={fmt} draggable={false}
-                style={{display:'block', width:'100%', maxHeight: fmt==='dikey' ? '55vh' : '40vh', objectFit:'contain'}}/>
-            : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16', background:'#222', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--muted)', fontSize:12}}>Yükleniyor…</div>
+            ? <img ref={imgRef} src={imgUrl} alt={fmt} draggable={false}
+                style={{display:'block', width:'100%',
+                  maxHeight: fmt==='dikey' ? '55vh' : '40vh',
+                  objectFit:'contain'}}/>
+            : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16', background:'#222',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                color:'var(--muted)', fontSize:12, minHeight:100}}>Yükleniyor…</div>
           }
-          {/* Karartma overlay — kutu dışı karanlık */}
           {secim && <>
-            {/* Üst */}
+            {/* Karartma — 4 parça */}
             <div style={{position:'absolute',left:0,right:0,top:0,height:`${secim.y*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            {/* Alt */}
             <div style={{position:'absolute',left:0,right:0,top:`${(secim.y+secim.h)*100}%`,bottom:0,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            {/* Sol */}
             <div style={{position:'absolute',left:0,top:`${secim.y*100}%`,width:`${secim.x*100}%`,height:`${secim.h*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            {/* Sağ */}
             <div style={{position:'absolute',left:`${(secim.x+secim.w)*100}%`,right:0,top:`${secim.y*100}%`,height:`${secim.h*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-            {/* Kutu — sürükle */}
-            <div
-              style={{position:'absolute', left:`${secim.x*100}%`, top:`${secim.y*100}%`, width:`${secim.w*100}%`, height:`${secim.h*100}%`,
-                border:'2px solid #00D4AA', cursor:'grab', boxSizing:'border-box'}}
-              onMouseDown={onMoveStart} onTouchStart={onMoveStart}>
-              {/* Boyutlandır — sağ alt köşe */}
-              <div
-                style={{position:'absolute', right:-6, bottom:-6, width:14, height:14,
-                  background:'#00D4AA', borderRadius:2, cursor:'nwse-resize'}}
-                onMouseDown={onResizeStart} onTouchStart={onResizeStart}/>
+            {/* Kutu */}
+            <div onMouseDown={onBoxMouseDown} onTouchStart={onBoxMouseDown}
+              style={{position:'absolute', left:`${secim.x*100}%`, top:`${secim.y*100}%`,
+                width:`${secim.w*100}%`, height:`${secim.h*100}%`,
+                border:'2px solid #00D4AA', cursor:'grab', boxSizing:'border-box', touchAction:'none'}}>
+              {/* Resize tutamacı — sağ alt */}
+              <div onMouseDown={onResizeMouseDown} onTouchStart={onResizeMouseDown}
+                style={{position:'absolute', right:-7, bottom:-7, width:14, height:14,
+                  background:'#00D4AA', borderRadius:2, cursor:'nwse-resize', touchAction:'none'}}/>
             </div>
           </>}
         </div>
-        <div style={{fontSize:10, color:'#00D4AA', textAlign:'center'}}>
-          ↔ Kutuyu sürükle — köşeden boyutlandır
+        <div style={{fontSize:10, color:'var(--muted)', textAlign:'center'}}>
+          ↔ Kutuyu sürükle &nbsp;·&nbsp; ◢ Köşeden boyutlandır
         </div>
       </div>
     )
