@@ -1306,33 +1306,21 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
     const initKutu = () => {
       const img = imgRef.current
       if (!img || !img.naturalWidth) return
-      const iw = img.naturalWidth, ih = img.naturalHeight
-      // Görsel container içinde objectFit:contain ile gösteriliyor
-      // Kutunun piksel oranını doğru yapmak için görselin gerçek oranını kullanmamız lazım
-      // Ama biz normalize koordinat kullanıyoruz (0..1 = container boyutu)
-      // Container boyutunu al, görsel içinde ne kadar yer kaplıyor hesapla
-      const container = pRef.current
-      if (!container) return
-      const cw = container.clientWidth, ch = container.clientHeight
-      if (!cw || !ch) return
-
-      // Görsel contain ile gösteriliyor: görsel oranını koru
-      const imgAspect = iw / ih
-      const containerAspect = cw / ch
-      let visW, visH  // görsel ekrandaki piksel boyutu
-      if (imgAspect > containerAspect) { visW = cw; visH = cw / imgAspect }
-      else { visH = ch; visW = ch * imgAspect }
-
-      // Kutu oranı: yatay 16:9, dikey 9:16
-      // Kutunun container koordinatlarındaki genişlik/yükseklik
-      const boxWpx = visW * 0.7  // görsel genişliğinin %70'i
-      const boxHpx = fmt === 'yatay' ? boxWpx * (9/16) : boxWpx * (16/9)
-      // Container'a normalize et
-      const w = boxWpx / cw
-      const h = boxHpx / ch
-      const x = (1 - w) / 2
-      const y = (1 - h) / 2
-      setSecim({ x: Math.max(0,x), y: Math.max(0,y), w: Math.min(w,1), h: Math.min(h,1) })
+      // Görsel tam genişlikte, height:auto — kutu oranı px'den hesapla
+      const iw = img.clientWidth || img.naturalWidth
+      const ih = img.clientHeight || img.naturalHeight
+      if (!iw || !ih) return
+      // Kutu: yatay 16:9 (h=w*9/16), dikey 9:16 (h=w*16/9)
+      const boxW = 0.7
+      const boxH = fmt === 'yatay' ? boxW * iw * (9/16) / ih : boxW * iw * (16/9) / ih
+      const x = (1 - boxW) / 2
+      const y = (1 - boxH) / 2
+      setSecim({
+        x: Math.max(0, x),
+        y: Math.max(0, Math.min(y, 1 - boxH)),
+        w: boxW,
+        h: Math.min(boxH, 0.99)
+      })
     }
 
     useEffect(() => {
@@ -1351,8 +1339,8 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
       const clientX = e.touches ? e.touches[0].clientX : e.clientX
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
       return {
-        x: (clientX - rect.left) / rect.width,
-        y: (clientY - rect.top)  / rect.height,
+        x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
+        y: Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height)),
       }
     }
 
@@ -1367,18 +1355,12 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
         const ny = Math.max(0, Math.min(1 - drag.s.h, drag.s.y + dy))
         setSecim({ ...drag.s, x: nx, y: ny })
       } else if (drag.mode === 'resize') {
-        // Genişlik değişimi — yüksekliği orana göre ayarla
-        const container = pRef.current
-        if (!container) return
-        const cw = container.clientWidth, ch = container.clientHeight
-        const nwPx = Math.max(50, (drag.s.w + dx) * cw)
-        const nhPx = fmt === 'yatay' ? nwPx * (9/16) : nwPx * (16/9)
-        const nw = Math.min(nwPx / cw, 1 - drag.s.x)
-        const nh = Math.min(nhPx / ch, 1 - drag.s.y)
-        // Clamp sağ tarafa taşmasın
-        const nwFinal = Math.min(nw, 1 - drag.s.x)
-        const nhFinal = fmt === 'yatay' ? nwFinal * cw * (9/16) / ch : nwFinal * cw * (16/9) / ch
-        setSecim({ ...drag.s, w: nwFinal, h: Math.min(nhFinal, 1 - drag.s.y) })
+        // Koordinatlar img'ye göre normalize — doğrudan oran hesabı
+        const nw = Math.max(0.1, Math.min(1 - drag.s.x, drag.s.w + dx))
+        const nh = fmt === 'yatay' ? nw * (9/16) : nw * (16/9)
+        if (nh <= 1 - drag.s.y) {
+          setSecim({ ...drag.s, w: nw, h: nh })
+        }
       }
     }
 
@@ -1409,12 +1391,11 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, onOnayla, onIptal, b
           onTouchMove={onContainerMouseMove} onTouchEnd={onContainerMouseUp}>
           {imgUrl
             ? <img ref={imgRef} src={imgUrl} alt={fmt} draggable={false}
-                style={{display:'block', width:'100%',
-                  maxHeight: fmt==='dikey' ? '55vh' : '40vh',
-                  objectFit:'contain'}}/>
+                style={{display:'block', width:'100%', height:'auto',
+                  maxHeight: fmt==='dikey' ? '55vh' : '40vh'}}/>
             : <div style={{aspectRatio: fmt==='yatay'?'16/9':'9/16', background:'#222',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                color:'var(--muted)', fontSize:12, minHeight:100}}>Yükleniyor…</div>
+                color:'var(--muted)', fontSize:12, minHeight:120}}>Yükleniyor…</div>
           }
           {secim && <>
             {/* Karartma — 4 parça */}
