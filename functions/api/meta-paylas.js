@@ -26,7 +26,9 @@ export async function onRequestPost({ request, env }) {
       return true
     })
 
-    const userToken = meta.longToken || hesaplar[0]?.page_token
+    // Page token kullan — user token DEĞİL (user token kişisel hesabı kilitler)
+    // Her sayfa/IG hesabı kendi page_token'ını kullanır
+    // userToken kaldırıldı — sayfa.page_token kullan
     const sonuclar = {}
 
     // ── FACEBOOK ─────────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ export async function onRequestPost({ request, env }) {
             for (const imgUrl of galeri_urls) {
               const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ image_url: imgUrl, is_carousel_item: true, access_token: userToken }),
+                body: JSON.stringify({ image_url: imgUrl, is_carousel_item: true, access_token: sayfa.page_token }),
               })
               const cData = await cRes.json()
               if (!cData.error) containerIds.push(cData.id)
@@ -101,7 +103,7 @@ export async function onRequestPost({ request, env }) {
                   media_type: 'CAROUSEL',
                   children: containerIds.join(','),
                   caption: metin,
-                  access_token: userToken,
+                  access_token: sayfa.page_token,
                 }),
               })
               const carData = await carRes.json()
@@ -109,7 +111,7 @@ export async function onRequestPost({ request, env }) {
                 await new Promise(r=>setTimeout(r,2000))
                 const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
                   method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ creation_id: carData.id, access_token: userToken }),
+                  body: JSON.stringify({ creation_id: carData.id, access_token: sayfa.page_token }),
                 })
                 const pData = await pRes.json()
                 sonuclar.instagram[igId] = pData.error
@@ -128,7 +130,7 @@ export async function onRequestPost({ request, env }) {
             body: JSON.stringify({
               video_url, caption:metin, media_type:'REELS', share_to_feed:true,
               ...(ig_kolabor?.length ? { collaborators:ig_kolabor } : {}),
-              access_token:userToken
+              access_token:sayfa.page_token
             }),
           })
           const cData = await cRes.json()
@@ -141,13 +143,13 @@ export async function onRequestPost({ request, env }) {
             for (let i = 0; i < 10; i++) {
               await new Promise(r => setTimeout(r, 3000))
               const statusRes = await fetch(
-                `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${userToken}`
+                `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${sayfa.page_token}`
               )
               const statusData = await statusRes.json()
               if (statusData.status_code === 'FINISHED') {
                 const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
                   method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ creation_id: containerId, access_token: userToken }),
+                  body: JSON.stringify({ creation_id: containerId, access_token: sayfa.page_token }),
                 })
                 const pData = await pRes.json()
                 sonuclar.instagram[igId] = pData.error
@@ -171,7 +173,7 @@ export async function onRequestPost({ request, env }) {
             body: JSON.stringify({
               image_url:gorsel_url, caption:metin,
               ...(ig_kolabor?.length ? { collaborators:ig_kolabor } : {}),
-              access_token:userToken
+              access_token:sayfa.page_token
             }),
           })
           const cData = await cRes.json()
@@ -181,7 +183,7 @@ export async function onRequestPost({ request, env }) {
             await new Promise(r=>setTimeout(r,2000))
             const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
               method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ creation_id:cData.id, access_token:userToken }),
+              body: JSON.stringify({ creation_id:cData.id, access_token:sayfa.page_token }),
             })
             const pData = await pRes.json()
             sonuclar.instagram[igId] = pData.error ? { hata:pData.error.message } : { ok:true, media_id:pData.id, ig_username:sayfa.ig_username }
@@ -197,7 +199,7 @@ export async function onRequestPost({ request, env }) {
             // Video story: REELS yöntemi (çalışan yöntem)
             const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
               method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ video_url, media_type:'REELS', access_token:userToken }),
+              body: JSON.stringify({ video_url, media_type:'REELS', access_token:sayfa.page_token }),
             })
             const cData = await cRes.json()
             sonuclar.instagram[storyKey] = cData.error
@@ -209,7 +211,7 @@ export async function onRequestPost({ request, env }) {
             if (storyImg) {
               const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/stories`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ image_url:storyImg, access_token:userToken }),
+                body: JSON.stringify({ image_url:storyImg, access_token:sayfa.page_token }),
               })
               const cData = await cRes.json()
               sonuclar.instagram[storyKey] = cData.error

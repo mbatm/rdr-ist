@@ -64,8 +64,9 @@ export async function onRequestGet({ request, env }) {
     else guncellenmis.push(yeni)
   }
 
-  meta.hesaplar  = guncellenmis
-  meta.longToken = longToken
+  meta.hesaplar   = guncellenmis
+  // longToken (user token) saklanmıyor — sadece page token'ları kullanılır
+  // Page token'ları kişisel hesabı etkilemez, Facebook kilitleme sorununu önler
   meta.kaydedildi = new Date().toISOString()
   await env.HABERLER.put('meta_tokens', JSON.stringify(meta))
 
