@@ -893,7 +893,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           placeholder="ornek_hesap, diger_hesap"
           style={{width:'100%',fontSize:12,boxSizing:'border-box'}}/>
         {igKolabor && <div style={{fontSize:10,color:'#4dabf7',marginTop:3}}>
-          ℹ️ Davet gönderilir, karşı tarafın kabul etmesi gerekir
+          ℹ️ Davet Instagram DM olarak gelir · Çalışması için karşı hesabın Instagram → Ayarlar → Gizlilik → Etiketler → <b>Kolaboratör davetleri: Herkese izin ver</b> seçili olmalı
         </div>}
       </div>
 
@@ -3290,7 +3290,7 @@ function KayseradarModul({ user, onGeri }) {
                     placeholder="ornek_hesap, diger_hesap"
                     style={{width:'100%',fontSize:12,boxSizing:'border-box'}}/>
                   {radarKolabor && <div style={{fontSize:10,color:'#4dabf7',marginTop:3}}>
-                    ℹ️ Davet gönderilir, karşı tarafın kabul etmesi gerekir
+                    ℹ️ Davet Instagram DM olarak gelir · Çalışması için karşı hesabın Instagram → Ayarlar → Gizlilik → Etiketler → <b>Kolaboratör davetleri: Herkese izin ver</b> seçili olmalı
                   </div>}
                 </div>
 
