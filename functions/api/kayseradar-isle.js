@@ -156,7 +156,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       const metinMetni  = (duzeltilmis.duzeltilmis_metin  || metin  || '').slice(0, 300)
 
       const isKan        = sablon === 'kan'
-      const isMetinSablon = sablon === 'son_dakika_metin' || sablon === 'ekonomi_metin'
+      const isMetinSablon = sablon === 'son_dakika_metin' || sablon === 'ekonomi_metin' || sablon === 'son_dakika_buyuk'
 
       // Modifikasyonları belirle
       let modifications = {}
