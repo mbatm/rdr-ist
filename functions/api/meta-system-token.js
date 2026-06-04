@@ -7,12 +7,7 @@
  * System User token'ı direkt kaydedilir.
  */
 export async function onRequestPost({ request, env }) {
-  const { token, api_key } = await request.json()
-
-  // API key doğrula
-  if (api_key !== env.RSS_API_KEY) {
-    return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
-  }
+  const { token } = await request.json()
 
   if (!token) return Response.json({ hata: 'token gerekli' }, { status: 400 })
 
