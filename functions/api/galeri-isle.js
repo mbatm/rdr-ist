@@ -20,7 +20,8 @@ export async function onRequestPost({ request, env }) {
   if (!kullanici && token !== apiKey) return Response.json({ hata: 'Geçersiz token' }, { status: 401 })
 
   try {
-    const { gorsel_urls = [], kaynak = 'kayserim', source_id } = await request.json()
+    const body = await request.json()
+    const { gorsel_urls = [], kaynak = 'kayserim', source_id } = body
 
     if (!gorsel_urls.length) return Response.json({ hata: 'gorsel_urls gerekli' }, { status: 400 })
     if (!env.CREATOMATE_API_KEY) return Response.json({ hata: 'Creatomate API key yok' }, { status: 500 })
@@ -28,10 +29,11 @@ export async function onRequestPost({ request, env }) {
     const templateId = GALERI_SABLON[kaynak] || GALERI_SABLON.kayserim
 
     // KV cache key
-    const cacheKey = source_id ? `galeri_render:${source_id}` : null
+    const cacheKey     = source_id ? `galeri_render:${source_id}` : null
+    const forceRefresh = body.force_refresh === true
 
-    // Önce cache'e bak
-    if (cacheKey) {
+    // Önce cache'e bak (force_refresh yoksa)
+    if (cacheKey && !forceRefresh) {
       try {
         const cached = await env.HABERLER.get(cacheKey, 'json')
         if (cached?.length) return Response.json({ renderler: cached, cached: true })

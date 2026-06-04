@@ -1820,6 +1820,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
               gorsel_urls: galeriKapakDisi.map(g => g.url),
               kaynak: 'kayserim',
               source_id: selectedHaber?.source_id,
+              force_refresh: true,
             }),
           })
           const data = await res.json()
@@ -2673,6 +2674,7 @@ function KayseradarModul({ user, onGeri }) {
               gorsel_urls: radarGaleriMedyalar.map(m => m.url),
               kaynak: 'radar',
               source_id: data.kayit?.id,
+              force_refresh: true,
             }),
           })
           const gdata = await gres.json()
