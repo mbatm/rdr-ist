@@ -81,8 +81,6 @@ export async function onRequestPost({ request, env }) {
       sonuclar.instagram = {}
       await Promise.all(secilenIgIds.map(async (igId) => {
         const sayfa = hesaplar.find(h=>String(h.ig_id)===String(igId)) || hesaplar[0]
-        // System User token varsa onu kullan — page token yerine (daha geniş IG izni)
-        sayfa.page_token = meta.system_token || sayfa.page_token
 
         // Carousel (çoklu görsel)
         if (is_carousel && galeri_urls.length > 1) {
