@@ -172,10 +172,11 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         const aciklama  = metinMetni || baslikMetni
 
         if (sablon === 'son_dakika_buyuk') {
-          // Son Dakika Büyük — sadece metin, kaynak medya yok
+          // Son Dakika Büyük — kullanıcının girdiği metin direkt baslik'e gider, AI düzeltmesi bypass
+          const buyukMetni = (baslik || '').slice(0, 120)
           modifications = {
-            'baslik.text':     baslikMetni,
-            'baslik-4L7.text': baslikMetni,
+            'baslik.text':     buyukMetni,
+            'baslik-4L7.text': buyukMetni,
             'tarih.text':      tarihStr,
           }
         } else {
