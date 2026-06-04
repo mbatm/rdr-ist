@@ -734,9 +734,13 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         : 'editor'
       const metin = platform === 'instagram' ? igMetin : fbMetin
       // Carousel: galeri görselleri (kapak hariç) — render varsa render URL'si kullan
-      const galeriUrls = galeriGorseller.filter(g=>!g.kapak).map(g => {
+      const galeriUrlsHam = galeriGorseller.filter(g=>!g.kapak)
+      console.log('Carousel galeri görseller:', galeriUrlsHam.length, 'render:', galeriRenderler.length)
+      const galeriUrls = galeriUrlsHam.map(g => {
         const render = galeriRenderler.find(r => r.kaynak_url === g.url)
-        return render?.url || g.url
+        const url = render?.url || g.url
+        console.log('Galeri URL:', url?.substring(0,60), render?.url ? '(render)' : '(orijinal)')
+        return url
       })
       // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
       const isCarousel = platform === 'instagram' && galeriUrls.length > 0
@@ -1823,6 +1827,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const [galeriGorseller, setGaleri]   = useState([]) // çoklu görsel
   const [galeriRenderler, setGaleriR] = useState([]) // render edilmiş galeri görselleri
   const [galeriIsliyor,   setGaleriI] = useState(false)
+  const galeriRef = useRef([]) // galeriGorseller'ın güncel ref'i — kaydet sırasında async sorun olmaz
+  const setGaleriSynced = (v) => { galeriRef.current = typeof v === 'function' ? v(galeriRef.current) : v; setGaleri(v) }
 
   useEffect(() => {
     if (content) {
@@ -1835,14 +1841,14 @@ function Isleme({ content, processing, error, selectedHaber }) {
         setGaleriR(selectedHaber.galeriRenderler)
       }
       if (selectedHaber?.galeriMedyalar?.length > 0) {
-        setGaleri(selectedHaber.galeriMedyalar.map((m,i) => ({ ...m, kapak: m.kapak || i===0 })))
+        setGaleriSynced(selectedHaber.galeriMedyalar.map((m,i) => ({ ...m, kapak: m.kapak || i===0 })))
       } else {
         const mevcutGorsel = selectedHaber?.gorsel_url || selectedHaber?.gorsel
         // gorsel_url_orijinal yoksa gorsel'i orijinal olarak kaydet
         if (selectedHaber && !selectedHaber.gorsel_url_orijinal && selectedHaber.gorsel) {
           selectedHaber.gorsel_url_orijinal = selectedHaber.gorsel
         }
-        setGaleri(mevcutGorsel ? [{ url: mevcutGorsel, kapak: true, adi: 'mevcut' }] : [])
+        setGaleriSynced(mevcutGorsel ? [{ url: mevcutGorsel, kapak: true, adi: 'mevcut' }] : [])
       }
       // KV'deki işlenmiş videoları yükle
       const vr = {}
@@ -1906,8 +1912,10 @@ function Isleme({ content, processing, error, selectedHaber }) {
       }
 
       // Galeri görselleri render et (kapak dışındakiler)
-      const galeriKapakDisi = galeriGorseller.filter(g => !g.kapak && g.url)
-      console.log('Kayserim galeri: toplam', galeriGorseller.length, 'kapak dışı', galeriKapakDisi.length, galeriKapakDisi.map(g=>g.url?.substring(0,40)))
+      // galeriRef.current kullan — state async olduğunda güncel değer garantili
+      const galeriSnap = galeriRef.current.length > 0 ? galeriRef.current : galeriGorseller
+      const galeriKapakDisi = galeriSnap.filter(g => !g.kapak && g.url)
+      console.log('Kayserim galeri: toplam', galeriSnap.length, 'kapak dışı', galeriKapakDisi.length, galeriKapakDisi.map(g=>g.url?.substring(0,40)))
       if (galeriKapakDisi.length > 0) {
         setGaleriI(true)
         try {
@@ -2101,7 +2109,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
         gorseller={galeriGorseller}
         orijinalGorsel={selectedHaber?.gorsel_url_orijinal || selectedHaber?.gorsel || null}
         onGuncel={liste => {
-          setGaleri(liste)
+          setGaleriSynced(liste)
           const kapak = liste.find(g=>g.kapak) || liste[0]
           if (selectedHaber) {
             if (kapak) {
