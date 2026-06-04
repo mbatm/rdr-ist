@@ -2657,8 +2657,11 @@ function KayseradarModul({ user, onGeri }) {
         if (bekleyenler.length) takipBaslat(bekleyenler, data.kayit.id)
       }
       // Galeri görselleri render et — tüm görseller (video değil), kapak = ilk görsel
-      const radarTumGorseller = medyalar.filter(m => m.tip === 'gorsel')
+      // data.kayit.medyalar kullan — medyalar state'i form reset'lenmiş olabilir
+      const kaydedilenMedyalar = data.kayit?.medyalar || medyalar
+      const radarTumGorseller = kaydedilenMedyalar.filter(m => m.tip === 'gorsel')
       const radarGaleriMedyalar = radarTumGorseller.slice(1) // ilk görsel kapak, geri kalanlar galeri
+      console.log('Radar galeri: toplam görsel', radarTumGorseller.length, 'galeri', radarGaleriMedyalar.length)
       if (radarGaleriMedyalar.length > 0) {
         setRadarGaleriI(true)
         setRadarGaleriR([]) // önceki render'ları temizle
