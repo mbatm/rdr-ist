@@ -1892,7 +1892,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
       if (galeriKapakDisi.length > 0) {
         setGaleriI(true)
         try {
-          const token = localStorage.getItem('rdr_token') || ''
+          const token = localStorage.getItem('cms_token') || ''
           const res = await fetch('/api/galeri-isle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Token': token },
