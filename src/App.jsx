@@ -1468,8 +1468,6 @@ function KadrajKutu({ gorselUrl, fmt, odakYatay, setOdakYatay, odakDikey, setOda
 function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, orijinalGorsel = null }) {
   const [yukleniyor, setYukleniyor] = useState(false)
   const [hata, setHata]             = useState(null)
-  const [kadrajGorsel, setKadrajGorsel] = useState(null)  // kadraj bekleyen görsel
-  const kadrajCbRef = useRef(null)  // useRef — fonksiyon state'e konulamaz
   const fileRef = useRef(null)
 
   const yukle = async (files) => {
@@ -1491,22 +1489,15 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
     }
 
     setYukleniyor(false)
-
     if (yeniGorseller.length === 0) return
 
-    // İlk yüklenen görsel için kadraj aç
-    const ilkUrl = yeniGorseller[0].url
-    setKadrajGorsel(ilkUrl)
-    kadrajCbRef.current = (kadraj) => {
-      const yeni = [...gorseller]
-      for (const g of yeniGorseller) {
-        yeni.push({ ...g, kadraj: kadraj || null, kapak: yeni.length === 0 })
-      }
-      if (yeni.length > 0 && !yeni.some(x=>x.kapak)) yeni[0].kapak = true
-      onGuncel?.(yeni)
-      setKadrajGorsel(null)
-      kadrajCbRef.current = null
+    // Kadraj yok — direkt listeye ekle
+    const yeni = [...gorseller]
+    for (const g of yeniGorseller) {
+      yeni.push({ ...g, kapak: yeni.length === 0 })
     }
+    if (yeni.length > 0 && !yeni.some(x=>x.kapak)) yeni[0].kapak = true
+    onGuncel?.(yeni)
   }
 
   const kapakYap = (idx) => {
@@ -1586,18 +1577,7 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
                     ★
                   </button>
                 )}
-                <button onClick={()=>{
-                  setKadrajGorsel(g.url)
-                  kadrajCbRef.current = (kadraj) => {
-                    const yeni = gorseller.map((x,j) => j===i ? {...x, kadraj: kadraj||null} : x)
-                    onGuncel?.(yeni)
-                    setKadrajGorsel(null)
-                    kadrajCbRef.current = null
-                  }
-                }} title="Kadraj seç"
-                  style={{flex:1,fontSize:9,border:'0.5px solid rgba(255,183,0,.3)',background:'rgba(255,183,0,.08)',color:'#FFB700',cursor:'pointer',padding:'2px 0',borderRadius:2}}>
-                  ✂
-                </button>
+
                 <button onClick={()=>sil(i)} title="Sil"
                   style={{flex:1,fontSize:9,border:'0.5px solid rgba(255,123,123,.3)',background:'rgba(255,123,123,.08)',color:'#ff7b7b',cursor:'pointer',padding:'2px 0',borderRadius:2}}>
                   ✕
@@ -1620,14 +1600,7 @@ function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, o
         </div>
       )}
 
-      {/* Kadraj modalı */}
-      {kadrajGorsel && (
-        <OnKadraj
-          gorselUrl={kadrajGorsel}
-          onOnayla={kadraj => kadrajCbRef.current?.(kadraj)}
-          onIptal={() => { setKadrajGorsel(null); kadrajCbRef.current = null }}
-        />
-      )}
+
     </div>
   )
 }
