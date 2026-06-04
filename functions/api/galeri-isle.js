@@ -50,9 +50,8 @@ export async function onRequestPost({ request, env }) {
           template_id:   templateId,
           output_format: 'png',
           modifications: {
-            // İsmi olmayan dynamic image element — farklı yollar dene
-            '[0].source': gorselUrl,     // index bazlı
-            'source':     gorselUrl,     // global
+            // Element ID ile — ismi olmayan dynamic element
+            '16dbfe06-e201-4aa4-887b-f166f95832af': gorselUrl,
           },
         }),
       })

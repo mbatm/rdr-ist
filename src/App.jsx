@@ -1885,7 +1885,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
               return (
                 <div key={i} style={{position:'relative',width:64,height:64,borderRadius:'var(--radius-sm)',overflow:'hidden',
                   border:`1.5px solid ${g.kapak?'rgba(0,212,170,.6)':render?.url?'rgba(0,212,170,.3)':'var(--border)'}`}}>
-                  <img src={gosterUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                  <img src={render?.url ? `/api/gorsel-proxy?url=${encodeURIComponent(render.url)}` : gosterUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
                   {g.kapak && <div style={{position:'absolute',top:2,left:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 4px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
                   {!g.kapak && render?.url && <div style={{position:'absolute',bottom:2,right:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 3px',borderRadius:2}}>✓</div>}
                   {!g.kapak && galeriIsliyor && !render?.url && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#FFB700'}}>⏳</div>}
@@ -3053,7 +3053,7 @@ function KayseradarModul({ user, onGeri }) {
                       <div key={i} style={{position:'relative',width:80,height:80,borderRadius:'var(--radius-sm)',overflow:'hidden',
                         border:`1.5px solid ${r.url?'rgba(0,212,170,.4)':'var(--border)'}`}}>
                         {r.url
-                          ? <img src={r.url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                          ? <img src={`/api/gorsel-proxy?url=${encodeURIComponent(r.url)}`} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
                           : <div style={{width:'100%',height:'100%',background:'#222',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'var(--muted)'}}>⏳</div>
                         }
                         {r.url && <div style={{position:'absolute',bottom:2,right:2,fontSize:8,background:'rgba(0,212,170,.9)',color:'#000',padding:'1px 3px',borderRadius:2}}>✓</div>}
