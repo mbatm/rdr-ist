@@ -3020,14 +3020,22 @@ function KayseradarModul({ user, onGeri }) {
                     )}
                   </div>
                 ))}
-                {/* Medya yoksa orijinal göster */}
+                {/* Medya yoksa orijinal göster — kapak + galeri */}
                 {Object.keys(videoRenders).length === 0 && onayKayit.medyalar?.length > 0 && (
-                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                    {onayKayit.medyalar.map((m,i)=>(
-                      m.tip==='gorsel'
-                        ? <img key={i} src={m.url} alt="" style={{height:100,borderRadius:'var(--radius-sm)',border:'0.5px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
-                        : <video key={i} src={m.url} controls style={{height:120,borderRadius:'var(--radius-sm)'}}/>
-                    ))}
+                  <div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>
+                      Yüklenen medyalar ({onayKayit.medyalar.length})
+                    </div>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                      {onayKayit.medyalar.map((m,i)=>(
+                        m.tip==='gorsel'
+                          ? <div key={i} style={{position:'relative'}}>
+                              <img src={m.url} alt="" style={{height:100,borderRadius:'var(--radius-sm)',border:`0.5px solid ${i===0?'rgba(0,212,170,.5)':'var(--border)'}`}} onError={e=>e.target.style.display='none'}/>
+                              {i===0 && <div style={{position:'absolute',top:2,left:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 4px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
+                            </div>
+                          : <video key={i} src={m.url} controls style={{height:120,borderRadius:'var(--radius-sm)'}}/>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
