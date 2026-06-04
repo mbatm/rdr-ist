@@ -172,12 +172,11 @@ Sadece JSON döndür, başka hiçbir şey yazma:
         const aciklama  = metinMetni || baslikMetni
 
         if (sablon === 'son_dakika_buyuk') {
-          // Son Dakika Büyük — Video-H2H + baslik + shadow layer + tarih
+          // Son Dakika Büyük — sadece metin, kaynak medya yok
           modifications = {
-            'Video-H2H.source': mediaUrl,
-            'baslik.text':      baslikMetni,
-            'baslik-4L7.text':  baslikMetni,
-            'tarih.text':       tarihStr,
+            'baslik.text':     baslikMetni,
+            'baslik-4L7.text': baslikMetni,
+            'tarih.text':      tarihStr,
           }
         } else {
         // Ekonomi: 'aciklama-yapan', Son Dakika: 'aciklamayapan'
@@ -234,8 +233,8 @@ Sadece JSON döndür, başka hiçbir şey yazma:
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CREATOMATE_API_KEY}` },
           body: JSON.stringify({
             template_id:   templateId,
-            output_format: isVideo ? 'mp4' : 'jpg',
-            ...(isVideo ? { frame_rate: 30 } : {}),
+            output_format: (isVideo || sablon === 'son_dakika_buyuk') ? 'mp4' : 'jpg',
+            ...((isVideo || sablon === 'son_dakika_buyuk') ? { frame_rate: 30 } : {}),
             modifications,
           }),
         })
