@@ -122,6 +122,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       'pati':         { video: '789cd38d-2cd1-4783-836d-0c22381a6d7b', gorsel: '49a6e9cb-a8a0-4db6-8500-0e2db1641f24' },
       'radar_yardim': { video: 'a63ab1d9-8417-4c69-87bf-42ed3eee7d53', gorsel: 'f39bcded-c7c0-4bf2-81d9-aa7331f5f925' },
       'kan':          { gorsel: '09cbd64a-2252-4164-8802-7b98c1588627' }, // sadece image, video yok
+      'son_dakika_buyuk': { video: '94f9e84a-d955-4f46-8bdc-cbfafe3d58f8' },
       'son_dakika_metin': { video: 'a0abb7e2-0c6b-4623-afc2-0498141bf81e' },
       'ekonomi_metin':    { video: '3899e8d0-2aa7-49c5-b6bb-4a350b0b33fd' },
       // Henüz özel şablonu olmayan — fallback
@@ -134,7 +135,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
     }
 
     let creatomateRenders = []
-    const isMetinSablon2 = sablon === 'son_dakika_metin' || sablon === 'ekonomi_metin'
+    const isMetinSablon2 = sablon === 'son_dakika_metin' || sablon === 'ekonomi_metin' || sablon === 'son_dakika_buyuk'
     if (env.CREATOMATE_API_KEY && (ilkVideo || ilkGorsel || sablon === 'kan' || isMetinSablon2)) {
       const tarihStr  = new Date().toLocaleDateString('tr-TR')
       const mediaUrl  = ilkVideo || ilkGorsel
@@ -167,10 +168,18 @@ Sadece JSON döndür, başka hiçbir şey yazma:
 
       } else if (isMetinSablon) {
         // Metin şablonları — baslik + aciklama-yapan
-        // Video-H2H şablonda sabit, dinamik değil — dokunmuyoruz
         const ifadeEden = baslik.trim()
         const aciklama  = metinMetni || baslikMetni
 
+        if (sablon === 'son_dakika_buyuk') {
+          // Son Dakika Büyük — Video-H2H + baslik + shadow layer + tarih
+          modifications = {
+            'Video-H2H.source': mediaUrl,
+            'baslik.text':      baslikMetni,
+            'baslik-4L7.text':  baslikMetni,
+            'tarih.text':       tarihStr,
+          }
+        } else {
         // Ekonomi: 'aciklama-yapan', Son Dakika: 'aciklamayapan'
         const isEkonomi   = sablon === 'ekonomi_metin'
         const aciklamaKey = isEkonomi ? 'aciklama-yapan' : 'aciklamayapan'
@@ -199,6 +208,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
             modifications['aciklamayapan-7XH.x']     = '200%'
           }
         }
+        } // son_dakika_buyuk else kapanışı
 
       } else {
         // Normal şablonlar

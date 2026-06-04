@@ -2454,6 +2454,7 @@ const RADAR_SABLONLAR = [
   { id:'bulunmustur', label:'Bulunmuştur',   ic:'check-circle',   renk:'#00D4AA' },
   { id:'radar_yardim',label:'Radar Yardım',  ic:'heart-handshake',renk:'#4488FF' },
   { id:'sikayet',     label:'Şikayet',       ic:'message-report', renk:'#E63946' },
+  { id:'son_dakika_buyuk', label:'Son Dakika Büyük', ic:'bolt',      renk:'#E63946' },
   { id:'son_dakika_metin', label:'Son Dakika',   ic:'bolt',           renk:'#FF4500', metin_sablon:true },
   { id:'ekonomi_metin',    label:'Ekonomi',      ic:'currency-lira',  renk:'#FFB700', metin_sablon:true },
 ]
