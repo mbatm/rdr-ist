@@ -21,9 +21,12 @@ export async function onRequestPost({ request, env }) {
     const API_KEY  = env.RSS_API_KEY
 
     // Render URL — KV'den al (polling tarafından yazılmış olmalı)
-    const renderKayit = kayit.creatomate?.find(r => r.url && r.url.length > 10)
-    const medyaUrl    = renderKayit?.url || kayit.gorsel_url || ''
-    const isVideo     = medyaUrl.includes('.mp4')
+    // Video render varsa onu al — görsel render değil
+    const videoRender  = kayit.creatomate?.find(r => r.url && r.tip === 'video')
+    const gorselRender = kayit.creatomate?.find(r => r.url && r.url.length > 10)
+    const renderKayit  = videoRender || gorselRender
+    const medyaUrl     = renderKayit?.url || kayit.gorsel_url || ''
+    const isVideo      = renderKayit?.tip === 'video' || medyaUrl.includes('.mp4')
 
     console.log('Paylaşım medyaUrl:', medyaUrl, 'isVideo:', isVideo)
     if (!medyaUrl) {
