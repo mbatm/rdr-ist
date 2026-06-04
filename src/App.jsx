@@ -621,7 +621,7 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
 
 // ── META PAYLAŞIM ─────────────────────────────────────────────────────────
-function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={}, galeriGorseller=[] }) {
+function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', videoRenders={}, galeriGorseller=[], galeriRenderler=[] }) {
   const isVideo = !!(selectedHaber?.video)
   const [fbTip,    setFbTip]   = useState(isVideo ? 'video' : 'foto')
   const [igTip,    setIgTip]   = useState(isVideo ? 'video' : 'foto')
@@ -732,8 +732,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         ? (await fetch('/api/auth?token='+token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
         : 'editor'
       const metin = platform === 'instagram' ? igMetin : fbMetin
-      // Carousel: galeri görselleri (kapak hariç) URL listesi
-      const galeriUrls = galeriGorseller.filter(g=>!g.kapak).map(g=>g.url)
+      // Carousel: galeri görselleri (kapak hariç) — render varsa render URL'si kullan
+      const galeriUrls = galeriGorseller.filter(g=>!g.kapak).map(g => {
+        const render = galeriRenderler.find(r => r.kaynak_url === g.url)
+        return render?.url || g.url
+      })
       // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
       const isCarousel = platform === 'instagram' && galeriUrls.length > 0
 
@@ -1719,7 +1722,9 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const [gorselUrls,  setGUrls]    = useState({})
   const [videoRenders,setVRenders] = useState({})
   const [kaydediliyor,setKyd]      = useState(false)
-  const [galeriGorseller, setGaleri] = useState([]) // çoklu görsel
+  const [galeriGorseller, setGaleri]   = useState([]) // çoklu görsel
+  const [galeriRenderler, setGaleriR] = useState([]) // render edilmiş galeri görselleri
+  const [galeriIsliyor,   setGaleriI] = useState(false)
 
   useEffect(() => {
     if (content) {
@@ -1727,6 +1732,10 @@ function Isleme({ content, processing, error, selectedHaber }) {
       setLink(content.kayserim_link || selectedHaber?.kayserim_link || '')
       setMode('edit'); setGUrls({})
       // Manuel haberden gelen galeri medyaları varsa onları kullan
+      // Galeri render'larını yükle
+      if (selectedHaber?.galeriRenderler?.length > 0) {
+        setGaleriR(selectedHaber.galeriRenderler)
+      }
       if (selectedHaber?.galeriMedyalar?.length > 0) {
         setGaleri(selectedHaber.galeriMedyalar.map((m,i) => ({ ...m, kapak: m.kapak || i===0 })))
       } else {
@@ -1797,6 +1806,32 @@ function Isleme({ content, processing, error, selectedHaber }) {
           video_dikey_snapshot: body.video_dikey_snapshot,
         })
       }
+
+      // Galeri görselleri render et (kapak dışındakiler)
+      const galeriKapakDisi = galeriGorseller.filter(g => !g.kapak && g.url)
+      if (galeriKapakDisi.length > 0) {
+        setGaleriI(true)
+        try {
+          const token = localStorage.getItem('rdr_token') || ''
+          const res = await fetch('/api/galeri-isle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Token': token },
+            body: JSON.stringify({
+              gorsel_urls: galeriKapakDisi.map(g => g.url),
+              kaynak: 'kayserim',
+              source_id: selectedHaber?.source_id,
+            }),
+          })
+          const data = await res.json()
+          if (data.renderler) {
+            setGaleriR(data.renderler)
+            // selectedHaber'a da kaydet
+            if (selectedHaber) selectedHaber.galeriRenderler = data.renderler
+          }
+        } catch(e) { console.warn('Galeri render hatası:', e.message) }
+        setGaleriI(false)
+      }
+
       setMode('paylas')
     } catch(e){console.error(e)}
     setKyd(false)
@@ -1835,24 +1870,33 @@ function Isleme({ content, processing, error, selectedHaber }) {
       </div>
       <Divider label="Sosyal medya görselleri" ic="photo"/>
       <OtoGorselUret key={editedHaber?.source_id} haber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}/>
-      {/* Galeri görselleri — kapak dışındakiler */}
+      {/* Galeri görselleri — kapak dışındakiler + render durumu */}
       {galeriGorseller.length > 1 && (
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>Galeri ({galeriGorseller.length} görsel)</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+            Galeri ({galeriGorseller.length} görsel)
+            {galeriIsliyor && <span style={{color:'#FFB700',fontSize:10}}>⏳ Galeri render hazırlanıyor…</span>}
+            {!galeriIsliyor && galeriRenderler.length > 0 && <span style={{color:'#00D4AA',fontSize:10}}>✓ {galeriRenderler.filter(r=>r.url).length}/{galeriRenderler.length} hazır</span>}
+          </div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            {galeriGorseller.map((g,i)=>(
-              <div key={i} style={{position:'relative',width:64,height:64,borderRadius:'var(--radius-sm)',overflow:'hidden',
-                border:`1.5px solid ${g.kapak?'rgba(0,212,170,.6)':'var(--border)'}`}}>
-                <img src={g.url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}
-                  onError={e=>e.target.style.display='none'}/>
-                {g.kapak && <div style={{position:'absolute',top:2,left:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 4px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
-              </div>
-            ))}
+            {galeriGorseller.map((g,i)=>{
+              const render = galeriRenderler.find(r=>r.kaynak_url===g.url)
+              const gosterUrl = (!g.kapak && render?.url) ? render.url : g.url
+              return (
+                <div key={i} style={{position:'relative',width:64,height:64,borderRadius:'var(--radius-sm)',overflow:'hidden',
+                  border:`1.5px solid ${g.kapak?'rgba(0,212,170,.6)':render?.url?'rgba(0,212,170,.3)':'var(--border)'}`}}>
+                  <img src={gosterUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                  {g.kapak && <div style={{position:'absolute',top:2,left:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 4px',borderRadius:2,fontWeight:700}}>KAPAK</div>}
+                  {!g.kapak && render?.url && <div style={{position:'absolute',bottom:2,right:2,fontSize:8,background:'rgba(0,212,170,.85)',color:'#000',padding:'1px 3px',borderRadius:2}}>✓</div>}
+                  {!g.kapak && galeriIsliyor && !render?.url && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#FFB700'}}>⏳</div>}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
       <Divider label="Paylaş" ic="send"/>
-      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders} galeriGorseller={galeriGorseller}/>
+      <MetaPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders} galeriGorseller={galeriGorseller} galeriRenderler={galeriRenderler}/>
       <Divider label="X / Twitter" ic="brand-x"/>
       <TwitterPaylas content={ec} selectedHaber={selectedHaber} gorselUrls={gorselUrls} kayserimLink={link} videoRenders={videoRenders}/>
       <Divider label="YouTube" ic="brand-youtube"/>
@@ -2533,8 +2577,10 @@ function KayseradarModul({ user, onGeri }) {
   const [hata,         setHata]       = useState(null)
   const [pSonuc,       setPSonuc]     = useState(null)
   const [radarKolabor, setRadarKolabor] = useState('')
-  const [videoRenders, setVideoRenders] = useState({})
-  const [hesaplar,     setHesaplar]     = useState({ facebook:[], instagram:[] })
+  const [videoRenders,    setVideoRenders]    = useState({})
+  const [radarGaleriR,    setRadarGaleriR]    = useState([]) // radar galeri render sonuçları
+  const [radarGaleriI,    setRadarGaleriI]    = useState(false) // render işleniyor
+  const [hesaplar,        setHesaplar]        = useState({ facebook:[], instagram:[] })
   const [secilenFb,    setSecilenFb]    = useState([])
   const [secilenIg,    setSecilenIg]    = useState([])
   const fileRef = useRef(null)
@@ -2610,6 +2656,26 @@ function KayseradarModul({ user, onGeri }) {
         const bekleyenler = data.kayit.creatomate.filter(r => r.status !== 'succeeded')
         if (bekleyenler.length) takipBaslat(bekleyenler, data.kayit.id)
       }
+      // Galeri görselleri render et (video dışı, birden fazla medya varsa)
+      const radarGaleriMedyalar = medyalar.filter(m => m.tip === 'gorsel').slice(1) // kapak dışındakiler
+      if (radarGaleriMedyalar.length > 0) {
+        setRadarGaleriI(true)
+        try {
+          const gres = await fetch('/api/galeri-isle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Token': token },
+            body: JSON.stringify({
+              gorsel_urls: radarGaleriMedyalar.map(m => m.url),
+              kaynak: 'radar',
+              source_id: data.kayit?.id,
+            }),
+          })
+          const gdata = await gres.json()
+          if (gdata.renderler) setRadarGaleriR(gdata.renderler)
+        } catch(e) { console.warn('Radar galeri render:', e.message) }
+        setRadarGaleriI(false)
+      }
+
       setEkran('onay')
     } catch(e) { setHata(e.message) }
     setIsleniyor(false)
@@ -2663,8 +2729,14 @@ function KayseradarModul({ user, onGeri }) {
       const res  = await fetch('/api/kayseradar-paylas', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body:    JSON.stringify({ id: kayit.id, platformlar, fb_page_ids: fbIds, ig_ids: igIds, tw: platformlar.includes('twitter'),
-          ig_kolabor: radarKolabor ? radarKolabor.split(',').map(s=>s.trim().replace('@','')).filter(Boolean) : undefined }),
+        body:    JSON.stringify({
+          id: kayit.id, platformlar, fb_page_ids: fbIds, ig_ids: igIds, tw: platformlar.includes('twitter'),
+          ig_kolabor: radarKolabor ? radarKolabor.split(',').map(s=>s.trim().replace('@','')).filter(Boolean) : undefined,
+          // Render edilmiş galeri URL'leri — yoksa orijinal URL
+          galeri_urls: radarGaleriR.length > 0
+            ? radarGaleriR.map(r => r.url || r.kaynak_url)
+            : undefined,
+        }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
