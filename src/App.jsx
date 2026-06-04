@@ -2656,10 +2656,12 @@ function KayseradarModul({ user, onGeri }) {
         const bekleyenler = data.kayit.creatomate.filter(r => r.status !== 'succeeded')
         if (bekleyenler.length) takipBaslat(bekleyenler, data.kayit.id)
       }
-      // Galeri görselleri render et (video dışı, birden fazla medya varsa)
-      const radarGaleriMedyalar = medyalar.filter(m => m.tip === 'gorsel').slice(1) // kapak dışındakiler
+      // Galeri görselleri render et — tüm görseller (video değil), kapak = ilk görsel
+      const radarTumGorseller = medyalar.filter(m => m.tip === 'gorsel')
+      const radarGaleriMedyalar = radarTumGorseller.slice(1) // ilk görsel kapak, geri kalanlar galeri
       if (radarGaleriMedyalar.length > 0) {
         setRadarGaleriI(true)
+        setRadarGaleriR([]) // önceki render'ları temizle
         try {
           const gres = await fetch('/api/galeri-isle', {
             method: 'POST',
@@ -2671,8 +2673,9 @@ function KayseradarModul({ user, onGeri }) {
             }),
           })
           const gdata = await gres.json()
+          console.log('Radar galeri render sonuç:', gdata)
           if (gdata.renderler) setRadarGaleriR(gdata.renderler)
-        } catch(e) { console.warn('Radar galeri render:', e.message) }
+        } catch(e) { console.warn('Radar galeri render hatası:', e.message) }
         setRadarGaleriI(false)
       }
 
@@ -3025,6 +3028,29 @@ function KayseradarModul({ user, onGeri }) {
                   </div>
                 )}
               </div>
+
+              {/* Galeri render bölümü */}
+              {(radarGaleriI || radarGaleriR.length > 0) && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+                    📎 Galeri ({radarGaleriR.length} görsel)
+                    {radarGaleriI && <span style={{color:'#FFB700',fontSize:10}}>⏳ Render hazırlanıyor…</span>}
+                    {!radarGaleriI && <span style={{color:'#00D4AA',fontSize:10}}>✓ {radarGaleriR.filter(r=>r.url).length} hazır</span>}
+                  </div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {radarGaleriR.map((r,i)=>(
+                      <div key={i} style={{position:'relative',width:80,height:80,borderRadius:'var(--radius-sm)',overflow:'hidden',
+                        border:`1.5px solid ${r.url?'rgba(0,212,170,.4)':'var(--border)'}`}}>
+                        {r.url
+                          ? <img src={r.url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                          : <div style={{width:'100%',height:'100%',background:'#222',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'var(--muted)'}}>⏳</div>
+                        }
+                        {r.url && <div style={{position:'absolute',bottom:2,right:2,fontSize:8,background:'rgba(0,212,170,.9)',color:'#000',padding:'1px 3px',borderRadius:2}}>✓</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Yayınla butonu — render hazırsa aktif */}
               {(() => {
