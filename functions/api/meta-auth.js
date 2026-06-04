@@ -10,10 +10,10 @@ export async function onRequestGet({ env }) {
   const params = new URLSearchParams({
     client_id:     appId,
     redirect_uri:  'https://rdr.ist/api/meta-callback',
-    scope:         'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish',
+    scope:         'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management',
     response_type: 'code',
     state:         'kayserim_cms',
   })
 
-  return Response.redirect(`https://www.facebook.com/v19.0/dialog/oauth?${params}`, 302)
+  return Response.redirect(`https://www.facebook.com/v21.0/dialog/oauth?${params}`, 302)
 }

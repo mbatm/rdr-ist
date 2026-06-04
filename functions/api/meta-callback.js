@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env }) {
   const appSecret = env.META_APP_SECRET
 
   // 1. Kısa ömürlü token
-  const tokenRes  = await fetch('https://graph.facebook.com/v19.0/oauth/access_token?' + new URLSearchParams({
+  const tokenRes  = await fetch('https://graph.facebook.com/v21.0/oauth/access_token?' + new URLSearchParams({
     client_id: appId, client_secret: appSecret,
     redirect_uri: 'https://rdr.ist/api/meta-callback', code,
   }))
@@ -23,7 +23,7 @@ export async function onRequestGet({ request, env }) {
   if (!tokenData.access_token) return new Response(`Token hatası: ${JSON.stringify(tokenData)}`, { status: 500 })
 
   // 2. Uzun ömürlü token (60 gün)
-  const longRes  = await fetch('https://graph.facebook.com/v19.0/oauth/access_token?' + new URLSearchParams({
+  const longRes  = await fetch('https://graph.facebook.com/v21.0/oauth/access_token?' + new URLSearchParams({
     grant_type: 'fb_exchange_token', client_id: appId,
     client_secret: appSecret, fb_exchange_token: tokenData.access_token,
   }))
@@ -31,14 +31,14 @@ export async function onRequestGet({ request, env }) {
   const longToken = longData.access_token || tokenData.access_token
 
   // 3. Sayfa listesi — limit 100
-  const pagesRes  = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${longToken}`)
+  const pagesRes  = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${longToken}`)
   const pagesData = await pagesRes.json()
   const pages     = pagesData.data || []
 
   // 4. Her sayfa için IG hesabı + username çek
   const yeniHesaplar = []
   for (const page of pages) {
-    const igRes  = await fetch(`https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account{id,username,profile_picture_url}&access_token=${page.access_token}`)
+    const igRes  = await fetch(`https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account{id,username,profile_picture_url}&access_token=${page.access_token}`)
     const igData = await igRes.json()
     const ig     = igData.instagram_business_account || null
 
