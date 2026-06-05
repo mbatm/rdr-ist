@@ -1804,6 +1804,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
   const [galeriGorseller, setGaleri]   = useState([]) // çoklu görsel
   const [galeriRenderler, setGaleriR] = useState([]) // render edilmiş galeri görselleri
   const [galeriIsliyor,   setGaleriI] = useState(false)
+  const [galeriOnayModal, setGaleriOnay] = useState(false) // önizleme modalı
   const galeriRef = useRef([]) // galeriGorseller'ın güncel ref'i — kaydet sırasında async sorun olmaz
   const setGaleriSynced = (v) => { galeriRef.current = typeof v === 'function' ? v(galeriRef.current) : v; setGaleri(v) }
 
@@ -1915,7 +1916,12 @@ function Isleme({ content, processing, error, selectedHaber }) {
         setGaleriI(false)
       }
 
-      setMode('paylas')
+      // Galeri varsa önizleme modalını aç, yoksa direkt paylaşıma geç
+      if (galeriTum.length > 0) {
+        setMode('galeri-onay')
+      } else {
+        setMode('paylas')
+      }
     } catch(e){console.error(e)}
     setKyd(false)
   }
@@ -1940,6 +1946,72 @@ function Isleme({ content, processing, error, selectedHaber }) {
   )
 
   // PAYLAŞ MODU
+  if (mode==='galeri-onay') return (
+    <div style={{padding:'1.25rem',overflowY:'auto'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'1.25rem'}}>
+        <div style={{background:'rgba(255,183,0,.1)',border:'0.5px solid rgba(255,183,0,.25)',borderRadius:'var(--radius-md)',padding:'10px 14px',flex:1}}>
+          <div style={{fontSize:14,fontWeight:500,color:'#FFB700'}}>📎 Galeri Önizleme</div>
+          <div style={{fontSize:12,color:'rgba(255,183,0,.7)',marginTop:2}}>
+            {galeriGorseller.length} görsel · Onayladıktan sonra paylaşıma geçebilirsin
+          </div>
+        </div>
+        <button onClick={()=>setMode('edit')} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+          <Ic n="edit" size={13}/> Düzenle
+        </button>
+      </div>
+
+      {/* Render durumu */}
+      {galeriIsliyor && (
+        <div style={{textAlign:'center',color:'#FFB700',fontSize:12,marginBottom:12}}>
+          ⏳ Görseller render ediliyor, lütfen bekle…
+        </div>
+      )}
+
+      {/* Görsel grid */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:20}}>
+        {galeriGorseller.map((g,i)=>{
+          const render = galeriRenderler.find(r=>r.kaynak_url===g.url)
+          const gosterUrl = render?.url || g.url
+          return (
+            <div key={i} style={{position:'relative',borderRadius:6,overflow:'hidden',
+              border:`2px solid ${g.kapak?'rgba(0,212,170,.7)':'rgba(255,255,255,.15)'}`,
+              width:'calc(50% - 5px)',maxWidth:200}}>
+              <img src={gosterUrl} alt="" style={{display:'block',width:'100%',height:'auto'}}
+                onError={e=>{ if(e.target.src!==g.url) e.target.src=g.url }}/>
+              <div style={{position:'absolute',bottom:0,left:0,right:0,
+                background:'rgba(0,0,0,.65)',color:'#fff',fontSize:10,padding:'4px 8px',
+                display:'flex',justifyContent:'space-between'}}>
+                <span>{g.kapak?'⭐ Kapak':`${i+1}. görsel`}</span>
+                {render?.url
+                  ? <span style={{color:'#00D4AA'}}>✓ 1350×1080</span>
+                  : galeriIsliyor
+                    ? <span style={{color:'#FFB700'}}>⏳</span>
+                    : <span style={{color:'#888'}}>orijinal</span>
+                }
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Onay butonu */}
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>setMode('edit')}
+          style={{fontSize:12,padding:'8px 16px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)',cursor:'pointer',borderRadius:4}}>
+          ← Geri Dön
+        </button>
+        <button onClick={()=>setMode('paylas')} disabled={galeriIsliyor}
+          style={{fontSize:12,padding:'8px 20px',flex:1,
+            background: galeriIsliyor?'rgba(0,212,170,.05)':'rgba(0,212,170,.15)',
+            border:'0.5px solid rgba(0,212,170,.4)',
+            color: galeriIsliyor?'rgba(0,212,170,.4)':'#00D4AA',
+            cursor: galeriIsliyor?'not-allowed':'pointer',borderRadius:4,fontWeight:500}}>
+          {galeriIsliyor ? '⏳ Render bekleniyor…' : '✓ Görselleri Onaylıyorum, Paylaşıma Geç →'}
+        </button>
+      </div>
+    </div>
+  )
+
   if (mode==='paylas') return (
     <div style={{padding:'1.25rem',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'1.25rem'}}>
