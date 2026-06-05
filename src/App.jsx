@@ -555,22 +555,18 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           <OnKadraj
             gorselUrl={gorsel}
             videoUrl={videoSrc}
-            fmt={kaynakOrientation || kadrajAcFmt}
+            fmt={kadrajAcFmt}
             modType={isVideo ? 'odak' : 'kadraj'}
             baslik={isVideo
               ? `🎯 ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} — Odak noktası seç`
               : `✂ ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} — Kadraj seç`}
             onOnayla={k => {
               if (k) {
-                // k = { yatay: {x,y}, dikey: {x,y} } — her format için ayrı set et
-                if (k.yatay || k.dikey) {
-                  setKadraj(prev => ({
-                    yatay: k.yatay || prev.yatay,
-                    dikey: k.dikey || prev.dikey,
-                  }))
-                } else if (k.x !== undefined) {
-                  // Direkt { x, y } formatı — kadrajAcFmt'e set et
-                  setKadraj(prev => ({ ...prev, [kadrajAcFmt]: k }))
+                // k = { yatay: {x,y}, dikey: {x,y} } formatında geliyor (OdakPanel'den)
+                // kadrajAcFmt'e karşılık gelen odak noktasını al
+                const odak = k[kadrajAcFmt] || k
+                if (odak?.x !== undefined) {
+                  setKadraj(prev => ({ ...prev, [kadrajAcFmt]: odak }))
                 }
               }
               setKadrajAcFmt(null)
@@ -1285,7 +1281,7 @@ function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, modType = 'odak', on
         setOnizleme({ yatay: gorselUrl, dikey: gorselUrl })
         setYukleniyor(false)
       })
-  }, [gorselUrl, videoUrl, fmt])
+  }, [gorselUrl, videoUrl])
 
   const getPos = (ref, e) => {
     const rect = ref.current?.getBoundingClientRect()

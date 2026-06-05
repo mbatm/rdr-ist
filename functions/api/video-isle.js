@@ -86,6 +86,8 @@ export async function onRequestPost({ request, env }) {
 
       const outputFormat = isVideo ? 'mp4' : 'jpg'
 
+      console.log(`[video-isle] fmt=${fmt} kadrajFmt=`, JSON.stringify(kadrajFmt), 'mods=', JSON.stringify(baseMods['video.x_anchor'], baseMods['video.y_anchor']))
+
       const res = await fetch(
         isVideo
           ? 'https://api.creatomate.com/v2/renders'
