@@ -561,7 +561,18 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
               ? `🎯 ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} — Odak noktası seç`
               : `✂ ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} — Kadraj seç`}
             onOnayla={k => {
-              if (k) setKadraj(prev => ({ ...prev, [kadrajAcFmt]: k }))
+              if (k) {
+                // k = { yatay: {x,y}, dikey: {x,y} } — her format için ayrı set et
+                if (k.yatay || k.dikey) {
+                  setKadraj(prev => ({
+                    yatay: k.yatay || prev.yatay,
+                    dikey: k.dikey || prev.dikey,
+                  }))
+                } else if (k.x !== undefined) {
+                  // Direkt { x, y } formatı — kadrajAcFmt'e set et
+                  setKadraj(prev => ({ ...prev, [kadrajAcFmt]: k }))
+                }
+              }
               setKadrajAcFmt(null)
             }}
             onIptal={() => setKadrajAcFmt(null)}

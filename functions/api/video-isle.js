@@ -4,24 +4,14 @@
  * format: 'dikey' | 'yatay' | 'her_ikisi'
  */
 
-// Kadraj hesaplama — yükseklik min 1350px, genişlik referans, ortala
+// Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
+// Odak noktası x_anchor/y_anchor ile belirlenir (varsayılan merkez)
 function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
-  const gw = genislik  || 1
-  const gh = yukseklik || 1
-  const oran = gw / gh
-  let wPct, hPct
-  if (gh >= 1350) {
-    const olcekliH = sablonW / oran
-    wPct = '100%'
-    hPct = `${((olcekliH / sablonH) * 100).toFixed(2)}%`
-  } else {
-    const gerekliW = 1350 * oran
-    wPct = `${((gerekliW / sablonW) * 100).toFixed(2)}%`
-    hPct = `${((1350 / sablonH) * 100).toFixed(2)}%`
-  }
+  // Video boyutları bilinmese de fit:cover ile Creatomate halleder
+  // x/y: şablonun merkezi, x_anchor/y_anchor: videonun hangi noktası oraya gelsin
   return {
-    'video.width':    wPct,
-    'video.height':   hPct,
+    'video.width':    '100%',
+    'video.height':   '100%',
     'video.x':        '50%',
     'video.y':        '50%',
     'video.x_anchor': '50%',
