@@ -733,14 +733,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         ? (await fetch('/api/auth?token='+token).then(r=>r.json()).catch(()=>({}))).kullanici || 'editor'
         : 'editor'
       const metin = platform === 'instagram' ? igMetin : fbMetin
-      // Carousel: galeri görselleri (kapak hariç) — render varsa render URL'si kullan
-      const galeriUrlsHam = galeriGorseller.filter(g=>!g.kapak)
-      console.log('Carousel galeri görseller:', galeriUrlsHam.length, 'render:', galeriRenderler.length)
-      const galeriUrls = galeriUrlsHam.map(g => {
+      // Carousel: tüm görseller — render varsa render URL'si, yoksa orijinal
+      // Kapak render'ı ilk sırada — diğerleri arkasında
+      const galeriUrls = galeriGorseller.map(g => {
         const render = galeriRenderler.find(r => r.kaynak_url === g.url)
-        const url = render?.url || g.url
-        console.log('Galeri URL:', url?.substring(0,60), render?.url ? '(render)' : '(orijinal)')
-        return url
+        return render?.url || g.url
       })
       // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
       const isCarousel = platform === 'instagram' && galeriUrls.length > 0
@@ -1884,12 +1881,11 @@ function Isleme({ content, processing, error, selectedHaber }) {
         })
       }
 
-      // Galeri görselleri render et (kapak dışındakiler)
-      // galeriRef.current kullan — state async olduğunda güncel değer garantili
+      // Kapak dahil tüm görseller render edilir — hepsi 1350x1080 formata gelir
       const galeriSnap = galeriRef.current.length > 0 ? galeriRef.current : galeriGorseller
-      const galeriKapakDisi = galeriSnap.filter(g => !g.kapak && g.url)
-      console.log('Kayserim galeri: toplam', galeriSnap.length, 'kapak dışı', galeriKapakDisi.length, galeriKapakDisi.map(g=>g.url?.substring(0,40)))
-      if (galeriKapakDisi.length > 0) {
+      const galeriTum = galeriSnap.filter(g => g.url)
+      console.log('Kayserim galeri: toplam', galeriSnap.length, 'render edilecek', galeriTum.length)
+      if (galeriTum.length > 0) {
         setGaleriI(true)
         try {
           const token = localStorage.getItem('cms_token') || ''
@@ -1897,7 +1893,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Token': token },
             body: JSON.stringify({
-              gorsel_urls: galeriKapakDisi.map(g => g.url),
+              gorsel_urls: galeriTum.map(g => g.url),
               kaynak: 'kayserim',
               source_id: selectedHaber?.source_id,
               force_refresh: true,
@@ -1906,7 +1902,6 @@ function Isleme({ content, processing, error, selectedHaber }) {
           const data = await res.json()
           if (data.renderler) {
             setGaleriR(data.renderler)
-            // selectedHaber'a da kaydet
             if (selectedHaber) selectedHaber.galeriRenderler = data.renderler
           }
         } catch(e) { console.warn('Galeri render hatası:', e.message) }
@@ -2741,7 +2736,7 @@ function KayseradarModul({ user, onGeri }) {
       // data.kayit.medyalar kullan — medyalar state'i form reset'lenmiş olabilir
       const kaydedilenMedyalar = data.kayit?.medyalar || medyalar
       const radarTumGorseller = kaydedilenMedyalar.filter(m => m.tip === 'gorsel')
-      const radarGaleriMedyalar = radarTumGorseller.slice(1) // ilk görsel kapak, geri kalanlar galeri
+      const radarGaleriMedyalar = radarTumGorseller // kapak dahil tüm görseller 1350x1080 render edilir
       console.log('Radar galeri: toplam görsel', radarTumGorseller.length, 'galeri', radarGaleriMedyalar.length)
       if (radarGaleriMedyalar.length > 0) {
         setRadarGaleriI(true)
