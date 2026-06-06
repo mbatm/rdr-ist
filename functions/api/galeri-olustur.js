@@ -26,8 +26,14 @@ const KAPAK_SABLON = {
 }
 
 const GALERI_SABLON = {
-  kayserim: 'c6851b61-3d03-4959-a3ea-892d851d1b25',
-  radar:    'fbded9e2-2538-4045-80d6-6df2c8c60a94',
+  kayserim: {
+    foto:  'c6851b61-3d03-4959-a3ea-892d851d1b25',
+    video: '7edeb24b-3ecc-47b7-9d1d-0ad32ea553af',
+  },
+  radar: {
+    foto:  'fbded9e2-2538-4045-80d6-6df2c8c60a94',
+    video: '4554643a-6222-4e00-9387-6264c33a3eee',
+  },
 }
 
 const tarihStr = () => {
@@ -90,7 +96,6 @@ export async function onRequestPost({ request, env }) {
     const apiKey     = env.CREATOMATE_API_KEY
     const tarihYazi  = tarih || tarihStr()
     const kapakTpl   = KAPAK_SABLON[kaynak]?.[medya_tipi] || KAPAK_SABLON[kaynak]?.foto
-    const galeriTpl  = GALERI_SABLON[kaynak]
     const kapakFmt   = medya_tipi === 'video' ? 'mp4' : 'png'
 
     // ── 1. Kapak render ────────────────────────────────────────────
@@ -114,9 +119,13 @@ export async function onRequestPost({ request, env }) {
     // ── 2. Diğer görseller (paralel) ───────────────────────────────
     const [kapakUrl, ...digerleri] = await Promise.all([
       renderBaslat(kapakTpl, kapakMods, apiKey, kapakFmt),
-      ...diger.map(g => renderBaslat(galeriTpl, {
-        '16dbfe06-e201-4aa4-887b-f166f95832af': g.url,
-      }, apiKey, 'png')),
+      ...diger.map(g => {
+        const gTpl = GALERI_SABLON[kaynak]?.[g.tip === 'video' ? 'video' : 'foto']
+        const gFmt = g.tip === 'video' ? 'mp4' : 'png'
+        return renderBaslat(gTpl, {
+          '16dbfe06-e201-4aa4-887b-f166f95832af': g.url,
+        }, apiKey, gFmt)
+      }),
     ])
 
     const sonuc = {
