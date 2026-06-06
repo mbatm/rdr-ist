@@ -176,7 +176,8 @@ export async function onRequestPost({ request, env }) {
               }
             }
             if (!published) {
-              sonuclar.instagram[igId] = { hata: 'Video işleme zaman aşımı — container: ' + containerId }
+              // Zaman aşımı — frontend'e container ID ver, poll etsin
+              sonuclar.instagram[igId] = { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
             }
           }
         } else if (gorsel_url) {
