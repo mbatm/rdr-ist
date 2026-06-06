@@ -89,14 +89,18 @@ export async function onRequestPost({ request, env }) {
           try {
             // Her görsel için container oluştur
             const containerIds = []
-            for (const imgUrl of galeri_urls) {
+            for (const itemUrl of galeri_urls) {
+              const isItemVideo = itemUrl.includes('.mp4') || itemUrl.includes('video')
+              const itemBody = isItemVideo
+                ? { video_url: itemUrl, media_type: 'VIDEO', is_carousel_item: true, access_token: sayfa.page_token }
+                : { image_url: itemUrl, is_carousel_item: true, access_token: sayfa.page_token }
               const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ image_url: imgUrl, is_carousel_item: true, access_token: sayfa.page_token }),
+                body: JSON.stringify(itemBody),
               })
               const cData = await cRes.json()
               if (cData.error) {
-                console.error('[carousel] item hata:', imgUrl.substring(0,60), cData.error.message)
+                console.error('[carousel] item hata:', itemUrl.substring(0,60), cData.error.message)
               } else {
                 containerIds.push(cData.id)
               }

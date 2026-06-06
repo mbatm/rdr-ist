@@ -4888,7 +4888,9 @@ function GaleriModul({ user, onGeri }) {
             twitter:   isVideoKapak ? '' : kapakUrl,
           }}
           videoRenders={galeriVideoRenders}
-          selectedHaber={isVideoKapak ? { video: kapakUrl, video_dikey: kapakUrl } : null}
+          selectedHaber={isVideoKapak
+            ? { video: kapakUrl, video_dikey: kapakUrl, gorsel_url: '', gorsel: '' }
+            : { gorsel_url: kapakUrl, gorsel: kapakUrl, video: null }}
           galeriGorseller={tumUrller.map((url,i) => ({ url, kapak: i===0 }))}
           galeriRenderler={tumUrller.map(url => ({ kaynak_url: url, url }))}
           kayserimLink=""
