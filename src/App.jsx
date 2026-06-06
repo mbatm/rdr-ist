@@ -748,6 +748,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       })
       // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
       const isCarousel = platform === 'instagram' && galeriUrls.length > 0
+      // GaleriModul'dan gelince galeriUrls zaten kapağı içeriyor — tekrar ekleme
+      const carouselUrls = galeriUrls[0] === gorselUrl
+        ? galeriUrls
+        : [gorselUrl, ...galeriUrls]
 
       const res = await fetch('/api/meta-paylas', {
         method:'POST', headers:{'Content-Type':'application/json','X-Kullanici':kullanici},
@@ -760,7 +764,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           platform,
           is_video:     tip === 'video',
           is_carousel:  isCarousel,
-          galeri_urls:  isCarousel ? [gorselUrl, ...galeriUrls] : undefined,
+          galeri_urls:  isCarousel ? carouselUrls : undefined,
           fb_page_ids:  secilenFb.length ? secilenFb : undefined,
           ig_ids:       secilenIg.length ? secilenIg : undefined,
           ig_story:     igStory,

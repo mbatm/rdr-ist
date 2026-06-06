@@ -93,9 +93,15 @@ export async function onRequestPost({ request, env }) {
                 body: JSON.stringify({ image_url: imgUrl, is_carousel_item: true, access_token: sayfa.page_token }),
               })
               const cData = await cRes.json()
-              if (!cData.error) containerIds.push(cData.id)
+              if (cData.error) {
+                console.error('[carousel] item hata:', imgUrl.substring(0,60), cData.error.message)
+              } else {
+                containerIds.push(cData.id)
+              }
             }
-            if (containerIds.length > 1) {
+            if (containerIds.length === 0) {
+              sonuclar.instagram[igId] = { hata: 'Hiçbir görsel yüklenemedi — URL'ler Instagram tarafından erişilemiyor olabilir' }
+            } else if (containerIds.length > 1) {
               // Carousel container oluştur
               const carRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
