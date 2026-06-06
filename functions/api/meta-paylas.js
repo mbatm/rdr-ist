@@ -102,7 +102,7 @@ export async function onRequestPost({ request, env }) {
               }
             }
             if (containerIds.length === 0) {
-              sonuclar.instagram[igId] = { hata: 'Hiçbir görsel yüklenemedi — URL'ler Instagram tarafından erişilemiyor olabilir' }
+              sonuclar.instagram[igId] = { hata: "Hicbir gorsel yuklenemedi — URL'ler Instagram tarafindan erisilemiyebilir" }
             } else if (containerIds.length > 1) {
               // Carousel container oluştur
               const carRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
