@@ -4876,7 +4876,11 @@ function GaleriModul({ user, onGeri }) {
         <div style={{fontWeight:600,marginBottom:12}}>Galeri Paylaş — {tumUrller.length} görsel</div>
         <MetaPaylas
           content={{ baslik }}
-          gorselUrls={[tumUrller[0]]}
+          gorselUrls={{
+            instagram: tumUrller[0],
+            facebook:  tumUrller[0],
+            twitter:   tumUrller[0],
+          }}
           galeriGorseller={tumUrller.map((url,i) => ({ url, kapak: i===0 }))}
           galeriRenderler={tumUrller.map(url => ({ kaynak_url: url, url }))}
           kayserimLink=""
