@@ -4765,6 +4765,265 @@ function ReklamModul({ user, onGeri }) {
 
 
 // ── YÖNETİM MODÜLÜ ───────────────────────────────────────────────────────────
+// ── GALERİ OLUŞTUR MODÜLÜ ────────────────────────────────────────────────────
+function GaleriModul({ user, onGeri }) {
+  const token = localStorage.getItem('cms_token') || ''
+
+  // Sekme: 'kayserim' | 'radar'
+  const [sekme,      setSekme]    = useState('kayserim')
+  const [medyaTipi,  setMedyaTipi] = useState('foto')  // 'foto' | 'video'
+
+  // Form alanları
+  const [baslik,     setBaslik]   = useState('')
+  const [spotBaslik, setSpot]     = useState('')
+  const [kategori,   setKategori] = useState('GÜNCEL')
+
+  // Medyalar: [{ url, tip: 'gorsel'|'video', kapak: bool }]
+  const [medyalar,   setMedyalar] = useState([])
+  const medyaRef = useRef([])
+  const setMedyaSync = (v) => { medyaRef.current = typeof v === 'function' ? v(medyaRef.current) : v; setMedyalar(v) }
+
+  // Render durumu
+  const [isliyor,    setIsliyor]  = useState(false)
+  const [sonuc,      setSonuc]    = useState(null)   // { kapak, diger[] }
+  const [hata,       setHata]     = useState(null)
+
+  // Paylaşım
+  const [paylasSayfa, setPaylas]  = useState(false)
+
+  const fileRef = useRef(null)
+
+  // Görsel/video yükle
+  const yukle = async (files) => {
+    setHata(null)
+    for (const file of Array.from(files)) {
+      try {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('source_id', `galeri_${Date.now()}`)
+        form.append('tip', file.type.startsWith('video') ? 'video' : 'gorsel')
+        const res  = await fetch('/api/medya-yukle', { method: 'POST', body: form })
+        const data = await res.json()
+        if (data.url) {
+          const tip = file.type.startsWith('video') ? 'video' : 'gorsel'
+          setMedyaSync(prev => {
+            const yeni = [...prev, { url: data.url, tip, kapak: prev.length === 0 }]
+            return yeni
+          })
+        }
+      } catch(e) { setHata(e.message) }
+    }
+  }
+
+  const kapakSec = (i) => {
+    setMedyaSync(prev => prev.map((m, j) => ({ ...m, kapak: j === i })))
+  }
+
+  const sil = (i) => {
+    setMedyaSync(prev => {
+      const yeni = prev.filter((_, j) => j !== i)
+      if (yeni.length > 0 && !yeni.some(m => m.kapak)) yeni[0].kapak = true
+      return yeni
+    })
+  }
+
+  const renderAl = async () => {
+    const snap = medyaRef.current.length > 0 ? medyaRef.current : medyalar
+    const kapak = snap.find(m => m.kapak)
+    if (!kapak) { setHata('Kapak seçin'); return }
+    if (!baslik.trim()) { setHata('Başlık girin'); return }
+
+    setIsliyor(true); setHata(null); setSonuc(null)
+    try {
+      const diger = snap.filter(m => !m.kapak)
+      const res = await fetch('/api/galeri-olustur', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body: JSON.stringify({
+          kaynak:      sekme,
+          medya_tipi:  kapak.tip === 'video' ? 'video' : 'foto',
+          kapak:       { url: kapak.url, tip: kapak.tip },
+          diger:       diger.map(m => ({ url: m.url, tip: m.tip })),
+          baslik,
+          spot_baslik: spotBaslik,
+          kategori,
+          source_id:   `galeri_${Date.now()}`,
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setSonuc(data.sonuc)
+    } catch(e) { setHata(e.message) }
+    setIsliyor(false)
+  }
+
+  // Paylaşım sayfasına geç
+  if (paylasSayfa && sonuc) {
+    const tumUrller = [
+      sonuc.kapak.render_url || sonuc.kapak.kaynak_url,
+      ...sonuc.diger.map(d => d.render_url || d.kaynak_url),
+    ].filter(Boolean)
+    return (
+      <div style={{padding:'1.25rem'}}>
+        <button onClick={()=>setPaylas(false)}
+          style={{background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer',marginBottom:12,fontSize:13}}>
+          ← Geri
+        </button>
+        <div style={{fontWeight:600,marginBottom:12}}>Galeri Paylaş — {tumUrller.length} görsel</div>
+        <MetaPaylas
+          content={{ baslik }}
+          gorselUrls={[tumUrller[0]]}
+          galeriGorseller={tumUrller.map((url,i) => ({ url, kapak: i===0 }))}
+          galeriRenderler={tumUrller.map(url => ({ kaynak_url: url, url }))}
+          kayserimLink=""
+          videoRenders={{}}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{padding:'1.25rem',maxWidth:640,margin:'0 auto'}}>
+      {/* Başlık */}
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:'1.25rem'}}>
+        <button onClick={onGeri}
+          style={{background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:13}}>
+          ← Menü
+        </button>
+        <div style={{fontWeight:600,fontSize:16}}>🖼 Galeri Oluştur</div>
+      </div>
+
+      {/* Sekme */}
+      <div style={{display:'flex',gap:6,marginBottom:16}}>
+        {[['kayserim','Kayserim.net','#00D4AA'],['radar','Kayseradar','#E63946']].map(([id,lbl,renk])=>(
+          <button key={id} onClick={()=>{ setSekme(id); setSonuc(null) }}
+            style={{flex:1,padding:'8px 0',fontSize:13,fontWeight:600,
+              background: sekme===id ? `rgba(${id==='kayserim'?'0,212,170':'230,57,70'},.15)` : 'transparent',
+              border: `1.5px solid ${sekme===id ? renk : 'var(--border)'}`,
+              color: sekme===id ? renk : 'var(--muted)', cursor:'pointer', borderRadius:6}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {/* Form alanları */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Başlık *</div>
+        <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Haber başlığı..."
+          style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+      </div>
+
+      {sekme === 'kayserim' && (<>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Spot Başlık</div>
+          <input value={spotBaslik} onChange={e=>setSpot(e.target.value)} placeholder="Spot açıklama..."
+            style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>Kategori</div>
+          <input value={kategori} onChange={e=>setKategori(e.target.value)} placeholder="GÜNCEL"
+            style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+        </div>
+      </>)}
+
+      {/* Medya yükleme */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>
+          Görsel / Video Ekle
+          <span style={{opacity:.6,marginLeft:6}}>(ilk eklenen veya ⭐ seçtiğin kapak olur)</span>
+        </div>
+        <div onClick={()=>fileRef.current?.click()}
+          style={{border:'1.5px dashed var(--border)',borderRadius:6,padding:'14px',
+            textAlign:'center',cursor:'pointer',color:'var(--muted)',fontSize:12,marginBottom:10,
+            background:'rgba(255,255,255,.02)'}}>
+          📎 Dosya seç veya sürükle bırak
+        </div>
+        <input ref={fileRef} type="file" multiple accept="image/*,video/*" style={{display:'none'}}
+          onChange={e=>{ yukle(e.target.files); e.target.value='' }}/>
+
+        {/* Medya listesi */}
+        {medyalar.length > 0 && (
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {medyalar.map((m,i)=>(
+              <div key={i} style={{position:'relative',width:90,borderRadius:6,overflow:'hidden',
+                border:`2px solid ${m.kapak?'rgba(0,212,170,.8)':'rgba(255,255,255,.15)'}`,cursor:'pointer'}}
+                onClick={()=>kapakSec(i)}>
+                {m.tip==='video'
+                  ? <video src={m.url} style={{width:'100%',height:70,objectFit:'cover'}}/>
+                  : <img src={m.url} alt="" style={{width:'100%',height:70,objectFit:'cover'}}/>
+                }
+                <div style={{position:'absolute',bottom:0,left:0,right:0,
+                  background:'rgba(0,0,0,.65)',fontSize:9,padding:'2px 5px',
+                  display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span>{m.kapak ? '⭐ Kapak' : `${i+1}.`}</span>
+                  <span onClick={e=>{e.stopPropagation();sil(i)}}
+                    style={{color:'#ff7b7b',cursor:'pointer',fontWeight:700}}>✕</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {hata && <div style={{color:'#ff7b7b',fontSize:12,marginBottom:10}}>⚠ {hata}</div>}
+
+      {/* Render butonu */}
+      <button onClick={renderAl} disabled={isliyor || medyalar.length===0}
+        style={{width:'100%',padding:'10px',fontSize:13,fontWeight:600,
+          background: isliyor||medyalar.length===0 ? 'rgba(0,212,170,.1)' : 'rgba(0,212,170,.2)',
+          border:'1px solid rgba(0,212,170,.5)',color:'#00D4AA',
+          cursor: isliyor||medyalar.length===0 ? 'not-allowed':'pointer',borderRadius:6,marginBottom:14}}>
+        {isliyor ? '⏳ Render hazırlanıyor…' : '🎬 Render Al'}
+      </button>
+
+      {/* Önizleme */}
+      {sonuc && !isliyor && (
+        <div style={{background:'rgba(0,212,170,.05)',border:'1px solid rgba(0,212,170,.2)',
+          borderRadius:8,padding:14,marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:600,color:'#00D4AA',marginBottom:10}}>
+            ✓ Render Tamamlandı — {1+sonuc.diger.length} görsel
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>
+            {/* Kapak */}
+            <div style={{position:'relative',width:120,borderRadius:6,overflow:'hidden',
+              border:'2px solid rgba(0,212,170,.7)'}}>
+              {sonuc.kapak.tip==='video'
+                ? <video src={sonuc.kapak.render_url} controls style={{width:'100%',height:90,objectFit:'cover'}}/>
+                : <img src={sonuc.kapak.render_url} alt="" style={{width:'100%',height:90,objectFit:'cover'}}
+                    onError={e=>e.target.src=sonuc.kapak.kaynak_url}/>
+              }
+              <div style={{position:'absolute',bottom:0,left:0,right:0,
+                background:'rgba(0,0,0,.7)',color:'#00D4AA',fontSize:9,padding:'2px 5px'}}>
+                ⭐ Kapak
+              </div>
+            </div>
+            {/* Diğerleri */}
+            {sonuc.diger.map((d,i)=>(
+              <div key={i} style={{position:'relative',width:90,borderRadius:6,overflow:'hidden',
+                border:'1.5px solid rgba(255,255,255,.2)'}}>
+                <img src={d.render_url||d.kaynak_url} alt=""
+                  style={{width:'100%',height:90,objectFit:'cover'}}
+                  onError={e=>e.target.src=d.kaynak_url}/>
+                <div style={{position:'absolute',bottom:0,left:0,right:0,
+                  background:'rgba(0,0,0,.7)',color:d.render_url?'#00D4AA':'#888',fontSize:9,padding:'2px 5px'}}>
+                  {d.render_url?'✓ Render':`${i+2}.`}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={()=>setPaylas(true)}
+            style={{width:'100%',padding:'10px',fontSize:13,fontWeight:600,
+              background:'rgba(0,212,170,.2)',border:'1px solid rgba(0,212,170,.5)',
+              color:'#00D4AA',cursor:'pointer',borderRadius:6}}>
+            ✓ Paylaşıma Geç →
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function YonetimModul({ user, onGeri }) {
   const [sekme,      setSekme]    = useState('log')
   const [log,        setLog]      = useState([])
@@ -5177,6 +5436,16 @@ function ModulSecici({ user, onModul }) {
       yetki: 'modul_manuel',
     },
     {
+      id: 'galeri',
+      baslik: 'Galeri Oluştur',
+      aciklama: 'Çoklu görsel/video ile Kayserim veya Radar galerileri oluştur ve paylaş',
+      ic: 'photo',
+      renk: '#B04EFF',
+      bg: 'rgba(176,78,255,0.08)',
+      border: 'rgba(176,78,255,0.2)',
+      yetki: 'modul_kayserim',
+    },
+    {
       id: 'yonetim',
       baslik: 'Yönetim',
       aciklama: 'Log kayıtları, kullanıcı yönetimi, reklam raporları',
@@ -5321,6 +5590,7 @@ export default function App() {
   if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'reklam') return <ReklamModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>setAktifModul(null)}/>
+  if (aktifModul === 'galeri')  return <GaleriModul   user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
   if (aktifModul !== 'kayserim') return (
