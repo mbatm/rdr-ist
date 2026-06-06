@@ -6,7 +6,9 @@ export async function onRequestPost({ request, env }) {
             source_id, baslik, ig_story, ig_story_gorsel, ig_kolabor,
             kayserim_link, video_dur } = body
 
-    if (!gorsel_url && !video_url) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
+    // gorsel_url yoksa galeri_urls[0]'dan al (GaleriModul carousel paylaşımı)
+    const efektifGorselUrl = gorsel_url || (is_carousel && galeri_urls?.[0]) || null
+    if (!efektifGorselUrl && !video_url) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
 
     const meta     = await env.HABERLER.get('meta_tokens', 'json') || {}
     const hesaplar = meta.hesaplar || []
@@ -56,7 +58,7 @@ export async function onRequestPost({ request, env }) {
             const fotoRes = await fetch(`https://graph.facebook.com/v21.0/${pid}/photos`, {
               method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
-                url: gorsel_url,
+                url: efektifGorselUrl,
                 caption: metin + '\n\n' + kayserim_link,
                 published: true,
                 access_token: pToken,
