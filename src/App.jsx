@@ -4863,24 +4863,32 @@ function GaleriModul({ user, onGeri }) {
 
   // Paylaşım sayfasına geç
   if (paylasSayfa && sonuc) {
+    const kapakUrl  = sonuc.kapak.render_url || sonuc.kapak.kaynak_url
+    const isVideoKapak = sonuc.kapak.tip === 'video'
     const tumUrller = [
-      sonuc.kapak.render_url || sonuc.kapak.kaynak_url,
+      kapakUrl,
       ...sonuc.diger.map(d => d.render_url || d.kaynak_url),
     ].filter(Boolean)
+
+    // Video kapak için videoRenders — MetaPaylas bunu video olarak gönderir
+    const galeriVideoRenders = isVideoKapak ? { dikey: { url: kapakUrl } } : {}
+
     return (
       <div style={{padding:'1.25rem'}}>
         <button onClick={()=>setPaylas(false)}
           style={{background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer',marginBottom:12,fontSize:13}}>
           ← Geri
         </button>
-        <div style={{fontWeight:600,marginBottom:12}}>Galeri Paylaş — {tumUrller.length} görsel</div>
+        <div style={{fontWeight:600,marginBottom:12}}>Galeri Paylaş — {tumUrller.length} {isVideoKapak ? 'video/görsel' : 'görsel'}</div>
         <MetaPaylas
-          content={{ baslik }}
+          content={{ baslik, site_basligi: baslik }}
           gorselUrls={{
-            instagram: tumUrller[0],
-            facebook:  tumUrller[0],
-            twitter:   tumUrller[0],
+            instagram: isVideoKapak ? '' : kapakUrl,
+            facebook:  isVideoKapak ? '' : kapakUrl,
+            twitter:   isVideoKapak ? '' : kapakUrl,
           }}
+          videoRenders={galeriVideoRenders}
+          selectedHaber={isVideoKapak ? { video: kapakUrl, video_dikey: kapakUrl } : null}
           galeriGorseller={tumUrller.map((url,i) => ({ url, kapak: i===0 }))}
           galeriRenderler={tumUrller.map(url => ({ kaynak_url: url, url }))}
           kayserimLink=""
