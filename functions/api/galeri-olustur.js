@@ -41,6 +41,24 @@ const tarihStr = () => {
   return `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`
 }
 
+// Backblaze URL'sini R2'ye kopyala — Instagram public URL gerektirir
+const r2Kopyala = async (backblazeUrl, env, dosyaAdi) => {
+  if (!backblazeUrl || !env.MEDYA) return backblazeUrl
+  try {
+    const res  = await fetch(backblazeUrl)
+    if (!res.ok) return backblazeUrl
+    const blob = await res.arrayBuffer()
+    const ext  = backblazeUrl.includes('.mp4') ? 'mp4' : 'png'
+    const key  = `galeri/${dosyaAdi}.${ext}`
+    await env.MEDYA.put(key, blob, {
+      httpMetadata: { contentType: ext === 'mp4' ? 'video/mp4' : 'image/png' }
+    })
+    return `https://medya.rdr.ist/${key}`
+  } catch(e) {
+    return backblazeUrl  // hata olursa orijinal URL
+  }
+}
+
 const bekle = async (renderId, apiKey, max=20) => {
   for (let i = 0; i < max; i++) {
     await new Promise(r => setTimeout(r, 2000))
@@ -128,9 +146,16 @@ export async function onRequestPost({ request, env }) {
       }),
     ])
 
+    // Render URL'lerini R2'ye kopyala (Instagram için public URL gerekli)
+    const ts = Date.now()
+    const [kapakR2, ...digerR2] = await Promise.all([
+      r2Kopyala(kapakUrl, env, `kapak_${ts}`),
+      ...digerleri.map((url, i) => r2Kopyala(url, env, `galeri_${ts}_${i}`)),
+    ])
+
     const sonuc = {
-      kapak: { kaynak_url: kapak.url, render_url: kapakUrl, tip: medya_tipi },
-      diger: diger.map((g, i) => ({ kaynak_url: g.url, render_url: digerleri[i] })),
+      kapak: { kaynak_url: kapak.url, render_url: kapakR2, tip: medya_tipi },
+      diger: diger.map((g, i) => ({ kaynak_url: g.url, render_url: digerR2[i] })),
     }
 
     // KV'ye kaydet
