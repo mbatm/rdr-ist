@@ -270,7 +270,44 @@ function parseRSS(xml) {
 }
 
 // ── CLAUDE ÇAĞRISI ─────────────────────────────────────────────────────────
-async function isleHaber(haber, apiKey, strateji) {
+// Haber icin anlik Ahrefs keyword verisi cek (her haber islendiginde)
+async function anlikKwCek(haber, ahrefsKey) {
+  if (!ahrefsKey) return null
+  try {
+    const stopwords = new Set(['bir','bu','ve','ile','de','da','ki','icin','ama','ya','ne','en','cok','az','hem','veya'])
+    const kelimeler = haber.baslik.toLowerCase()
+      .replace(/[^a-z0-9\sÀ-ɏ]/g, '')
+      .split(/\s+/)
+      .filter(k => k.length > 3 && !stopwords.has(k))
+      .slice(0, 2)
+    if (kelimeler.length === 0) return null
+    const sorgular = kelimeler.map(k => `kayseri ${k}`).join(',')
+    const res = await fetch(
+      `https://apiv3.ahrefs.com/v3/keywords-explorer/overview?country=tr&keywords=${encodeURIComponent(sorgular)}&select=keyword,volume,difficulty,traffic_potential`,
+      { headers: { 'Authorization': `Bearer ${ahrefsKey}` } }
+    )
+    const data = await res.json()
+    if (!data.keywords?.length) return null
+    return data.keywords
+      .filter(k => k.volume > 0)
+      .map(k => [k.keyword, k.volume, k.difficulty ?? 0, k.traffic_potential || k.volume])
+      .sort((a, b) => (b[3] / ((b[2] || 0) / 10 + 1)) - (a[3] / ((a[2] || 0) / 10 + 1)))
+  } catch(e) { return null }
+}
+
+async function isleHaber(haber, apiKey, strateji, ahrefsKey) {
+  // Anlik Ahrefs verisi — haber konusuyla eslesen keyword'leri cek
+  const anlikKwler = await anlikKwCek(haber, ahrefsKey)
+  if (anlikKwler?.length > 0) {
+    const kat = haber.kategori || 'Guncel'
+    strateji = {
+      ...strateji,
+      kategori: {
+        ...strateji.kategori,
+        [kat]: [...anlikKwler, ...(strateji.kategori?.[kat] || [])],
+      }
+    }
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method:'POST',
     headers:{ 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01' },
@@ -340,7 +377,7 @@ export async function onRequestGet({ env, request }) {
       const hedefHaber = items.find(i=>i.source_id===sourceId)
         || mevcut.find(h=>h.source_id===sourceId)
       if (!hedefHaber) return Response.json({ hata:'Haber bulunamadı' }, { status:404 })
-      const seo = await isleHaber(hedefHaber, env.ANTHROPIC_API_KEY, strateji)
+      const seo = await isleHaber(hedefHaber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY)
       const kayit = {
         ...seo,
         source_id:hedefHaber.source_id, source_url:hedefHaber.source_url,
@@ -360,7 +397,7 @@ export async function onRequestGet({ env, request }) {
     const basarili=[], hatali=[]
     for (const haber of yeniHaberler) {
       try {
-        const seo = await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji)
+        const seo = await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY)
         const kayit = {
           ...seo,
           source_id:haber.source_id, source_url:haber.source_url,
