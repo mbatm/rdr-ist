@@ -4799,11 +4799,35 @@ function GaleriModul({ user, onGeri }) {
   }
 
   const akisSecHaber = (haber) => {
-    if (!haber) { setSecilenAkis(null); return }
+    if (!haber) {
+      setSecilenAkis(null)
+      setMedyaSync([])
+      return
+    }
     setSecilenAkis(haber)
     setBaslik(haber.baslik || '')
     setSpot(haber.icerik?.substring(0, 120) || '')
     setKategori(haber.kategori || 'GÜNCEL')
+
+    // Görselleri otomatik yükle — ilki kapak
+    const gorseller = haber.gorseller?.length > 0
+      ? haber.gorseller
+      : haber.gorsel ? [haber.gorsel] : []
+    const video = haber.video || ''
+
+    const medyaListesi = []
+    // Görseller
+    gorseller.forEach((url, i) => {
+      medyaListesi.push({ url, tip: 'gorsel', adi: `haber_gorsel_${i+1}.jpg`, kapak: i === 0 && !video })
+    })
+    // Video varsa ekle
+    if (video) {
+      medyaListesi.unshift({ url: video, tip: 'video', adi: 'haber_video.mp4', kapak: true })
+    }
+
+    setMedyaSync(medyaListesi)
+    setSonuc(null)
+    setHata(null)
   }
 
   // Medyalar: [{ url, tip: 'gorsel'|'video', kapak: bool }]
