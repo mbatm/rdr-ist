@@ -4782,6 +4782,30 @@ function GaleriModul({ user, onGeri }) {
   const [spotBaslik, setSpot]     = useState('')
   const [kategori,   setKategori] = useState('GÜNCEL')
 
+  // 1ha akışı
+  const [akisHaberler, setAkisHaberler] = useState([])
+  const [akisYukleniyor, setAkisYuk]   = useState(false)
+  const [secilenAkis,   setSecilenAkis] = useState(null)
+
+  const akisYukle = async () => {
+    setAkisYuk(true)
+    try {
+      const res  = await fetch('/api/oto-isle?liste=1&adet=20')
+      const data = await res.json()
+      if (data.haberler) setAkisHaberler(data.haberler)
+      else if (Array.isArray(data)) setAkisHaberler(data)
+    } catch(e) {}
+    setAkisYuk(false)
+  }
+
+  const akisSecHaber = (haber) => {
+    if (!haber) { setSecilenAkis(null); return }
+    setSecilenAkis(haber)
+    setBaslik(haber.baslik || '')
+    setSpot(haber.icerik?.substring(0, 120) || '')
+    setKategori(haber.kategori || 'GÜNCEL')
+  }
+
   // Medyalar: [{ url, tip: 'gorsel'|'video', kapak: bool }]
   const [medyalar,   setMedyalar] = useState([])
   const medyaRef = useRef([])
@@ -4923,6 +4947,48 @@ function GaleriModul({ user, onGeri }) {
           </button>
         ))}
       </div>
+
+      {/* 1ha Akışından Haber Seç — sadece kayserim */}
+      {sekme === 'kayserim' && (
+        <div style={{marginBottom:12,background:'rgba(255,183,0,.05)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:6,padding:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+            <div style={{fontSize:11,color:'#FFB700',fontWeight:500}}>📡 1ha Akışından Seç</div>
+            <button onClick={akisYukle} disabled={akisYukleniyor}
+              style={{fontSize:10,padding:'2px 8px',background:'rgba(255,183,0,.1)',
+                border:'0.5px solid rgba(255,183,0,.3)',color:'#FFB700',cursor:'pointer',borderRadius:4}}>
+              {akisYukleniyor ? '⏳' : '🔄 Yükle'}
+            </button>
+            {secilenAkis && (
+              <button onClick={()=>akisSecHaber(null)}
+                style={{fontSize:10,padding:'2px 8px',background:'transparent',
+                  border:'0.5px solid var(--border)',color:'var(--muted)',cursor:'pointer',borderRadius:4}}>
+                ✕ Temizle
+              </button>
+            )}
+          </div>
+          {akisHaberler.length > 0 && (
+            <select onChange={e=>{
+                const h = akisHaberler.find((_,i)=>String(i)===e.target.value)
+                akisSecHaber(h || null)
+              }}
+              style={{width:'100%',fontSize:12,padding:'5px',background:'var(--bg)',
+                border:'0.5px solid var(--border)',color:'var(--text)',borderRadius:4}}>
+              <option value="">— Haber seç —</option>
+              {akisHaberler.map((h,i)=>(
+                <option key={i} value={String(i)}>
+                  {h.baslik?.substring(0,70)}
+                </option>
+              ))}
+            </select>
+          )}
+          {secilenAkis?.gorsel && (
+            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+              <img src={secilenAkis.gorsel} alt="" style={{width:48,height:36,objectFit:'cover',borderRadius:3}}/>
+              <div style={{fontSize:10,color:'var(--muted)'}}>{secilenAkis.baslik?.substring(0,60)}</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Form alanları */}
       <div style={{marginBottom:10}}>

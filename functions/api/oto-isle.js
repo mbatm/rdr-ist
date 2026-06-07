@@ -176,6 +176,25 @@ export async function onRequestGet({ env, request }) {
     const url      = new URL(request.url)
     const sourceId = url.searchParams.get('source_id')
     const adet     = Math.min(parseInt(url.searchParams.get('adet')||'3'), 5)
+    const liste    = url.searchParams.get('liste') === '1'
+
+    // Sadece liste istendi — RSS'ten son haberleri döndür
+    if (liste) {
+      const listeAdet = Math.min(parseInt(url.searchParams.get('adet')||'20'), 50)
+      const rssRes2 = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
+        { headers:{ 'User-Agent':'rdr.ist/1.0' } })
+      if (!rssRes2.ok) return Response.json({ hata:`RSS ${rssRes2.status}` })
+      const xml2  = await rssRes2.text()
+      const items2 = parseRSS(xml2).slice(0, listeAdet)
+      return Response.json({ haberler: items2.map(h=>({
+        source_id: h.source_id,
+        baslik:    h.baslik,
+        icerik:    h.icerik?.substring(0, 200),
+        gorsel:    h.gorsel,
+        kategori:  h.kategori,
+        tarih:     h.tarih_iso,
+      })) })
+    }
 
     // Ahrefs cache'i KV'den oku (varsa), yoksa fallback
     let strateji = STRATEJI_FALLBACK
