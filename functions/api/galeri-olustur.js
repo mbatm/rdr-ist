@@ -119,19 +119,23 @@ export async function onRequestPost({ request, env }) {
     // ── 1. Kapak render ────────────────────────────────────────────
     const kapakMods = kaynak === 'kayserim'
       ? {
-          'video.source':       kapak.url,
-          'baslik.text':        baslik,
-          'baslikss.text':      baslik,
-          'spot-baslik.text':   spot_baslik,
+          // Kayserim kapak video: element adı "Video-79K" (type:video)
+          // Foto şablonu için ise "video" (type:image olarak kalıyor)
+          'Video-79K.source':    kapak.url,
+          'video.source':        kapak.url,  // foto şablonu fallback
+          'baslik.text':         baslik,
+          'baslikss.text':       baslik,
+          'spot-baslik.text':    spot_baslik,
           'spot-baslik-ss.text': spot_baslik,
-          'kategori.text':      kategori,
-          'tarih.text':         tarihYazi,
+          'kategori.text':       kategori,
+          'tarih.text':          tarihYazi,
         }
       : {
-          'video.source':   kapak.url,
-          'baslik.text':    baslik,
+          // Radar kapak video: element adı "video" (type:video olarak güncellendi)
+          'video.source':    kapak.url,
+          'baslik.text':     baslik,
           'baslik-X6C.text': baslik,
-          'tarih.text':     tarihYazi,
+          'tarih.text':      tarihYazi,
         }
 
     // ── 2. Diğer görseller (paralel) ───────────────────────────────
