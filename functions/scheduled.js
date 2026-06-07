@@ -17,6 +17,13 @@ export async function onScheduled({ env, scheduledTime }) {
     } catch(e) { console.error('[ahrefs-sync] Hata:', e.message) }
   }
 
+  // Her gece — Radar Facebook gönderilerini çek
+  try {
+    const res  = await fetch(`https://rdr.ist/api/radar-fb-sync?secret=${env.RSS_API_KEY}`)
+    const data = await res.json()
+    console.log('[radar-fb] Çekildi:', data.cekildi, 'gönderi, eklendi:', data.eklendi)
+  } catch(e) { console.error('[radar-fb] Hata:', e.message) }
+
   // Her gece — 10 günden eski Creatomate render'larını temizle
   try {
     const res  = await fetch(`https://rdr.ist/api/temizle?secret=${env.RSS_API_KEY}&gun=10`)

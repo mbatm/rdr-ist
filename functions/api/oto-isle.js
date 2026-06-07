@@ -374,13 +374,28 @@ export async function onRequestGet({ env, request }) {
       if (cache) strateji = cache
     } catch {}
 
-    // 1ha RSS
-    const rssRes = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
-      { headers:{ 'User-Agent':'rdr.ist/1.0' } })
+    // 1ha RSS + Radar Facebook RSS — paralel çek
+    const [rssRes, radarRssRes] = await Promise.all([
+      fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`, { headers:{ 'User-Agent':'rdr.ist/1.0' } }),
+      fetch('https://rdr.ist/api/radar-rss').catch(() => null),
+    ])
     if (!rssRes.ok) return Response.json({ hata:`RSS ${rssRes.status}` })
 
     const xml    = await rssRes.text()
-    const items  = parseRSS(xml)
+    const items1ha = parseRSS(xml)
+
+    // Radar FB haberlerini de ekle
+    let radarItems = []
+    if (radarRssRes?.ok) {
+      const radarXml = await radarRssRes.text()
+      radarItems = parseRSS(radarXml).map(h => ({
+        ...h,
+        kategori: 'Kayseri',
+        kaynak:   'radar_fb',
+      }))
+    }
+
+    const items = [...items1ha, ...radarItems]
     let mevcut   = (await env.HABERLER.get('liste','json')) || []
     const mevcutIds = new Set(mevcut.map(h=>h.source_id))
 
