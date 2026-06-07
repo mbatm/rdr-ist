@@ -402,8 +402,13 @@ export async function onRequestGet({ env, request }) {
     }
 
     const items = [...items1ha, ...radarItems]
-    let mevcut   = (await env.HABERLER.get('liste','json')) || []
-    const mevcutIds = new Set(mevcut.map(h=>h.source_id))
+    let mevcut      = (await env.HABERLER.get('liste','json')) || []
+    let radarMevcut = (await env.HABERLER.get('radar_liste','json')) || []
+    // Her iki listeden mevcut ID'leri topla
+    const mevcutIds = new Set([
+      ...mevcut.map(h=>h.source_id),
+      ...radarMevcut.map(h=>h.source_id),
+    ])
 
     // Tekil haber işleme (source_id ile)
     if (sourceId) {
