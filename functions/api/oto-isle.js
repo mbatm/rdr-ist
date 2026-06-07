@@ -332,7 +332,7 @@ export async function onRequestGet({ env, request }) {
   try {
     const url      = new URL(request.url)
     const sourceId = url.searchParams.get('source_id')
-    const adet     = Math.min(parseInt(url.searchParams.get('adet')||'3'), 5)
+    const adet     = Math.min(parseInt(url.searchParams.get('adet')||'5'), 50)
     const liste    = url.searchParams.get('liste') === '1'
 
     // Sadece liste istendi — RSS'ten son haberleri döndür
