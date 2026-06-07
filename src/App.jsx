@@ -4888,6 +4888,7 @@ function GaleriModul({ user, onGeri }) {
     setIsliyor(true); setHata(null); setSonuc(null)
     try {
       const diger = snap.filter(m => !m.kapak)
+      const sid = `galeri_${Date.now()}`
       const res = await fetch('/api/galeri-olustur', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
@@ -4896,17 +4897,46 @@ function GaleriModul({ user, onGeri }) {
           medya_tipi:  kapak.tip === 'video' ? 'video' : 'foto',
           kapak:       { url: kapak.url, tip: kapak.tip },
           diger:       diger.map(m => ({ url: m.url, tip: m.tip })),
-          baslik,
-          spot_baslik: spotBaslik,
-          kategori,
-          source_id:   `galeri_${Date.now()}`,
+          baslik, spot_baslik: spotBaslik, kategori, source_id: sid,
         }),
       })
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
-      setSonuc(data.sonuc)
-    } catch(e) { setHata(e.message) }
-    setIsliyor(false)
+
+      // Render başlatıldı — poll et
+      if (data.bekliyor && data.renderlar?.length > 0) {
+        const renderIds = data.renderlar.map(r => r.render_id)
+        const kapakUrl  = data.kaynak_kapak
+        const digerUrls = data.kaynak_diger || []
+
+        // Poll — 3 saniyede bir max 40 deneme (2 dakika)
+        let deneme = 0
+        const poll = async () => {
+          deneme++
+          const pRes  = await fetch(`/api/galeri-olustur?render_ids=${renderIds.join(',')}&source_id=${sid}`)
+          const pData = await pRes.json()
+          if (pData.tamam) {
+            // Render tamamlandı
+            const kapakRender = pData.renderlar[0]
+            const digerRender = pData.renderlar.slice(1)
+            setSonuc({
+              kapak: { kaynak_url: kapakUrl, render_url: kapakRender.url, tip: data.kapak_tip },
+              diger: digerUrls.map((url, i) => ({ kaynak_url: url, render_url: digerRender[i]?.url || url })),
+            })
+            setIsliyor(false)
+          } else if (pData.hata || deneme >= 40) {
+            setHata(pData.hata ? 'Render başarısız' : 'Render zaman aşımı — tekrar dene')
+            setIsliyor(false)
+          } else {
+            setTimeout(poll, 3000)
+          }
+        }
+        setTimeout(poll, 4000)
+      } else {
+        setHata('Render başlatılamadı')
+        setIsliyor(false)
+      }
+    } catch(e) { setHata(e.message); setIsliyor(false) }
   }
 
   // Paylaşım sayfasına geç
