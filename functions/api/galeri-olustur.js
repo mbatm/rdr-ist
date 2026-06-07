@@ -30,7 +30,15 @@ const r2Kopyala = async (url, env, ad) => {
   } catch { return url }
 }
 
-const renderBaslat = async (templateId, modifications, apiKey, fmt = 'png') => {
+import { renderHash, cacheGet, cacheSet } from './_render-cache.js'
+
+const renderBaslat = async (templateId, modifications, apiKey, fmt = 'png', env = null) => {
+  // Hash cache kontrolü
+  if (env) {
+    const hash = renderHash(templateId, modifications)
+    const cached = await cacheGet(env, hash)
+    if (cached) return { render_id: 'cached', hash, cachedUrl: cached }
+  }
   const res  = await fetch('https://api.creatomate.com/v1/renders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -38,7 +46,9 @@ const renderBaslat = async (templateId, modifications, apiKey, fmt = 'png') => {
   })
   const data = await res.json()
   const r    = Array.isArray(data) ? data[0] : data
-  return r.id ? { render_id: r.id, fmt } : null
+  if (!r.id) return null
+  const hash = renderHash(templateId, modifications)
+  return { render_id: r.id, fmt, hash }
 }
 
 // ── GET: render durumu sorgula ─────────────────────────────────────────────

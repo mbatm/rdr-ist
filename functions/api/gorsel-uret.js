@@ -22,6 +22,8 @@ const TARIH_TEXT_ID = {
   dikey: '99f283bc-29cc-42d5-afe4-eb4e0a6de15d',
 }
 
+import { renderHash, cacheGet, cacheSet } from './_render-cache.js'
+
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json()
@@ -65,15 +67,11 @@ export async function onRequestPost({ request, env }) {
       [`${TARIH_TEXT_ID[format] || TARIH_TEXT_ID.yatay}.text`]: tarihStr,
     }
 
-    // KV'de kayıtlı görsel var mı kontrol et (force_refresh ise atla)
-    if (source_id && env.HABERLER && !force_refresh) {
-      try {
-        const kvKey = `gorsel:${source_id}:${format}`
-        const kayitli = await env.HABERLER.get(kvKey)
-        if (kayitli) {
-          return Response.json({ ok: true, url: kayitli, format, cached: true })
-        }
-      } catch(e) { /* KV hatası — devam et */ }
+    // Hash tabanlı cache — aynı içerik (görsel+başlık+kadraj) tekrar render edilmez
+    const renderHashKey = renderHash(sablonId, modifications)
+    if (!force_refresh && env.HABERLER) {
+      const cachedUrl = await cacheGet(env, renderHashKey)
+      if (cachedUrl) return Response.json({ ok: true, url: cachedUrl, format, cached: true })
     }
 
     const renderRes = await fetch('https://api.creatomate.com/v1/renders', {
@@ -118,12 +116,8 @@ export async function onRequestPost({ request, env }) {
       const r2        = Array.isArray(checkData) ? checkData[0] : checkData
 
       if (r2.status === 'succeeded') {
-        // KV'ye kaydet
-        if (source_id && env.HABERLER) {
-          try {
-            await env.HABERLER.put(`gorsel:${source_id}:${format}`, r2.url, { expirationTtl: 60*60*24*30 }) // 30 gün
-          } catch(e) { /* KV hatası */ }
-        }
+        // Hash cache'e kaydet — gelecekte aynı içerik tekrar render edilmez
+        await cacheSet(env, renderHashKey, r2.url, { template: sablonId, format })
         return Response.json({ ok: true, url: r2.url, format })
       }
       if (r2.status === 'failed') {

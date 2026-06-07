@@ -20,6 +20,8 @@ function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
   }
 }
 
+import { renderHash, cacheGet, cacheSet } from './_render-cache.js'
+
 export async function onRequestPost({ request, env }) {
   try {
     const {
@@ -86,7 +88,13 @@ export async function onRequestPost({ request, env }) {
 
       const outputFormat = isVideo ? 'mp4' : 'jpg'
 
-      console.log(`[video-isle] fmt=${fmt} kadrajFmt=`, JSON.stringify(kadrajFmt), 'mods=', JSON.stringify(baseMods['video.x_anchor'], baseMods['video.y_anchor']))
+      // Hash cache — aynı video+başlık+kadraj tekrar render edilmez
+      const vHash = renderHash(templateId, baseMods)
+      const vCached = await cacheGet(env, vHash)
+      if (vCached) {
+        renders.push({ format: fmt, render_id: 'cached', status: 'succeeded', url: vCached, tip: isVideo ? 'video' : 'gorsel', cached: true })
+        continue
+      }
 
       const res = await fetch(
         isVideo
@@ -108,12 +116,15 @@ export async function onRequestPost({ request, env }) {
       const data = await res.json()
       if (!res.ok) return Response.json({ hata: JSON.stringify(data) }, { status: 500 })
       const render = Array.isArray(data) ? data[0] : data
+      // Render anında tamamlandıysa hash cache'e kaydet
+      if (render.url) await cacheSet(env, vHash, render.url, { template: templateId, format: fmt })
       renders.push({
         format:    fmt,
         render_id: render.id,
         status:    render.status || (render.url ? 'succeeded' : 'planned'),
         url:       render.url || null,
         tip:       isVideo ? 'video' : 'gorsel',
+        hash:      vHash,
       })
     }
 
