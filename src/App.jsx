@@ -1942,7 +1942,8 @@ function Isleme({ content, processing, error, selectedHaber }) {
             if (!confirm('Tüm düzenlemeler silinecek, orijinal 1ha içeriğine dönülecek. Emin misiniz?')) return
             setKyd(true)
             try {
-              const res  = await fetch('/api/oto-isle?source_id='+encodeURIComponent(selectedHaber.source_id))
+              const _oiToken = localStorage.getItem('cms_token') || ''
+              const res  = await fetch('/api/oto-isle?source_id='+encodeURIComponent(selectedHaber.source_id)+'&secret='+_oiToken)
               const data = await res.json()
               if (data.hata) throw new Error(data.hata)
               setEc({...data})
@@ -4573,7 +4574,8 @@ function GaleriModul({ user, onGeri }) {
   const akisYukle = async () => {
     setAkisYuk(true)
     try {
-      const res  = await fetch('/api/oto-isle?liste=1&adet=20')
+      const _oiToken2 = localStorage.getItem('cms_token') || ''
+      const res  = await fetch('/api/oto-isle?liste=1&adet=20&secret='+_oiToken2)
       const data = await res.json()
       if (data.haberler) setAkisHaberler(data.haberler)
       else if (Array.isArray(data)) setAkisHaberler(data)
@@ -5486,7 +5488,8 @@ export default function App() {
   const isle = async (h) => {
     setSelectedHaber(h); setContent(null); setProcessing(true); setError(null)
     try {
-      const res = await fetch('/api/oto-isle?source_id='+encodeURIComponent(h.source_id||h.baslik))
+      const _oiToken3 = localStorage.getItem('cms_token') || ''
+      const res = await fetch('/api/oto-isle?source_id='+encodeURIComponent(h.source_id||h.baslik)+'&secret='+_oiToken3)
       const data = await res.json()
       if (data.hata) throw new Error(data.hata)
       const kv = await fetch('/api/haberler').then(r=>r.json()).catch(()=>[])

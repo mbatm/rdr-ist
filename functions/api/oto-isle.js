@@ -344,9 +344,18 @@ export async function onRequestGet({ env, request }) {
   try {
     const url      = new URL(request.url)
 
-    // Auth — RSS_API_KEY ile korunuyor
-    const reqKey   = url.searchParams.get('secret') || request.headers.get('x-api-key') || ''
-    if (reqKey !== env.RSS_API_KEY)
+    // Auth — RSS_API_KEY veya geçerli cms_token ile erişim
+    const reqKey = url.searchParams.get('secret') || request.headers.get('x-api-key') || ''
+    const isRssKey = reqKey === env.RSS_API_KEY
+    // cms_token kontrolü — KV'de token varsa geçerli
+    let isCmsToken = false
+    if (!isRssKey && reqKey) {
+      try {
+        const kullanici = await env.HABERLER.get(`token:${reqKey}`, 'json')
+        if (kullanici) isCmsToken = true
+      } catch {}
+    }
+    if (!isRssKey && !isCmsToken)
       return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
 
     const sourceId = url.searchParams.get('source_id')
