@@ -1,65 +1,170 @@
 /**
  * GET /api/ahrefs-sync
- * Ahrefs API'dan keyword verisini çeker, KV'e kaydeder.
- * cron-job.org ile günde 1 kez çağrılır.
- *
- * Cloudflare env: AHREFS_API_KEY gerekli
- * Ahrefs API key: app.ahrefs.com → API → Generate key
+ * Ahrefs'ten gerçek keyword verisi çeker → KV'ye kaydeder
+ * Cloudflare Cron veya manuel tetikleme ile çalışır
+ * 
+ * Strateji: volume/difficulty yerine traffic_potential odaklı
+ * traffic_potential = o sayfanın gerçekte alabileceği maksimum trafik
  */
-export async function onRequestGet({ env }) {
-  const API_KEY = env.AHREFS_API_KEY
-  if (!API_KEY) return Response.json({ hata:'AHREFS_API_KEY eksik. Cloudflare Pages → Settings → Environment Variables.' }, {status:400})
 
-  const BASE   = 'https://api.ahrefs.com/v3'
-  const SITE   = 'kayserim.net'
-  const TODAY  = new Date().toISOString().split('T')[0]
-  const headers = { Authorization:`Bearer ${API_KEY}`, Accept:'application/json' }
+// Kategorilere göre çekilecek keyword grupları
+const KEYWORD_GRUPLARI = {
+  'Asayiş':  [
+    'kayseri kaza', 'kayseri trafik kazası', 'kayseri yangın',
+    'kayseri olay', 'kayseri polis', 'kayseri asayiş',
+    'kayseri gözaltı', 'kayseri hırsızlık',
+  ],
+  'Trafik': [
+    'kayseri kaza', 'kayseri trafik kazası', 'kayseri trafik kazası son dakika',
+    'kayseri kaza bugün', 'kayseri zincirleme kaza',
+  ],
+  'Ekonomi': [
+    'kayseri altın fiyatları', 'kayseri iş ilanları', 'kayseri emlak',
+    'kayseri akaryakıt', 'kayseri market', 'kayseri ekonomi haberleri',
+  ],
+  'Güncel':  [
+    'kayseri haber', 'kayseri son dakika', 'kayseri olay',
+    'kayseri gündem', 'kayseri haber bugün',
+  ],
+  'Spor':    [
+    'kayserispor', 'kayserispor haberleri', 'kayserispor son dakika',
+    'kayserispor transfer', 'kayseri spor',
+  ],
+  'Siyaset': [
+    'kayseri büyükşehir', 'kayseri belediye', 'kayseri siyaset',
+    'kayseri valisi', 'kayseri milletvekili',
+  ],
+  'Yangın':  [
+    'kayseri yangın', 'kayseri yangın son dakika', 'kayseri itfaiye',
+  ],
+  'Genel': [
+    'kayseri son dakika haberleri', 'kayserim net', 'kayseri radar',
+    'kayseri nüfus', 'kayseri uçak', 'kayseri hastane',
+  ],
+}
 
-  try {
-    // 1. Top keywords by traffic
-    const kwRes = await fetch(
-      `${BASE}/site-explorer/organic-keywords?target=${SITE}&mode=subdomains&country=tr&date=${TODAY}&select=keyword,volume,best_position,keyword_difficulty&limit=50&order_by=sum_traffic:desc`,
-      { headers }
-    )
-    const kwData = await kwRes.json()
+// Fırsat skoru hesapla
+// traffic_potential öncelikli, difficulty negatif etki
+function firsatSkoru(kw) {
+  const vol  = kw.volume || 0
+  const diff = kw.difficulty ?? 0
+  const tp   = kw.traffic_potential || vol
+  // difficulty 0 ise çok büyük avantaj
+  const diffPenalty = diff === 0 ? 1 : (diff / 10)
+  return Math.round(tp / (diffPenalty + 1))
+}
 
-    // 2. Keyword opportunities (volume > 500, position 4-20)
-    const firsatRes = await fetch(
-      `${BASE}/site-explorer/organic-keywords?target=${SITE}&mode=subdomains&country=tr&date=${TODAY}&select=keyword,volume,best_position,keyword_difficulty&limit=30&order_by=volume:desc&where={"and":[{"field":"best_position","is":["gte",4]},{"field":"best_position","is":["lte",20]},{"field":"volume","is":["gte",500]}]}`,
-      { headers }
-    )
-    const firsatData = await firsatRes.json()
+// Keyword'e bağlam tespiti
+function haberTipiBelirle(keyword) {
+  if (/kaza|çarpış|trafik kaza/.test(keyword)) return 'kaza'
+  if (/yangın|itfaiye/.test(keyword)) return 'yangin'
+  if (/gözaltı|tutuklama|hırsız|kaçak/.test(keyword)) return 'asayis'
+  if (/altın|dolar|euro|akaryakıt|fiyat/.test(keyword)) return 'ekonomi'
+  if (/kayserispor|transfer|maç|lig/.test(keyword)) return 'spor'
+  if (/belediye|vali|milletvekili|başkan/.test(keyword)) return 'siyaset'
+  if (/iş ilan|istihdam/.test(keyword)) return 'istihdam'
+  return 'genel'
+}
 
-    // Strateji nesnesi oluştur
-    const strateji = {
-      guncellendi: new Date().toISOString(),
-      global: {
-        yuksek: (kwData.keywords||[]).slice(0,10).map(k=>k.keyword),
-        firsat: (firsatData.keywords||[]).slice(0,8).map(k=>k.keyword),
-        slug_prefix: 'kayseri-',
-      },
-      kategori: {
-        'Asayiş':  ['kayseri trafik kazası son dakika','kayseri asayiş','kayseri polis haberleri'],
-        'Ekonomi': ['kayseri altın fiyatları','kayseri ekonomi haberleri'],
-        'Güncel':  ['kayseri son dakika','kayseri haber bugün'],
-        'Kayseri': ['kayseri son dakika','kayseri haber'],
-        'Spor':    ['kayserispor son dakika','kayseri spor haberleri'],
-        'Siyaset': ['kayseri siyaset','kayseri belediye haberleri'],
-        'default': ['kayseri son dakika','kayseri haber'],
-      },
-      ham: { keywords: kwData.keywords?.slice(0,20)||[], firsatlar: firsatData.keywords?.slice(0,10)||[] }
+export async function onRequestGet({ env, request }) {
+  const url    = new URL(request.url)
+  const secret = url.searchParams.get('secret')
+
+  // Güvenlik: secret parametresi gerekli
+  if (secret !== env.RSS_API_KEY)
+    return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
+
+  const AHREFS_KEY = env.AHREFS_API_KEY
+  if (!AHREFS_KEY)
+    return Response.json({ hata: 'AHREFS_API_KEY yok' }, { status: 500 })
+
+  const tumKeywordler = [...new Set(Object.values(KEYWORD_GRUPLARI).flat())]
+  const sonuclar = []
+  const hatalar  = []
+
+  // Ahrefs API — 10'ar keyword grupla (limit)
+  for (let i = 0; i < tumKeywordler.length; i += 10) {
+    const grup = tumKeywordler.slice(i, i + 10).join(',')
+    try {
+      const res = await fetch(
+        `https://apiv3.ahrefs.com/v3/keywords-explorer/overview?` +
+        `country=tr&keywords=${encodeURIComponent(grup)}&select=keyword,volume,difficulty,traffic_potential,cpc`,
+        { headers: { 'Authorization': `Bearer ${AHREFS_KEY}` } }
+      )
+      const data = await res.json()
+      if (data.keywords) sonuclar.push(...data.keywords)
+    } catch(e) {
+      hatalar.push({ grup: grup.substring(0,30), hata: e.message })
     }
-
-    // KV'ye kaydet (24 saat TTL)
-    await env.HABERLER.put('ahrefs_strateji', JSON.stringify(strateji), { expirationTtl: 86400 })
-
-    return Response.json({
-      basarili: true,
-      keywords_cekilen: strateji.global.yuksek.length,
-      firsat_keywords: strateji.global.firsat.length,
-      guncellendi: strateji.guncellendi
-    })
-  } catch(e) {
-    return Response.json({ hata: e.message }, { status:500 })
+    // Rate limit: Ahrefs API'yi ezmemek için
+    if (i + 10 < tumKeywordler.length) await new Promise(r => setTimeout(r, 500))
   }
+
+  // Keyword verilerini indeksle
+  const kwMap = {}
+  for (const kw of sonuclar) {
+    kwMap[kw.keyword] = {
+      keyword:          kw.keyword,
+      volume:           kw.volume || 0,
+      difficulty:       kw.difficulty ?? 0,
+      traffic_potential: kw.traffic_potential || kw.volume || 0,
+      cpc:              kw.cpc || 0,
+      firsat:           firsatSkoru(kw),
+      tip:              haberTipiBelirle(kw.keyword),
+    }
+  }
+
+  // Kategori bazlı strateji oluştur
+  // Her kategori için: [keyword, volume, difficulty, traffic_potential, firsat]
+  const strateji = { kategori: {}, ozelTipler: {}, guncellendi: new Date().toISOString() }
+
+  for (const [kat, kwListesi] of Object.entries(KEYWORD_GRUPLARI)) {
+    const katVeriler = kwListesi
+      .map(kw => kwMap[kw])
+      .filter(Boolean)
+      .sort((a, b) => b.firsat - a.firsat)
+
+    strateji.kategori[kat] = katVeriler.map(kw => [
+      kw.keyword,
+      kw.volume,
+      kw.difficulty,
+      kw.traffic_potential,
+    ])
+  }
+
+  // Özel tipler: haber türüne göre en iyi keyword
+  const tipGruplari = {}
+  for (const kw of Object.values(kwMap)) {
+    if (!tipGruplari[kw.tip]) tipGruplari[kw.tip] = []
+    tipGruplari[kw.tip].push(kw)
+  }
+  for (const [tip, kwler] of Object.entries(tipGruplari)) {
+    strateji.ozelTipler[tip] = kwler
+      .sort((a, b) => b.firsat - a.firsat)
+      .slice(0, 3)
+      .map(kw => [kw.keyword, kw.volume, kw.difficulty, kw.traffic_potential])
+  }
+
+  // KV'ye kaydet (30 gün cache)
+  await env.HABERLER.put('ahrefs_strateji', JSON.stringify(strateji), {
+    expirationTtl: 60 * 60 * 24 * 30
+  })
+
+  // İstatistik
+  const topKeywords = Object.values(kwMap)
+    .sort((a, b) => b.firsat - a.firsat)
+    .slice(0, 10)
+    .map(k => ({ keyword: k.keyword, firsat: k.firsat, volume: k.volume, difficulty: k.difficulty, tp: k.traffic_potential }))
+
+  return Response.json({
+    ok: true,
+    cekilen: sonuclar.length,
+    hatalar,
+    top10_firsat: topKeywords,
+    kategoriler: Object.keys(strateji.kategori).map(k => ({
+      kategori: k,
+      en_iyi: strateji.kategori[k][0]?.[0],
+      firsat: strateji.kategori[k][0] ? Math.round(strateji.kategori[k][0][3] / ((strateji.kategori[k][0][2] || 0) / 10 + 1)) : 0
+    }))
+  })
 }

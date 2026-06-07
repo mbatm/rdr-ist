@@ -11,143 +11,208 @@
 //           volume yüksek + difficulty yüksek = uzun kuyruk hedefle
 //           Her kategorinin kendi fırsat penceresi var
 
+// STRATEJI_FALLBACK — Ahrefs gerçek verisi (06.2026)
+// Format: [keyword, volume, difficulty, traffic_potential]
+// traffic_potential = o keyword'den alınabilecek max trafik tahmini
 const STRATEJI_FALLBACK = {
-  // Kategori bazlı keyword grupları — her grup: [keyword, volume_tahmini, difficulty_tahmini]
   kategori: {
     'Asayiş':  [
-      ['kayseri trafik kazası', 2400, 15],
-      ['kayseri kaza', 1800, 20],
-      ['kayseri olay', 900, 10],
-      ['kayseri polis', 600, 12],
-    ],
-    'Ekonomi': [
-      ['kayseri altın fiyatları', 5400, 8],
-      ['kayseri akaryakıt', 1200, 5],
-      ['kayseri ekonomi', 800, 15],
-      ['kayseri market', 600, 7],
-    ],
-    'Güncel':  [
-      ['kayseri son dakika', 12000, 45],
-      ['kayseri haber', 8400, 40],
-      ['kayseri gündem', 1200, 18],
-      ['kayseri olay haber', 900, 12],
-    ],
-    'Kayseri': [
-      ['kayseri haber', 8400, 40],
-      ['kayseri son dakika', 12000, 45],
-      ['kayseri radar', 3200, 20],
-      ['kayserim', 2100, 15],
-    ],
-    'Spor':    [
-      ['kayserispor', 22000, 65],
-      ['kayserispor haberleri', 4800, 30],
-      ['kayseri spor', 1600, 20],
-    ],
-    'Siyaset': [
-      ['kayseri büyükşehir', 2200, 25],
-      ['kayseri belediye', 1800, 22],
-      ['kayseri siyaset', 600, 15],
+      ['kayseri olay',            17000, 11,  62000],
+      ['kayseri kaza',             1600,  0,   2000],
+      ['kayseri trafik kazası',    1200,  0,   2000],
+      ['kayseri yangın',            900,  0,    700],
+      ['kayseri polis',              60,  0,   2200],
+      ['kayseri asayiş',            200,  0,    500],
     ],
     'Trafik':  [
-      ['kayseri trafik', 3200, 18],
-      ['kayseri trafik kazası son dakika', 1800, 12],
-      ['kayseri yol', 800, 8],
+      ['kayseri kaza',             1600,  0,   2000],
+      ['kayseri trafik kazası',    1200,  0,   2000],
+      ['kayseri olay',            17000, 11,  62000],
+    ],
+    'Yangın':  [
+      ['kayseri yangın',            900,  0,    700],
+      ['kayseri olay',            17000, 11,  62000],
+      ['kayseri kaza',             1600,  0,   2000],
+    ],
+    'Ekonomi': [
+      ['kayseri iş ilanları',    26000,  5, 126000],
+      ['kayseri altın fiyatları',24000, 57,  35000],
+      ['kayseri emlak',            400,  0,  54000],
+    ],
+    'Güncel':  [
+      ['kayseri olay',            17000, 11,  62000],
+      ['kayseri son dakika',      19000, 51,  17000],
+      ['kayseri haber',           17000, 47,  35000],
+      ['kayseri gündem',            800, 29,   5100],
+    ],
+    'Kayseri': [
+      ['kayseri olay',            17000, 11,  62000],
+      ['kayseri haber',           17000, 47,  35000],
+      ['kayseri son dakika',      19000, 51,  17000],
+      ['kayseri radar',           13000,  0,  15000],
+    ],
+    'Spor':    [
+      ['kayserispor',            476000, 25,  30000],
+      ['kayserispor haberleri',    3400,  7,   1700],
+      ['kayserispor son dakika',   1200,  8,   1500],
+      ['kayseri spor',              600, 33,   7700],
+    ],
+    'Siyaset': [
+      ['kayseri büyükşehir',        100, 10,  16000],
+      ['kayseri belediye',           40,  3,  15000],
     ],
     'default': [
-      ['kayseri haber', 8400, 40],
-      ['kayseri son dakika', 12000, 45],
-      ['kayseri güncel', 1200, 15],
+      ['kayseri olay',            17000, 11,  62000],
+      ['kayseri haber',           17000, 47,  35000],
+      ['kayseri son dakika',      19000, 51,  17000],
     ],
+  },
+  ozelTipler: {
+    'kaza':    [['kayseri kaza', 1600, 0, 2000], ['kayseri trafik kazası', 1200, 0, 2000], ['kayseri olay', 17000, 11, 62000]],
+    'yangin':  [['kayseri yangın', 900, 0, 700], ['kayseri olay', 17000, 11, 62000]],
+    'asayis':  [['kayseri olay', 17000, 11, 62000], ['kayseri kaza', 1600, 0, 2000]],
+    'ekonomi': [['kayseri iş ilanları', 26000, 5, 126000], ['kayseri altın fiyatları', 24000, 57, 35000]],
+    'spor':    [['kayserispor haberleri', 3400, 7, 1700], ['kayserispor', 476000, 25, 30000]],
+    'siyaset': [['kayseri büyükşehir', 100, 10, 16000], ['kayseri belediye', 40, 3, 15000]],
+    'istihdam':[['kayseri iş ilanları', 26000, 5, 126000]],
+    'genel':   [['kayseri olay', 17000, 11, 62000], ['kayseri haber', 17000, 47, 35000]],
   }
 }
 
-// En iyi keyword'ü seç: volume/difficulty oranı en yüksek = en büyük fırsat
+// Fırsat keyword seç
+// Format: [keyword, volume, difficulty, traffic_potential?]
+// traffic_potential öncelikli, difficulty 0 ise büyük avantaj
 function firsat_keyword_sec(keywordler, limit = 3) {
   return [...keywordler]
-    .sort((a, b) => (b[1] / (b[2] + 1)) - (a[1] / (a[2] + 1)))
+    .sort((a, b) => {
+      const tpA = (a[3] || a[1] || 0) / ((a[2] || 0) / 10 + 1)
+      const tpB = (b[3] || b[1] || 0) / ((b[2] || 0) / 10 + 1)
+      return tpB - tpA
+    })
     .slice(0, limit)
-    .map(k => k[0])
+    .map(k => ({
+      keyword:    k[0],
+      volume:     k[1] || 0,
+      difficulty: k[2] || 0,
+      traffic_potential: k[3] || k[1] || 0,
+    }))
+}
+
+// Haber içeriğinden anahtar kavramları tespit et
+function haberTipiBelirle(baslik, icerik) {
+  const metin = (baslik + ' ' + icerik).toLowerCase()
+  if (/kaza|çarpış|trafik|zincirleme/.test(metin)) return 'kaza'
+  if (/yangın|itfaiye|alev/.test(metin))             return 'yangin'
+  if (/gözaltı|tutuklama|kaçak|hırsız/.test(metin))  return 'asayis'
+  if (/altın|dolar|euro|akaryakıt|fiyat|ekonomi/.test(metin)) return 'ekonomi'
+  if (/kayserispor|futbol|maç|lig|transfer/.test(metin))      return 'spor'
+  if (/belediye|vali|milletvekili|seçim/.test(metin)) return 'siyaset'
+  if (/iş ilan|istihdam|işsiz/.test(metin))           return 'istihdam'
+  return 'genel'
 }
 
 function buildPrompt(haber, strateji) {
   const kat       = haber.kategori || 'Güncel'
-  const katKwList = strateji.kategori[kat] || strateji.kategori['default']
   const isVideo   = !!haber.video
 
-  // En iyi fırsat keyword'leri seç (volume/difficulty oranına göre)
-  const firsatKw  = firsat_keyword_sec(katKwList, 3)
-  const hedefKw1  = firsatKw[0] || 'kayseri haber'
-  const hedefKw2  = firsatKw[1] || 'kayseri son dakika'
-  const hedefKw3  = firsatKw[2] || ''
+  // Haber tipini tespit et — daha spesifik keyword eşleştirme için
+  const haberTipi = haberTipiBelirle(haber.baslik, haber.icerik)
+
+  // Önce özel tip keyword listesine bak, yoksa kategori listesi
+  const ozelTipList = strateji.ozelTipler?.[haberTipi]
+  const katKwList   = strateji.kategori?.[kat] || strateji.kategori?.['default'] || STRATEJI_FALLBACK.kategori['default']
+  const kwList      = ozelTipList?.length > 0 ? [...ozelTipList, ...katKwList] : katKwList
+
+  // En iyi fırsat keyword'leri seç (traffic_potential / difficulty oranına göre)
+  const firsatKwler = firsat_keyword_sec(kwList, 3)
+  const kw1 = firsatKwler[0] || { keyword: 'kayseri haber', volume: 17000, difficulty: 47, traffic_potential: 35000 }
+  const kw2 = firsatKwler[1] || { keyword: 'kayseri son dakika', volume: 19000, difficulty: 51, traffic_potential: 17000 }
+  const kw3 = firsatKwler[2] || null
 
   // Kayseri kuralı: haber zaten Kayseri'deyse organik, değilse local angle
   const haberKayseriIlgili = /kayseri|kayserim|kayserispor/i.test(haber.baslik + haber.icerik)
   const kayseriKurali = haberKayseriIlgili
-    ? `Bu haber zaten Kayseri ile ilgili — "Kayseri" kelimesini başlıkta organik olarak kullan, zorla tekrar etme.`
-    : `Bu haber doğrudan Kayseri ile ilgili değil — başlığa "Kayseri" ekleme, içerikte yerel bağlantı varsa (Kayserili şirket, Kayserililer'in tepkisi vb.) 1-2 kez doğal kullan.`
+    ? `Bu haber zaten Kayseri ile ilgili — "Kayseri" kelimesini başlıkta organik kullan, zorla tekrar etme.`
+    : `Bu haber doğrudan Kayseri ile ilgili değil — başlığa "Kayseri" ekleme. Yerel bağlantı varsa 1-2 kez doğal kullan.`
+
+  // Keyword bilgilerini prompt için formatla
+  const kw1Bilgi = `"${kw1.keyword}" (aylık ${kw1.volume?.toLocaleString()} arama, zorluk: ${kw1.difficulty}/100, trafik potansiyeli: ${kw1.traffic_potential?.toLocaleString()})`
+  const kw2Bilgi = kw2 ? `"${kw2.keyword}" (aylık ${kw2.volume?.toLocaleString()} arama, zorluk: ${kw2.difficulty}/100)` : ''
+  const kw3Bilgi = kw3 ? `"${kw3.keyword}" (zorluk: ${kw3.difficulty}/100)` : ''
 
   return `Sen kayserim.net için kıdemli bir haber editörü ve SEO uzmanısın.
 
 ## TEMEL GÖREV
-Verilen haberi; bağlamından koparmadan, gerçekleri değiştirmeden, SEO uyumlu ve okuyucu odaklı şekilde düzenle. Gerekirse haberi mantıklı bağlamsal bilgilerle genişlet.
+Verilen haberi; bağlamından ASLA koparmadan, gerçekleri değiştirmeden, SEO uyumlu ve okuyucu odaklı şekilde düzenle. Haber kısa ise mantıklı bağlamsal bilgilerle genişlet.
 
 ## HABER BİLGİSİ
 Başlık: ${haber.baslik.slice(0,200)}
 İçerik: ${haber.icerik.slice(0,500)}
 Kategori: ${kat}
-${isVideo ? 'Format: VİDEO HABER' : ''}
+Haber Tipi: ${haberTipi}
+${isVideo ? 'Format: VİDEO HABER — sosyal metinlere "izle", "videolu haber" ekle' : ''}
 
-## SEO STRATEJİSİ (Ahrefs fırsat analizi)
-Bu kategori için en yüksek fırsat keywordleri (volume/difficulty oranına göre):
-- Birincil hedef: "${hedefKw1}"
-- İkincil hedef: "${hedefKw2}"
-${hedefKw3 ? `- Destekleyici: "${hedefKw3}"` : ''}
+## AHREFS SEO STRATEJİSİ (Gerçek veri)
+Bu haber için en yüksek trafik potansiyelli keyword'ler:
+
+🥇 BİRİNCİL HEDEF: ${kw1Bilgi}
+→ Bu keyword'ü başlıkta organik kullan. Zorla ekleme değil, haber buna uygunsa.
+
+${kw2Bilgi ? `🥈 İKİNCİL: ${kw2Bilgi}
+→ Meta description veya içerikte geçir.` : ''}
+
+${kw3Bilgi ? `🥉 DESTEKLEYİCİ: ${kw3Bilgi}` : ''}
 
 ${kayseriKurali}
 
 ## BAŞLIK KURALLARI
-- Başlık 55-65 karakter
-- Birincil hedef keyword başlıkta organik geçmeli — ama kelimeyi mekanik yapıştırma
-- Haber ne hakkındaysa onu anlatsın, bağlamı koruyun
-- Soru, rakam, sonuç odaklı başlıklar tıklanma oranını artırır
-- Örnekler (iyi): "Kayseri'de 5 araç birbirine girdi: 3 yaralı" / "Altın fiyatları bugün ne kadar?" / "Kayserispor'da sürpriz transfer"
-- Örnekler (kötü): "Kayseri haber: Kayseri'de Kayseri'li şoför..." (tekrar)
+- 55-65 karakter
+- Birincil hedef keyword başlıkta organik geçmeli
+- Rakam, soru, sonuç odaklı başlıklar tıklanma artırır
+- ✅ İyi: "Kayseri'de 5 araç birbirine girdi: 3 yaralı"
+- ✅ İyi: "Altın fiyatları bugün ne kadar? Kayseri piyasası"
+- ❌ Kötü: "Kayseri haber: Kayseri'de Kayseri olay..."
 
 ## İÇERİK KURALLARI
-- Türk haber ajansı dili: AA/DHA formatı
-- Kim, ne, nerede, ne zaman — ilk cümlede
-- Spekülasyon, editöryal yorum, dolgu metin YASAK
-- Sayıları kullan: "35 araç" > "çok sayıda araç"
-- Unvan ve özel isimleri ASLA değiştirme: "Kocasinan Kaymakamı" → olduğu gibi kal
-- Hedef: 400-600 kelime (orijinalden kısaysa, habere uygun bağlamsal bilgi ekle)
-  * Geçmiş benzer olaylar, bölge bilgisi, yetkili açıklamaları genişlet
-  * Uydurulan bilgi değil, haber bağlamını mantıklı şekilde tamamla
-${isVideo ? '- Video haber: "İzlemek için tıklayın", "Videolu haber" ifadelerini kullan' : ''}
+- Türk haber ajansı dili (AA/DHA): "gözaltına alındı", "kaldırıldı", "açıkladı"
+- İlk cümle: Kim, ne, nerede, ne zaman
+- Spekülasyon YASAK: "olmuş olabilir", "muhtemelen"
+- Editöryal yorum YASAK: "önlem alınmalıdır"
+- Sayıları kullan: "35 kişi" > "çok sayıda kişi"
+- Unvan/özel isim ASLA değiştirme: "Kocasinan Kaymakamı" → olduğu gibi
+- HEDEF: 400-600 kelime
+  * Kısa haberler için: bölge bağlamı, geçmiş benzer olaylar, yetkili açıklamaları genişlet
+  * Uydurma değil — haberin doğal uzantısı olan gerçek bilgiler ekle
 
-## ÇIKTI FORMATI (Sadece JSON, başka hiçbir şey)
+## ÖNCELIK KARAR KURALI
+- Birincil keyword zorluk 0-10 → "yuksek" öncelik (direkt sıralanabilir)
+- Birincil keyword zorluk 11-35 → "orta" öncelik
+- Birincil keyword zorluk 35+ → "dusuk" öncelik
+
+## ÇIKTI FORMATI (SADECE JSON — başka hiçbir şey yazma)
 {
-  "site_basligi": "55-65 karakter, ${hedefKw1} içeren doğal başlık — haberin özünü yansıtsın",
-  "h1_basligi": "H1: site_basligi ile aynı veya çok yakın",
-  "sosyal_baslik": "5-8 kelime, merak uyandırıcı, konuyu net anlatan — Kayseri zorunlu değil",
-  "meta_description": "max 155 karakter, ${hedefKw1} ve haberin özü — tıklamayı tetiklesin",
-  "url_slug": "${hedefKw1.replace(/ /g,'-')}-ile-baslayan-benzersiz-slug",
-  "optimize_icerik": "400-600 kelime, Türk haber ajansı dilinde, bağlam korunmuş ve mantıklı şekilde genişletilmiş haber metni",
-  "ozet": "1 cümle, haberin özü, ${hedefKw1} geçsin",
-  "instagram": "Dikkat çekici, merak uyandırıcı. İlk cümle sürükleyici. Kayserim.net adresi sonda. 6-10 hashtag sonda. Kayseri zorunlu değil ama konuya uygunsa kullan. 1200-2000 karakter.",
-  "facebook": "Dikkat çekici ilk cümle + özet. Max 300 karakter. 2-3 hashtag. Site linki ayrıca eklenir.",
-  "x_twitter": "Çarpıcı tweet. Max 230 karakter. 1-2 emoji. 2-3 hashtag. Site linki ayrıca eklenir.",
-  "youtube_baslik": "max 80 karakter, ${hedefKw1} içersin, arama odaklı",
-  "youtube_aciklama": "250-300 karakter özet. Sonuna 'Detaylar için: [LINK]'",
-  "hedef_kelimeler": ["${hedefKw1}", "${hedefKw2}", "${hedefKw3}"],
+  "site_basligi": "55-65 karakter, ${kw1.keyword} organik içersin, haberin özünü yansıtsın",
+  "h1_basligi": "site_basligi ile aynı veya çok yakın",
+  "sosyal_baslik": "5-8 kelime, merak uyandırıcı — Kayseri zorunlu değil",
+  "meta_description": "max 155 karakter, ${kw1.keyword} ve haberin özü, tıklatıcı",
+  "url_slug": "kısa-tire-ile-benzersiz-slug-kw1-iceren",
+  "optimize_icerik": "400-600 kelime, AA/DHA haber dili, bağlam korunmuş, mantıklı genişletilmiş",
+  "ozet": "1 cümle, haberin özü",
+  "instagram": "Sürükleyici ilk cümle. Merak uyandır. Kayseri zorunlu değil. Emoji. 1200-2000 karakter. 'Detaylar kayserim.net\'te 🔗' sonda. 6-10 hashtag (#kayseri #kayserihaber + konuya özel).",
+  "facebook": "Dikkat çekici + özet. Max 300 karakter. 2-3 hashtag. Link ayrıca eklenir.",
+  "x_twitter": "Çarpıcı. Max 230 karakter. 1-2 emoji. 2-3 hashtag. Link ayrıca.",
+  "youtube_baslik": "max 80 karakter, ${kw1.keyword} içersin",
+  "youtube_aciklama": "250-300 karakter. Sonuna 'Detaylar için: [LINK]'",
+  "hedef_kelimeler": ["${kw1.keyword}", "${kw2?.keyword || ''}", "${kw3?.keyword || ''}"],
   "kategori": "${kat}",
-  "oncelik": "yuksek veya orta veya dusuk — ${hedefKw1} volume/difficulty oranına göre",
-  "gorsel_prompt": "realistic Turkish news photo, max 12 words, specific scene",
+  "oncelik": "yuksek veya orta veya dusuk — zorluk ${kw1.difficulty}/100 baz alınarak",
+  "gorsel_prompt": "realistic Turkish news photo, specific scene, max 12 words",
   "alternatif_basliklar": [
-    "Merak/soru odaklı: rakam veya sürpriz detay içeren 5-8 kelimelik başlık",
-    "Sonuç odaklı: ne oldu, kim etkilendi — 5-8 kelimelik başlık",
-    "Yerel kimlik/bağlantı: Kayseri bağlamı uygunsa 5-8 kelimelik başlık"
+    "Merak/soru: rakam veya sürpriz detay içeren 5-8 kelime",
+    "Sonuç odaklı: ne oldu, kim etkilendi — 5-8 kelime",
+    "Bağlam: geçmiş veya gelecek bağlantı içeren 5-8 kelime"
   ],
-  "optimize_icerik_kwh": "Birincil keyword '${hedefKw1}' doğal yerleştirilmiş, unvanlar/rakamlar korunmuş, 400-600 kelime haber ajansı dili"
+  "optimize_icerik_kwh": "${kw1.keyword} doğal yerleştirilmiş, unvanlar/rakamlar korunmuş, 400-600 kelime AA/DHA dili"
 }`
 }
 
