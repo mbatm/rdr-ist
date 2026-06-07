@@ -343,6 +343,12 @@ async function isleHaber(haber, apiKey, strateji, ahrefsKey) {
 export async function onRequestGet({ env, request }) {
   try {
     const url      = new URL(request.url)
+
+    // Auth — RSS_API_KEY ile korunuyor
+    const reqKey   = url.searchParams.get('secret') || request.headers.get('x-api-key') || ''
+    if (reqKey !== env.RSS_API_KEY)
+      return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
+
     const sourceId = url.searchParams.get('source_id')
     const adet     = Math.min(parseInt(url.searchParams.get('adet')||'5'), 50)
     const liste    = url.searchParams.get('liste') === '1'

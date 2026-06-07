@@ -1,0 +1,23 @@
+name: Otomatik Haber İşleme
+
+on:
+  schedule:
+    # Her 5 dakikada bir (UTC)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # Manuel tetikleme
+
+jobs:
+  haber-isle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: 1ha Haberleri İşle (son 10 haber)
+        run: |
+          SONUC=$(curl -sf "https://rdr.ist/api/oto-isle?adet=10&secret=${{ secrets.RSS_API_KEY }}")
+          echo "1ha sonuç: $SONUC"
+
+      - name: Radar Facebook Sync
+        run: |
+          SONUC=$(curl -sf "https://rdr.ist/api/radar-fb-sync?secret=${{ secrets.RSS_API_KEY }}")
+          echo "Radar FB: $SONUC"
