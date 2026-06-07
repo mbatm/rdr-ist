@@ -230,7 +230,13 @@ function parseRSS(xml) {
       .replace(/^\(1HA\)\s*[-–—]\s*/i, '')
       .replace(/^1HA\s*[-–—]\s*/i, '')
       .trim()
-    const icerik = node.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
+    const icerikRaw = node.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
+    // İçerikten de 1HA prefix temizle
+    const icerik = icerikRaw
+      .replace(/^[A-ZÇĞİÖŞÜa-zçğışöşü\s]+\(1HA\)\s*[-–—]\s*/i, '')
+      .replace(/^\(1HA\)\s*[-–—]\s*/i, '')
+      .replace(/^1HA\s*[-–—]\s*/i, '')
+      .trim()
     const kat  = node.match(/<category>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/category>/)?.[1]?.trim() || 'Genel'
     const dt   = node.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() || ''
 
