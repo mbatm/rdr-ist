@@ -438,11 +438,21 @@ export async function onRequestGet({ env, request }) {
         const seo = await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY)
         const kayit = {
           ...seo,
-          source_id:haber.source_id, source_url:haber.source_url,
-          baslik:haber.baslik, icerik:haber.icerik,
-          gorsel:haber.gorsel, gorsel_url:haber.gorsel, gorsel_url_orijinal:haber.gorsel, video:haber.video||'',
-          tarih_iso:haber.tarih_iso, kaydedildi:new Date().toISOString(),
-          kayserim_link:'', durum:'islendi'
+          source_id:   haber.source_id,
+          source_url:  haber.source_url,
+          baslik:      haber.baslik,
+          icerik:      haber.icerik,
+          gorsel:      haber.gorsel,
+          gorsel_url:  haber.gorsel,
+          gorsel_url_orijinal: haber.gorsel,
+          video:       haber.video || '',
+          tarih_iso:   haber.tarih_iso,
+          kaydedildi:  new Date().toISOString(),
+          kayserim_link: haber.kayserim_link || '',
+          durum:       'islendi',
+          // Facebook kaynaklı alanlar
+          ...(haber.fb_link  ? { fb_link:  haber.fb_link  } : {}),
+          ...(haber.kaynak   ? { kaynak:   haber.kaynak   } : {}),
         }
         // Kaynak kontrolü — radar_fb ise ayrı listeye
         if (haber.kaynak === 'radar_fb') {

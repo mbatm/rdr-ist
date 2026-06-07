@@ -1,38 +1,51 @@
 /**
  * GET /api/radar-feed
  * Claude tarafından işlenmiş Radar Kayseri haberlerini RSS 2.0 olarak sunar
- * Kaynak: KV radar_liste (oto-isle tarafından yazılır)
+ * Her item: başlık + görsel/video + facebook linki
  */
 export async function onRequestGet({ env }) {
   const haberler = (await env.HABERLER.get('radar_liste', 'json')) || []
 
   const items = haberler.slice(0, 50).map(h => {
-    const tarih   = new Date(h.tarih_iso || h.kaydedildi).toUTCString()
-    const baslik  = (h.site_basligi || h.baslik || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    const icerik  = (h.optimize_icerik || h.icerik || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    const gorsel  = h.gorsel_url || h.gorsel || ''
-    const link    = h.fb_link || h.source_url || h.kayserim_link || ''
-    const slug    = h.url_slug || h.source_id || ''
+    const tarih  = new Date(h.tarih_iso || h.kaydedildi).toUTCString()
+    const baslik = h.site_basligi || h.baslik || ''
+    const gorsel = h.gorsel_url || h.gorsel || ''
+    const link   = h.fb_link || h.source_url || ''
+    const icerik = h.optimize_icerik || h.icerik || ''
 
-    const gorselTag = gorsel ? `<enclosure url="${gorsel}" type="image/jpeg" length="0"/>` : ''
+    // Görsel enclosure — RSS okuyucuların görseli göstermesi için
+    const isVideo    = gorsel.includes('.mp4') || gorsel.includes('video')
+    const gorselTag  = gorsel
+      ? `<enclosure url="${gorsel}" type="${isVideo ? 'video/mp4' : 'image/jpeg'}" length="0"/>`
+      : ''
+
+    // Media RSS — bazı okuyucular bu formatı tercih eder
+    const mediaTag = gorsel
+      ? `<media:content url="${gorsel}" medium="${isVideo ? 'video' : 'image'}"/>`
+      : ''
 
     return `    <item>
-      <title><![CDATA[${h.site_basligi || h.baslik}]]></title>
+      <title><![CDATA[${baslik}]]></title>
       <link>${link}</link>
       <guid isPermaLink="false">${h.source_id}</guid>
       <pubDate>${tarih}</pubDate>
-      <description><![CDATA[${h.optimize_icerik || h.icerik || ''}]]></description>
+      <description><![CDATA[${icerik}
+
+🔗 Facebook: ${link}]]></description>
       <category><![CDATA[${h.kategori || 'Kayseri'}]]></category>
       ${gorselTag}
+      ${mediaTag}
     </item>`
   }).join('\n')
 
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0"
+  xmlns:atom="http://www.w3.org/2005/Atom"
+  xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>Kayseradar Haber Akışı</title>
-    <link>https://rdr.ist</link>
-    <description>Kayseradar — Kayseri haber akışı, kayserim.net otomasyon sistemi</description>
+    <link>https://www.facebook.com/radarkayseri</link>
+    <description>Radar Kayseri — Facebook haberleri, SEO optimize, kayserim.net otomasyon sistemi</description>
     <language>tr</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <atom:link href="https://rdr.ist/api/radar-feed" rel="self" type="application/rss+xml"/>
