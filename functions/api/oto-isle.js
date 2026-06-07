@@ -439,8 +439,15 @@ export async function onRequestGet({ env, request }) {
           tarih_iso:haber.tarih_iso, kaydedildi:new Date().toISOString(),
           kayserim_link:'', durum:'islendi'
         }
-        mevcut = [kayit,...mevcut.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
-        await env.HABERLER.put('liste', JSON.stringify(mevcut))
+        // Kaynak kontrolü — radar_fb ise ayrı listeye
+        if (haber.kaynak === 'radar_fb') {
+          let radarListe = (await env.HABERLER.get('radar_liste','json')) || []
+          radarListe = [kayit, ...radarListe.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
+          await env.HABERLER.put('radar_liste', JSON.stringify(radarListe), { expirationTtl: 60*60*24*10 })
+        } else {
+          mevcut = [kayit,...mevcut.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
+          await env.HABERLER.put('liste', JSON.stringify(mevcut))
+        }
         basarili.push(kayit.url_slug||haber.source_id)
       } catch(e) { hatali.push({ id:haber.source_id, hata:e.message }) }
     }
