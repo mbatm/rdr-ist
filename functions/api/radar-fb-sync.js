@@ -99,14 +99,17 @@ export async function onRequestGet({ request, env }) {
   // Son 50 gönderiyi çek
   const fields = 'id,message,story,created_time,full_picture,picture,permalink_url,attachments'
   const fbRes  = await fetch(
-    `https://graph.facebook.com/v21.0/${pageId}/posts?fields=${fields}&limit=50&access_token=${pageToken}`
+    `https://graph.facebook.com/v21.0/${pageId}/posts?fields=${fields}&limit=50&access_token=${pageToken}`,
+    { headers: { 'Accept-Charset': 'utf-8' } }
   )
   if (!fbRes.ok) {
     const err = await fbRes.text()
     return Response.json({ hata: `FB API hatası: ${fbRes.status} — ${err.slice(0,200)}` }, { status: 500 })
   }
 
-  const fbData = await fbRes.json()
+  // UTF-8 encoding garantisi
+  const fbText = await fbRes.text()
+  const fbData = JSON.parse(fbText)
   const posts  = fbData.data || []
 
   // Filtrele ve dönüştür
