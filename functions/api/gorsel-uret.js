@@ -204,7 +204,7 @@ export async function onRequestGet({ request, env }) {
     if (env.HABERLER && (yatayUrl || dikeyUrl)) {
       try {
         const kvKey = `kadraj_onizleme:${cacheKey}`
-        await env.HABERLER.put(kvKey, JSON.stringify(sonuc), { expirationTtl: 60 * 60 * 24 * 7 })
+        await env.HABERLER.put(kvKey, JSON.stringify(sonuc), { expirationTtl: 60 * 60 * 24 * 10 })
       } catch(e) { /* devam */ }
     }
 

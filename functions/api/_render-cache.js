@@ -37,7 +37,7 @@ export async function cacheSet(env, hash, url, meta = {}) {
     await env.HABERLER.put(
       `render_cache:${hash}`,
       JSON.stringify({ url, tarih: new Date().toISOString(), ...meta }),
-      { expirationTtl: 60 * 60 * 24 * 30 }
+      { expirationTtl: 60 * 60 * 24 * 10 }
     )
   } catch {}
 }

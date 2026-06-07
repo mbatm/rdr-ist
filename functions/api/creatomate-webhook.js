@@ -32,7 +32,7 @@ export async function onRequestPost({ request, env }) {
       if (tip === 'gorsel') {
         // Görsel KV cache güncelle
         await env.HABERLER.put(`gorsel:${sourceId}:${format}`, url, {
-          expirationTtl: 60 * 60 * 24 * 30 // 30 gün
+          expirationTtl: 60 * 60 * 24 * 10 // 30 gün
         })
       } else if (tip === 'video') {
         // Video URL KV güncelle
@@ -46,7 +46,7 @@ export async function onRequestPost({ request, env }) {
           url,
           render_url: url,
           snapshot: snapshot_url || '',
-        }), { expirationTtl: 60 * 60 * 24 * 7 }) // 7 gün
+        }), { expirationTtl: 60 * 60 * 24 * 10 }) // 7 gün
       }
     } else {
       // source_id yoksa sadece render_id ile kaydet
@@ -56,7 +56,7 @@ export async function onRequestPost({ request, env }) {
           url,
           render_url: url,
           snapshot: snapshot_url || '',
-        }), { expirationTtl: 60 * 60 * 24 * 7 })
+        }), { expirationTtl: 60 * 60 * 24 * 10 })
       }
     }
 

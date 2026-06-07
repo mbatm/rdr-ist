@@ -53,7 +53,7 @@ export async function onRequestGet({ request, env }) {
         url: renderUrl,
         render_url: renderUrl,
         snapshot: render.snapshot_url || '',
-      }), { expirationTtl: 60 * 60 * 24 * 7 })
+      }), { expirationTtl: 60 * 60 * 24 * 10 })
     } catch(e) {}
   }
 

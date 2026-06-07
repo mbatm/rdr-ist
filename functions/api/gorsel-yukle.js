@@ -15,7 +15,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ hata: `Dosya çok büyük (${boyutMB.toFixed(1)}MB). Maksimum 20MB.` }, { status: 413 })
     }
     const key = `gorsel_${source_id}_${format}`
-    await env.HABERLER.put(key, data, { expirationTtl: 86400 * 7 }) // 7 gün
+    await env.HABERLER.put(key, data, { expirationTtl: 86400 * 10 }) // 7 gün
     const url = `https://rdr.ist/api/gorsel-getir?id=${encodeURIComponent(key)}`
     return Response.json({ ok: true, url })
   } catch (e) {

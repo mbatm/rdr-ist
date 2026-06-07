@@ -94,7 +94,7 @@ export async function onRequestPost({ request, env }) {
     if (cacheKey && sonuclar.some(r => r.url)) {
       try {
         await env.HABERLER.put(cacheKey, JSON.stringify(sonuclar), {
-          expirationTtl: 60 * 60 * 24 * 30
+          expirationTtl: 60 * 60 * 24 * 10
         })
       } catch(e) {}
     }
