@@ -223,7 +223,13 @@ function parseRSS(xml) {
     const node = m[1]
     const link = node.match(/<link>(.*?)<\/link>/)?.[1]?.trim() || ''
     const id   = link.split('/').pop() || link
-    const bas  = node.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
+    const basRaw = node.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
+    // 1HA prefix temizle: "KAYSERİ (1HA) -", "ANKARA (1HA) -", "(1HA) -" vb.
+    const bas = basRaw
+      .replace(/^[A-ZÇĞİÖŞÜa-zçğışöşü\s]+\(1HA\)\s*[-–—]\s*/i, '')
+      .replace(/^\(1HA\)\s*[-–—]\s*/i, '')
+      .replace(/^1HA\s*[-–—]\s*/i, '')
+      .trim()
     const icerik = node.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1]?.replace(/<[^>]*>/g,'').trim() || ''
     const kat  = node.match(/<category>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/category>/)?.[1]?.trim() || 'Genel'
     const dt   = node.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]?.trim() || ''
