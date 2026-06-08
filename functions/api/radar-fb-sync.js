@@ -37,6 +37,44 @@ function isReklam(mesaj) {
   return false
 }
 
+// İçerik orijinallik kontrolü
+// Kural 1: 200 karakterden uzun metin = kendi içeriği değil (1ha/kayserim.net paylaşımı)
+// Kural 2: 1ha başlıklarıyla %70+ kelime örtüşmesi = zaten akışta var
+function isOrijinalRadarGonderisi(mesaj, mevcutBasliklar = []) {
+  if (!mesaj) return false
+
+  const temiz = mesaj.replace(/https?:\/\/\S+/g, '').trim()  // linkleri çıkar
+
+  // Kural 1: Çok uzun metin — büyük ihtimalle kopyalanmış haber içeriği
+  if (temiz.length > 280) return false
+
+  // Kural 2: Kelime örtüşmesi — 1ha/liste başlıklarıyla karşılaştır
+  if (mevcutBasliklar.length > 0) {
+    const mesajKelimeler = new Set(
+      temiz.toLowerCase()
+        .replace(/[^a-z0-9ğüşıöçğüşıöç\s]/gi, '')
+        .split(/\s+/)
+        .filter(k => k.length > 3)
+    )
+
+    for (const baslik of mevcutBasliklar.slice(0, 50)) {  // Son 50 haberi kontrol et
+      const baslikKelimeler = baslik.toLowerCase()
+        .replace(/[^a-z0-9ğüşıöçğüşıöç\s]/gi, '')
+        .split(/\s+/)
+        .filter(k => k.length > 3)
+
+      if (baslikKelimeler.length === 0) continue
+
+      const eslesenler = baslikKelimeler.filter(k => mesajKelimeler.has(k))
+      const oran = eslesenler.length / baslikKelimeler.length
+
+      if (oran >= 0.7) return false  // %70+ örtüşme — zaten akışta
+    }
+  }
+
+  return true  // Orijinal Radar gönderisi
+}
+
 // Facebook post'u habere dönüştür
 function postToHaber(post, sayfaAdi) {
   const mesaj   = post.message || post.story || ''
@@ -112,8 +150,15 @@ export async function onRequestGet({ request, env }) {
   const fbData = JSON.parse(fbText)
   const posts  = fbData.data || []
 
+  // Mevcut 1ha listesinden başlıkları al — örtüşme kontrolü için
+  let mevcutBasliklar = []
+  try {
+    const liste = await env.HABERLER.get('liste', 'json') || []
+    mevcutBasliklar = liste.map(h => h.baslik || h.site_basligi || '').filter(Boolean)
+  } catch {}
+
   // Filtrele ve dönüştür
-  const haberler  = []
+  const haberler   = []
   const atlananlar = []
 
   for (const post of posts) {
@@ -122,6 +167,12 @@ export async function onRequestGet({ request, env }) {
 
     if (isReklam(mesaj)) {
       atlananlar.push({ id: post.id, sebep: 'reklam', onizleme: mesaj.slice(0,60) })
+      continue
+    }
+
+    // Orijinallik kontrolü — 280+ karakter veya 1ha ile %70 örtüşme ise atla
+    if (!isOrijinalRadarGonderisi(mesaj, mevcutBasliklar)) {
+      atlananlar.push({ id: post.id, sebep: 'kopya_icerik', onizleme: mesaj.slice(0,60) })
       continue
     }
 
@@ -140,13 +191,18 @@ export async function onRequestGet({ request, env }) {
     expirationTtl: 60 * 60 * 24 * 10
   })
 
+  const reklamSayisi    = atlananlar.filter(a => a.sebep === 'reklam').length
+  const kopyaSayisi     = atlananlar.filter(a => a.sebep === 'kopya_icerik').length
+
   return Response.json({
     ok: true,
-    sayfa:      sayfaAdi,
-    cekildi:    posts.length,
-    eklendi:    yeniHaberler.length,
-    toplam:     guncellenmis.length,
-    filtrelendi: atlananlar.length,
-    atlananlar: atlananlar.slice(0, 5),
+    sayfa:         sayfaAdi,
+    cekildi:       posts.length,
+    eklendi:       yeniHaberler.length,
+    toplam:        guncellenmis.length,
+    filtrelendi:   atlananlar.length,
+    reklam:        reklamSayisi,
+    kopya_icerik:  kopyaSayisi,
+    atlananlar:    atlananlar.slice(0, 5),
   })
 }
