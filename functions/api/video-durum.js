@@ -43,9 +43,26 @@ export async function onRequestGet({ request, env }) {
   if (!render) return Response.json({ hata: 'Render bulunamadı' }, { status: 404 })
 
   const succeeded = rawStatus === 'succeeded'
-  const renderUrl = succeeded ? (render.url || null) : null
+  const renderUrlRaw = succeeded ? (render.url || null) : null
 
-  // Tamamlandıysa KV'ye de yaz (webhook gelmemiş olabilir)
+  // Tamamlandıysa Backblaze URL'yi R2'ye kopyala — Instagram erişebilsin
+  let renderUrl = renderUrlRaw
+  if (succeeded && renderUrlRaw && renderUrlRaw.includes('backblazeb2.com') && env.MEDYA) {
+    try {
+      const ext = renderUrlRaw.includes('.mp4') ? 'mp4' : 'png'
+      const res = await fetch(renderUrlRaw)
+      if (res.ok) {
+        const buf = await res.arrayBuffer()
+        const key = `render/${renderId}.${ext}`
+        await env.MEDYA.put(key, buf, {
+          httpMetadata: { contentType: ext === 'mp4' ? 'video/mp4' : 'image/png' }
+        })
+        renderUrl = `https://medya.rdr.ist/${key}`
+      }
+    } catch(e) {}
+  }
+
+  // KV'ye yaz
   if (succeeded && renderUrl && env.HABERLER) {
     try {
       await env.HABERLER.put(`render:${renderId}`, JSON.stringify({
