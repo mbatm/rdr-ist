@@ -2004,12 +2004,38 @@ function Isleme({ content, processing, error, selectedHaber }) {
       ) || <EField ec={ec} set={set} label="Optimize içerik" field="optimize_icerik" multi rows={6}/>}
 
       <div style={{marginBottom:'0.75rem'}}>
-        <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>
-          kayserim.net linki
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em',
+          display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span>kayserim.net linki</span>
+          <button onClick={async () => {
+            const slug = ec?.url_slug || selectedHaber?.url_slug
+            if (!slug) { alert('Önce haberi kaydedin — URL slug gerekli'); return }
+            try {
+              const res  = await fetch(`/api/kayserim-api?endpoint=link-bul&slug=${encodeURIComponent(slug)}`)
+              const data = await res.json()
+              if (data.ok && data.url) {
+                setLink(data.url)
+              } else {
+                // Bulunamadı — slug'dan tahmin
+                setLink(`https://www.kayserim.net/haber/${slug}`)
+              }
+            } catch(e) {
+              setLink(`https://www.kayserim.net/haber/${ec?.url_slug || ''}`)
+            }
+          }}
+            style={{fontSize:9,padding:'2px 8px',background:'rgba(0,212,170,.1)',
+              border:'0.5px solid rgba(0,212,170,.3)',color:'#00D4AA',cursor:'pointer',borderRadius:3}}>
+            🔗 Otomatik Al
+          </button>
         </div>
         <input type="url" value={link} onChange={e=>setLink(e.target.value)}
           placeholder="https://www.kayserim.net/haber/28040684/..."
           style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
+        {!link && ec?.url_slug && (
+          <div style={{fontSize:9,color:'var(--muted)',marginTop:3}}>
+            Slug: {ec.url_slug} — "Otomatik Al" ile linki çek
+          </div>
+        )}
       </div>
 
 
