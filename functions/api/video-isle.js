@@ -37,8 +37,12 @@ export async function onRequestPost({ request, env }) {
     const apiKey = env.CREATOMATE_API_KEY
     if (!apiKey) return Response.json({ hata: 'CREATOMATE_API_KEY eksik' }, { status: 500 })
 
-    const mediaUrl  = video_url || gorsel_url
-    const isVideo   = !!video_url
+    // 1ha CDN / Backblaze URL'leri R2'ye kopyala — Creatomate erişemiyor
+    const video_url_r2  = video_url  ? await videoR2Kopyala(video_url, env)  : null
+    const gorsel_url_r2 = gorsel_url ? await videoR2Kopyala(gorsel_url, env) : null
+
+    const mediaUrl  = video_url_r2 || gorsel_url_r2 || video_url || gorsel_url
+    const isVideo   = !!video_url_r2
     const tarihStr  = tarih    || new Date().toLocaleDateString('tr-TR')
     const katStr    = (kategori || 'GÜNCEL').toUpperCase()
     const baslikStr = (baslik   || '').slice(0, 120)

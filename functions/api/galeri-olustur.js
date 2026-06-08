@@ -17,6 +17,23 @@ const tarihStr = () => {
   return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`
 }
 
+// 1ha CDN / Backblaze URL'lerini önce R2'ye kopyala — Creatomate erişemiyor
+const kaynakR2Kopyala = async (url, env) => {
+  if (!url) return url
+  if (url.includes('medya.rdr.ist')) return url
+  const sorunlu = ['1ha.com.tr', 'backblazeb2.com']
+  if (!sorunlu.some(d => url.includes(d))) return url
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return url
+    const buf = await res.arrayBuffer()
+    const ext = url.includes('.mp4') ? 'mp4' : 'jpg'
+    const key = `kaynak/${Date.now()}.${ext}`
+    await env.MEDYA.put(key, buf, { httpMetadata: { contentType: ext==='mp4' ? 'video/mp4' : 'image/jpeg' } })
+    return `https://medya.rdr.ist/${key}`
+  } catch { return url }
+}
+
 const r2Kopyala = async (url, env, ad) => {
   if (!url || !env.MEDYA) return url
   try {
@@ -107,12 +124,16 @@ export async function onRequestPost({ request, env }) {
     const kapakTpl  = KAPAK_SABLON[kaynak]?.[medya_tipi] || KAPAK_SABLON[kaynak]?.foto
     const kapakFmt  = medya_tipi === 'video' ? 'mp4' : 'png'
 
+    // Kaynak URL'leri R2'ye kopyala — 1ha CDN Creatomate'e erişilemiyor
+    const kapakUrlR2 = await kaynakR2Kopyala(kapak.url, env)
+    const digerR2 = await Promise.all(diger.map(g => kaynakR2Kopyala(g.url, env)))
+
     const kapakMods = kaynak === 'kayserim'
-      ? { 'Video-79K.source': kapak.url, 'video.source': kapak.url,
+      ? { 'Video-79K.source': kapakUrlR2, 'video.source': kapakUrlR2,
           'baslik.text': baslik, 'baslikss.text': baslik,
           'spot-baslik.text': spot_baslik, 'spot-baslik-ss.text': spot_baslik,
           'kategori.text': kategori, 'tarih.text': tarihYazi }
-      : { 'video.source': kapak.url, 'baslik.text': baslik,
+      : { 'video.source': kapakUrlR2, 'baslik.text': baslik,
           'baslik-X6C.text': baslik, 'tarih.text': tarihYazi }
 
     // Tüm render'ları başlat (beklemeden)
@@ -121,7 +142,7 @@ export async function onRequestPost({ request, env }) {
       ...diger.map(g => {
         const tpl = GALERI_SABLON[kaynak]?.[g.tip === 'video' ? 'video' : 'foto']
         const fmt = g.tip === 'video' ? 'mp4' : 'png'
-        return renderBaslat(tpl, { '16dbfe06-e201-4aa4-887b-f166f95832af': g.url }, apiKey, fmt)
+        return renderBaslat(tpl, { '16dbfe06-e201-4aa4-887b-f166f95832af': digerR2[i] || g.url }, apiKey, fmt)
       }),
     ])
 
