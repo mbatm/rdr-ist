@@ -498,6 +498,35 @@ export async function onRequestGet({ env, request }) {
     const basarili=[], hatali=[]
     for (const haber of yeniHaberler) {
       try {
+        // Radar FB haberleri — Claude çağrılmaz, orijinal içerik korunur
+        if (haber.kaynak === 'radar_fb') {
+          const seoNot = seoNotOlustur(haber.baslik, haber.icerik)
+          const kayit = {
+            source_id:     haber.source_id,
+            source_url:    haber.source_url,
+            baslik:        haber.baslik,
+            site_basligi:  haber.baslik,
+            h1_basligi:    haber.baslik,
+            icerik:        haber.icerik,
+            optimize_icerik: (haber.icerik || '') + seoNot,
+            gorsel:        haber.gorsel,
+            gorsel_url:    haber.gorsel,
+            video:         haber.video || '',
+            tarih_iso:     haber.tarih_iso,
+            kaydedildi:    new Date().toISOString(),
+            fb_link:       haber.fb_link || '',
+            kaynak:        'radar_fb',
+            kategori:      'KAYSERADAR',
+            durum:         'islendi',
+          }
+          let radarListe = (await env.HABERLER.get('radar_liste','json')) || []
+          radarListe = [kayit, ...radarListe.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
+          await env.HABERLER.put('radar_liste', JSON.stringify(radarListe), { expirationTtl: 60*60*24*10 })
+          basarili.push(haber.source_id)
+          continue
+        }
+
+        // 1ha haberleri — Claude ile SEO işleme
         const seo = await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY)
         const kayit = {
           ...seo,
@@ -513,20 +542,9 @@ export async function onRequestGet({ env, request }) {
           kaydedildi:  new Date().toISOString(),
           kayserim_link: haber.kayserim_link || '',
           durum:       'islendi',
-          // Facebook kaynaklı alanlar
-          ...(haber.fb_link  ? { fb_link:  haber.fb_link  } : {}),
-          ...(haber.kaynak   ? { kaynak:   haber.kaynak   } : {}),
         }
-        // Kaynak kontrolü — radar_fb ise not ekle ve ayrı listeye yaz
-        if (haber.kaynak === 'radar_fb') {
-          // Orijinal başlık ve içeriğe dokunma — alt kısma SEO not bloğu ekle
-          const seoNot = seoNotOlustur(haber.baslik, haber.icerik)
-          kayit.optimize_icerik = (haber.icerik || kayit.optimize_icerik || '') + seoNot
-          kayit.baslik          = haber.baslik  // Orijinal başlık korunur
-          kayit.site_basligi    = haber.baslik  // SEO başlığı da orijinal
-          let radarListe = (await env.HABERLER.get('radar_liste','json')) || []
-          radarListe = [kayit, ...radarListe.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
-          await env.HABERLER.put('radar_liste', JSON.stringify(radarListe), { expirationTtl: 60*60*24*10 })
+        if (false) {  // placeholder — aşağıdaki else bloğu için
+          void 0
         } else {
           mevcut = [kayit,...mevcut.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
           await env.HABERLER.put('liste', JSON.stringify(mevcut))
