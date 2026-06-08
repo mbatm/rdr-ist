@@ -26,6 +26,12 @@ jobs:
           SONUC=$(curl -s "https://rdr.ist/api/radar-fb-sync?secret=${{ secrets.RSS_API_KEY }}")
           echo "Radar FB: $SONUC"
 
+      - name: Bekleyen Video Container Publish
+        continue-on-error: true
+        run: |
+          SONUC=$(curl -s "https://rdr.ist/api/video-duzelt?secret=${{ secrets.RSS_API_KEY }}")
+          echo "Video container: $SONUC"
+
   ahrefs-sync:
     name: Ahrefs Keyword Sync (Pzt/Çar/Cum)
     runs-on: ubuntu-latest

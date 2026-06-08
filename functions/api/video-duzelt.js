@@ -50,8 +50,37 @@ export async function onRequestGet({ env }) {
     }
 
     const videoSayisi = liste.filter(h => h.video).length
+
+    // Bekleyen IG container'larını publish et
+    let yayinlanan = 0
+    try {
+      const containerKeys = await env.HABERLER.list({ prefix: 'ig_container:' })
+      for (const key of (containerKeys.keys || [])) {
+        try {
+          const containerId = key.name.replace('ig_container:', '')
+          const data = await env.HABERLER.get(key.name, 'json')
+          if (!data) continue
+          const statusRes = await fetch(
+            `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${data.pageToken}`
+          )
+          const statusData = await statusRes.json()
+          if (statusData.status_code === 'FINISHED') {
+            const pRes = await fetch(`https://graph.facebook.com/v21.0/${data.igId}/media_publish`, {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ creation_id: containerId, access_token: data.pageToken })
+            })
+            const pData = await pRes.json()
+            if (pData.id) { await env.HABERLER.delete(key.name); yayinlanan++ }
+          } else if (statusData.status_code === 'ERROR') {
+            await env.HABERLER.delete(key.name)
+          }
+        } catch {}
+      }
+    } catch {}
+
     return Response.json({
       guncellenen,
+      yayinlanan,
       toplam_video_haber: videoSayisi,
       toplam_kayit: liste.length
     })

@@ -213,19 +213,15 @@ export async function onRequestPost({ request, env }) {
               }
             }
             if (!published) {
-              // Zaman aşımı — bir kez daha publish dene
+              // Zaman aşımı — container_id KV'ye kaydet, video-durum endpoint'i publish eder
               try {
-                const lastPRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
-                  method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ creation_id: containerId, access_token: sayfa.page_token }),
-                })
-                const lastPData = await lastPRes.json()
-                sonuclar.instagram[igId] = lastPData.error
-                  ? { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
-                  : { ok: true, media_id: lastPData.id, ig_username: sayfa.ig_username }
-              } catch {
-                sonuclar.instagram[igId] = { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
-              }
+                await env.HABERLER.put(
+                  `ig_container:${containerId}`,
+                  JSON.stringify({ igId, pageToken: sayfa.page_token, ig_username: sayfa.ig_username, tarih: new Date().toISOString() }),
+                  { expirationTtl: 60 * 60 * 24 }  // 24 saat
+                )
+              } catch {}
+              sonuclar.instagram[igId] = { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
             }
           }
         } else if (gorsel_url) {
