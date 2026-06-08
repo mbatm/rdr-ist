@@ -2035,10 +2035,91 @@ function Isleme({ content, processing, error, selectedHaber }) {
       <Divider label="Görsel önizleme" ic="photo"/>
       <GorselOnizleme editedHaber={editedHaber} onGorsellerHazir={g=>setGUrls(g.urls)}
         onSetRefresh={fn=>{ refreshGorselRef.current = fn }}/>
+
+      {/* Kapak Fotoğrafı Değiştir */}
+      <KapakGorselDegistir
+        selectedHaber={selectedHaber}
+        onDegistir={yeniUrl => {
+          if (selectedHaber) {
+            selectedHaber.gorsel_url  = yeniUrl
+            selectedHaber.gorsel      = yeniUrl
+          }
+          set('gorsel_url', yeniUrl)
+          set('gorsel',     yeniUrl)
+          refreshGorselRef.current?.()
+        }}
+      />
     </div>
   )
 }
 
+
+// ── KAPAK GÖRSEL DEĞİŞTİR ────────────────────────────────────────────────────
+function KapakGorselDegistir({ selectedHaber, onDegistir }) {
+  const [yukleniyor, setYuk] = useState(false)
+  const [hata,       setHata] = useState(null)
+  const [yeniUrl,    setYeni] = useState(null)
+  const fileRef = useRef(null)
+
+  const yukle = async (file) => {
+    if (!file) return
+    setYuk(true); setHata(null); setYeni(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('source_id', selectedHaber?.source_id || `kapak_${Date.now()}`)
+      form.append('tip', 'gorsel')
+      const res  = await fetch('/api/medya-yukle', { method: 'POST', body: form })
+      const data = await res.json()
+      if (data.url) {
+        setYeni(data.url)
+        onDegistir?.(data.url)
+      } else {
+        setHata(data.hata || 'Yükleme başarısız')
+      }
+    } catch(e) { setHata(e.message) }
+    setYuk(false)
+  }
+
+  const mevcutGorsel = yeniUrl || selectedHaber?.gorsel_url || selectedHaber?.gorsel
+
+  return (
+    <div style={{marginBottom:'0.75rem',padding:'10px 12px',
+      background:'rgba(255,255,255,.03)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)'}}>
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+        <Ic n="photo" size={12}/> Kapak Fotoğrafı
+        {yeniUrl && <span style={{color:'#00D4AA',fontSize:10}}>✓ Değiştirildi</span>}
+      </div>
+
+      <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+        {/* Mevcut görsel önizleme */}
+        {mevcutGorsel && (
+          <img src={mevcutGorsel} alt="kapak" style={{
+            width:80, height:54, objectFit:'cover',
+            borderRadius:4, border:'1px solid var(--border)', flexShrink:0
+          }} onError={e=>e.target.style.display='none'}/>
+        )}
+
+        {/* Yükleme alanı */}
+        <div style={{flex:1}}>
+          <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}}
+            onChange={e=>{ yukle(e.target.files[0]); e.target.value='' }}/>
+          <button onClick={()=>fileRef.current?.click()} disabled={yukleniyor}
+            style={{fontSize:11,padding:'5px 12px',width:'100%',
+              background:'rgba(255,255,255,.05)',border:'0.5px solid var(--border)',
+              color:'var(--text)',cursor: yukleniyor ? 'not-allowed' : 'pointer',
+              borderRadius:4,textAlign:'left'}}>
+            {yukleniyor ? '⏳ Yükleniyor…' : '📎 Fotoğraf Değiştir'}
+          </button>
+          {hata && <div style={{fontSize:10,color:'#ff7b7b',marginTop:4}}>⚠ {hata}</div>}
+          <div style={{fontSize:9,color:'var(--muted)',marginTop:4}}>
+            JPG, PNG — ajans görseli yetersizse değiştir
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── AUTH HOOK ─────────────────────────────────────────────────────────────
 function useAuth() {
