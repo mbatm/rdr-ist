@@ -31,10 +31,9 @@ export async function onRequestPost({ request, env }) {
       } catch { return url }
     }
 
-    // Video ve görsel URL'lerini R2'ye kopyala
-    const efektifVideo  = video_url  ? await r2Kopyala(video_url, 'video')  : null
-    const efektifGorsel = (efektifGorselUrl && efektifGorselUrl !== efektifVideo)
-      ? await r2Kopyala(efektifGorselUrl, 'gorsel') : efektifGorselUrl
+    // Video ve görsel URL'lerini R2'ye kopyala — Instagram Backblaze/1ha/CDN'e erişemiyor
+    const efektifVideo  = video_url  ? await r2Kopyala(video_url,  'video')  : null
+    const efektifGorsel = efektifGorselUrl ? await r2Kopyala(efektifGorselUrl, 'gorsel') : null
 
     const meta     = await env.HABERLER.get('meta_tokens', 'json') || {}
     const hesaplar = meta.hesaplar || []
