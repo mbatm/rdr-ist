@@ -467,6 +467,12 @@ export async function onRequestGet({ env, request }) {
     const items = [...items1ha, ...radarItems]
     let mevcut      = (await env.HABERLER.get('liste','json')) || []
     let radarMevcut = (await env.HABERLER.get('radar_liste','json')) || []
+
+    // 4 günden eski haberleri listeden çıkar
+    const sinirTemiz = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+    mevcut      = mevcut.filter(h => (h.tarih_iso || h.kaydedildi || '') >= sinirTemiz)
+    radarMevcut = radarMevcut.filter(h => (h.tarih_iso || h.kaydedildi || '') >= sinirTemiz)
+
     // Her iki listeden mevcut ID'leri topla
     const mevcutIds = new Set([
       ...mevcut.map(h=>h.source_id),
@@ -520,7 +526,11 @@ export async function onRequestGet({ env, request }) {
             durum:         'islendi',
           }
           let radarListe = (await env.HABERLER.get('radar_liste','json')) || []
-          radarListe = [kayit, ...radarListe.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
+          const sinirR = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+          radarListe = [kayit, ...radarListe.filter(h =>
+            h.source_id !== haber.source_id &&
+            (h.tarih_iso || h.kaydedildi || '') >= sinirR
+          )].slice(0, 500)
           await env.HABERLER.put('radar_liste', JSON.stringify(radarListe), { expirationTtl: 60*60*24*10 })
           basarili.push(haber.source_id)
           continue
@@ -543,10 +553,15 @@ export async function onRequestGet({ env, request }) {
           kayserim_link: haber.kayserim_link || '',
           durum:       'islendi',
         }
-        if (false) {  // placeholder — aşağıdaki else bloğu için
+        if (false) {  // placeholder
           void 0
         } else {
-          mevcut = [kayit,...mevcut.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
+          // 4 günden eski haberleri çıkar
+          const sinir = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+          mevcut = [kayit, ...mevcut.filter(h =>
+            h.source_id !== haber.source_id &&
+            (h.tarih_iso || h.kaydedildi || '') >= sinir
+          )].slice(0, 500)
           await env.HABERLER.put('liste', JSON.stringify(mevcut))
         }
         basarili.push(kayit.url_slug||haber.source_id)
