@@ -213,8 +213,19 @@ export async function onRequestPost({ request, env }) {
               }
             }
             if (!published) {
-              // Zaman aşımı — frontend'e container ID ver, poll etsin
-              sonuclar.instagram[igId] = { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
+              // Zaman aşımı — bir kez daha publish dene
+              try {
+                const lastPRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
+                  method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ creation_id: containerId, access_token: sayfa.page_token }),
+                })
+                const lastPData = await lastPRes.json()
+                sonuclar.instagram[igId] = lastPData.error
+                  ? { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
+                  : { ok: true, media_id: lastPData.id, ig_username: sayfa.ig_username }
+              } catch {
+                sonuclar.instagram[igId] = { bekliyor: true, container_id: containerId, ig_username: sayfa.ig_username }
+              }
             }
           }
         } else if (gorsel_url) {
