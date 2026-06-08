@@ -162,10 +162,17 @@ export async function onRequestPost({ request, env }) {
         }
         // Feed post
         else if (is_video && (efektifVideo || video_url)) {
+          // Render edilmiş video (medya.rdr.ist) ise REELS, ham video ise foto olarak paylaş
+          const kullanilanVideo = efektifVideo || video_url
+          const isR2Video = kullanilanVideo.includes('medya.rdr.ist')
+          const igMediaType = isR2Video ? 'REELS' : 'IMAGE'
+          const igBody = isR2Video
+            ? { video_url: kullanilanVideo, caption: metin, media_type: 'REELS', share_to_feed: true }
+            : { image_url: efektifGorsel || kullanilanVideo, caption: metin }
           const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
-              video_url: efektifVideo || video_url, caption:metin, media_type:'REELS', share_to_feed:true,
+              ...igBody,
               ...(ig_kolabor?.length ? { collaborators:ig_kolabor } : {}),
               access_token:sayfa.page_token
             }),
