@@ -79,6 +79,60 @@ const STRATEJI_FALLBACK = {
   }
 }
 
+
+// Radar FB haberleri için SEO not bloğu — haberin orijinaline dokunmaz
+function seoNotOlustur(baslik, icerik) {
+  const metin = (baslik + ' ' + icerik).toLowerCase()
+
+  // Trafik / Kaza
+  if (/kaza|çarpış|trafık|zincirleme|takla|devrildi|çarptı/.test(metin)) {
+    return `\n\n---\n📍 **Bölge Uyarısı:** Değerli okuyucularımız; bu haber Kayseri'de meydana gelen bir trafik kazasına ilişkindir. Söz konusu bölgeden geçmeniz ya da yakın çevrede bulunmanız durumunda dikkatli olmanızı tavsiye ederiz. Kayseri'de yaşanan trafik olaylarını ve son dakika haberlerini anlık olarak takip etmek için sayfamızı takipte kalın. Trafik kazası haberleri, yol durumu ve güzergah uyarıları için kayserim.net'i ziyaret edebilirsiniz.`
+  }
+
+  // Yangın
+  if (/yangın|alev|duman|itfaiye|yandı|tutuştu/.test(metin)) {
+    return `\n\n---\n🔥 **Önemli Uyarı:** Bu haber Kayseri'de çıkan bir yangına ilişkindir. Yangın bölgesine yaklaşmaktan kaçınmanızı, görevlilerin uyarılarına uymanızı ve bölgede trafik yoğunluğu olabileceğini göz önünde bulundurmanızı tavsiye ederiz. Kayseri yangın haberleri ve acil durum bildirimleri için kayserim.net'i takip edin.`
+  }
+
+  // Kayıp kişi
+  if (/kayıp|kaybolan|aranıyor|bulunama|haber alınam/.test(metin)) {
+    return `\n\n---\n🆘 **Acil Duyuru:** Bu haber kayıp bir kişiye ilişkin önemli bir duyurudur. Söz konusu kişi hakkında bilgisi olanların en yakın emniyet müdürlüğüne veya 155 polis imdat hattına başvurması rica olunur. Kayseri'de kayıp ihbarları ve arama çalışmalarına ilişkin güncel bilgilere kayserim.net üzerinden ulaşabilirsiniz.`
+  }
+
+  // Hırsızlık / Gasp / Dolandırıcılık
+  if (/hırsız|gasp|dolandır|çaldı|soygun|kapkaç/.test(metin)) {
+    return `\n\n---\n⚠️ **Güvenlik Uyarısı:** Bu haber bölgede yaşanan bir güvenlik olayına ilişkindir. Çevrenizde şüpheli bir durum fark ettiğinizde emniyet güçlerine 155 numaralı hattı arayarak bilgi verebilirsiniz. Kayseri asayiş haberleri ve güvenlik uyarıları için kayserim.net'i takip edin.`
+  }
+
+  // Doğal afet / Sel / Dolu
+  if (/sel|su baskın|dolu|fırtına|heyelan|deprem/.test(metin)) {
+    return `\n\n---\n🌊 **Doğal Afet Uyarısı:** Bu haber Kayseri'de yaşanan bir doğal afet olayına ilişkindir. AFAD ve yetkili kurumlara 122 numaralı hat üzerinden ulaşabilirsiniz. Güvenli bir alanda kalmanızı ve resmi açıklamaları takip etmenizi tavsiye ederiz. Kayseri'deki doğal afet haberleri için kayserim.net'i ziyaret edin.`
+  }
+
+  // Kan / Organ ihtiyacı
+  if (/kan ihtiyac|kan arıyor|donör|organ bağış/.test(metin)) {
+    return `\n\n---\n🩸 **Acil Çağrı:** Bu haber acil kan veya organ ihtiyacına ilişkindir. Yardımcı olmak isteyenler en yakın kan merkezine ya da 182 numaralı Kızılay hattına başvurabilir. Kayseri'deki acil ihtiyaç duyurularını takip etmek için kayserim.net'i ziyaret edin.`
+  }
+
+  // Bulunmuş eşya / Kayıp hayvan
+  if (/bulundu|kayıp köpek|kayıp kedi|kayıp hayvan|sahipsiz/.test(metin)) {
+    return `\n\n---\n🐾 **Duyuru:** Bu haber bulunan veya kaybolan bir varlığa ilişkin bir duyurudur. Bilgisi olanlar Radar Kayseri sosyal medya hesapları üzerinden veya yetkili birimler aracılığıyla iletişime geçebilir. Kayseri gündem haberleri ve duyuruları için kayserim.net'i takip edin.`
+  }
+
+  // Tıbbi / Sağlık acil
+  if (/ambulans|hastane|yaralı|hayatını kaybetti|vefat|cenaze|sağlık/.test(metin)) {
+    return `\n\n---\n🏥 **Bilgilendirme:** Bu haber tıbbi bir olay ya da sağlıkla ilgili bir gelişmeye ilişkindir. Acil sağlık yardımı için 112 numaralı hattı arayabilirsiniz. Kayseri sağlık haberleri ve acil durum bildirimleri için kayserim.net'i takip edin.`
+  }
+
+  // Ekonomi / Fiyat
+  if (/fiyat|zam|indirim|kampanya|ekonomi|dolar|euro|altın/.test(metin)) {
+    return `\n\n---\n💰 **Ekonomi Notu:** Kayseri'deki güncel fiyat değişimleri, ekonomik gelişmeler ve piyasa haberleri için kayserim.net'i ziyaret edin. Kayserim.net olarak şehrin ekonomik nabzını sürekli takip ediyor, doğru ve güncel bilgileri sizlerle paylaşıyoruz.`
+  }
+
+  // Genel haber — varsayılan
+  return `\n\n---\n📰 **Editör Notu:** Kayseri'den son dakika haberleri, gelişmeler ve duyurular için kayserim.net'i takip etmeye devam edin. Radar Kayseri iş birliğiyle derlenen bu ve benzeri haberler anlık olarak güncellenmektedir.`
+}
+
 // Fırsat keyword seç
 // Format: [keyword, volume, difficulty, traffic_potential?]
 // traffic_potential öncelikli, difficulty 0 ise büyük avantaj
@@ -463,8 +517,13 @@ export async function onRequestGet({ env, request }) {
           ...(haber.fb_link  ? { fb_link:  haber.fb_link  } : {}),
           ...(haber.kaynak   ? { kaynak:   haber.kaynak   } : {}),
         }
-        // Kaynak kontrolü — radar_fb ise ayrı listeye
+        // Kaynak kontrolü — radar_fb ise not ekle ve ayrı listeye yaz
         if (haber.kaynak === 'radar_fb') {
+          // Orijinal başlık ve içeriğe dokunma — alt kısma SEO not bloğu ekle
+          const seoNot = seoNotOlustur(haber.baslik, haber.icerik)
+          kayit.optimize_icerik = (haber.icerik || kayit.optimize_icerik || '') + seoNot
+          kayit.baslik          = haber.baslik  // Orijinal başlık korunur
+          kayit.site_basligi    = haber.baslik  // SEO başlığı da orijinal
           let radarListe = (await env.HABERLER.get('radar_liste','json')) || []
           radarListe = [kayit, ...radarListe.filter(h=>h.source_id!==haber.source_id)].slice(0,200)
           await env.HABERLER.put('radar_liste', JSON.stringify(radarListe), { expirationTtl: 60*60*24*10 })
