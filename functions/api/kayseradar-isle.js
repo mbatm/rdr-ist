@@ -22,9 +22,9 @@ export async function onRequestPatch({ request, env }) {
     await env.HABERLER.put(`radar:${id}`, JSON.stringify(guncellenmis))
 
     // Liste kaydını da güncelle
-    const liste = await env.HABERLER.get('radar_liste', 'json') || []
+    const liste = await env.HABERLER.get('radar_panel_liste', 'json') || []
     const yeniListe = liste.map(li => li.id === id ? { ...li, render_url } : li)
-    await env.HABERLER.put('radar_liste', JSON.stringify(yeniListe.slice(0, 200)))
+    await env.HABERLER.put('radar_panel_liste', JSON.stringify(yeniListe.slice(0, 200)))
 
     return Response.json({ ok: true })
   } catch(e) {
@@ -297,7 +297,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
     await env.HABERLER.put(`radar:${id}`, JSON.stringify(kayit))
 
     // Liste güncelle
-    const liste = await env.HABERLER.get('radar_liste', 'json') || []
+    const liste = await env.HABERLER.get('radar_panel_liste', 'json') || []
     // Render URL'yi bul (hazırsa)
     const ilkRender = kayit.creatomate?.[0]
     const renderUrl = ilkRender?.url || null
@@ -313,7 +313,7 @@ Sadece JSON döndür, başka hiçbir şey yazma:
       render_url:  renderUrl,
       render_id:   ilkRender?.render_id || null,
     })
-    await env.HABERLER.put('radar_liste', JSON.stringify(liste.slice(0, 200)))
+    await env.HABERLER.put('radar_panel_liste', JSON.stringify(liste.slice(0, 200)))
 
     return Response.json({ ok: true, id, kayit })
   } catch(e) {
@@ -335,6 +335,6 @@ export async function onRequestGet({ request, env }) {
     const kayit = await env.HABERLER.get(`radar:${id}`, 'json')
     return kayit ? Response.json(kayit) : Response.json({ hata: 'Bulunamadı' }, { status: 404 })
   }
-  const liste = await env.HABERLER.get('radar_liste', 'json') || []
+  const liste = await env.HABERLER.get('radar_panel_liste', 'json') || []
   return Response.json(liste)
 }

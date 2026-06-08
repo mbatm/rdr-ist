@@ -66,8 +66,8 @@ export async function onRequestPost({ request, env }) {
   await env.HABERLER.delete(`radar:${id}`)
 
   // Listeden kaldır
-  const liste = await env.HABERLER.get('radar_liste', 'json') || []
-  await env.HABERLER.put('radar_liste', JSON.stringify(liste.filter(l => l.id !== id)))
+  const liste = await env.HABERLER.get('radar_panel_liste', 'json') || []
+  await env.HABERLER.put('radar_panel_liste', JSON.stringify(liste.filter(l => l.id !== id)))
 
   // Log
   try {

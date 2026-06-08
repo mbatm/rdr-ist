@@ -112,10 +112,10 @@ export async function onRequestPost({ request, env }) {
     await env.HABERLER.put(`radar:${id}`, JSON.stringify(guncellendi))
 
     // Liste güncelle
-    const liste = await env.HABERLER.get('radar_liste', 'json') || []
+    const liste = await env.HABERLER.get('radar_panel_liste', 'json') || []
     const idx   = liste.findIndex(l => l.id === id)
     if (idx >= 0) liste[idx].durum = 'yayinda'
-    await env.HABERLER.put('radar_liste', JSON.stringify(liste))
+    await env.HABERLER.put('radar_panel_liste', JSON.stringify(liste))
 
     // Log
     try {
