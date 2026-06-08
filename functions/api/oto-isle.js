@@ -337,6 +337,24 @@ function parseRSS(xml) {
 
 // ── CLAUDE ÇAĞRISI ─────────────────────────────────────────────────────────
 // Haber icin anlik Ahrefs keyword verisi cek (her haber islendiginde)
+// Haber medyasını R2'ye kopyala — 1ha CDN URL'leri geçici, R2'ye alınmalı
+async function medyaR2Kopyala(url, env, tip = 'gorsel') {
+  if (!url || url.includes('medya.rdr.ist')) return url
+  const sorunlu = ['1ha.com.tr', 'backblazeb2.com', 'cdn.']
+  if (!sorunlu.some(d => url.includes(d))) return url
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return url
+    const buf  = await res.arrayBuffer()
+    const ext  = tip === 'video' ? 'mp4' : (url.includes('.png') ? 'png' : 'jpg')
+    const key  = `haber_medya/${Date.now()}_${Math.random().toString(36).slice(2,5)}.${ext}`
+    await env.MEDYA.put(key, buf, {
+      httpMetadata: { contentType: tip === 'video' ? 'video/mp4' : `image/${ext}` }
+    })
+    return `https://medya.rdr.ist/${key}`
+  } catch { return url }
+}
+
 async function anlikKwCek(haber, ahrefsKey) {
   if (!ahrefsKey) return null
   try {
@@ -536,7 +554,11 @@ export async function onRequestGet({ env, request }) {
           continue
         }
 
-        // 1ha haberleri — Claude ile SEO işleme
+        // 1ha haberleri — önce medya URL'lerini R2'ye kopyala
+        if (haber.gorsel) haber.gorsel = await medyaR2Kopyala(haber.gorsel, env, 'gorsel')
+        if (haber.video)  haber.video  = await medyaR2Kopyala(haber.video,  env, 'video')
+
+        // Claude ile SEO işleme
         const seo = await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY)
         const kayit = {
           ...seo,
