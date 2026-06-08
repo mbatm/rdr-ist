@@ -10,6 +10,32 @@ export async function onRequestPost({ request, env }) {
     const efektifGorselUrl = gorsel_url || (is_carousel && galeri_urls?.[0]) || null
     if (!efektifGorselUrl && !video_url) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
 
+    // R2'ye kopyala — Instagram 1ha CDN ve Backblaze URL'lerine erişemiyor
+    const r2Kopyala = async (url, tip = 'gorsel') => {
+      if (!url) return url
+      // Zaten medya.rdr.ist ise kopyalama
+      if (url.includes('medya.rdr.ist')) return url
+      // Sadece bilinen sorunlu domain'leri kopyala
+      const sorunlu = ['backblazeb2.com', '1ha.com.tr', 'creatomate-c8xg3hsxdu', 'cdn.']
+      if (!sorunlu.some(d => url.includes(d))) return url
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return url
+        const buf = await res.arrayBuffer()
+        const ext = tip === 'video' ? 'mp4' : 'jpg'
+        const key = `paylas/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`
+        await env.MEDYA.put(key, buf, {
+          httpMetadata: { contentType: tip === 'video' ? 'video/mp4' : 'image/jpeg' }
+        })
+        return `https://medya.rdr.ist/${key}`
+      } catch { return url }
+    }
+
+    // Video ve görsel URL'lerini R2'ye kopyala
+    const efektifVideo  = video_url  ? await r2Kopyala(video_url, 'video')  : null
+    const efektifGorsel = (efektifGorselUrl && efektifGorselUrl !== efektifVideo)
+      ? await r2Kopyala(efektifGorselUrl, 'gorsel') : efektifGorselUrl
+
     const meta     = await env.HABERLER.get('meta_tokens', 'json') || {}
     const hesaplar = meta.hesaplar || []
     if (!hesaplar.length) return Response.json({ hata: 'Bağlı hesap bulunamadı.' }, { status: 401 })
