@@ -22,6 +22,23 @@ function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
 
 import { renderHash, cacheGet, cacheSet } from './_render-cache.js'
 
+// 1ha CDN / Backblaze URL'lerini R2'ye kopyala — Creatomate erişemiyor
+async function videoR2Kopyala(url, env) {
+  if (!url) return url
+  if (url.includes('medya.rdr.ist')) return url
+  const sorunlu = ['1ha.com.tr', 'backblazeb2.com', 'cdn.']
+  if (!sorunlu.some(d => url.includes(d))) return url
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return url
+    const buf = await res.arrayBuffer()
+    const ext = url.includes('.mp4') ? 'mp4' : 'jpg'
+    const key = `video_isle/${Date.now()}.${ext}`
+    await env.MEDYA.put(key, buf, { httpMetadata: { contentType: ext === 'mp4' ? 'video/mp4' : 'image/jpeg' } })
+    return `https://medya.rdr.ist/${key}`
+  } catch { return url }
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const {
