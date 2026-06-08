@@ -111,6 +111,13 @@ export async function onRequestGet({ request, env }) {
   if (secret !== env.RSS_API_KEY)
     return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
 
+  // Sıfırdan yaz — mevcut listeyi temizle
+  const sifirla = url.searchParams.get('sifirla') === '1'
+  if (sifirla) {
+    await env.HABERLER.delete('radar_fb_posts').catch(()=>{})
+    await env.HABERLER.delete('radar_liste').catch(()=>{})
+  }
+
   // meta_tokens'tan sayfa token'ını al
   const meta = await env.HABERLER.get('meta_tokens', 'json')
   if (!meta?.hesaplar) return Response.json({ hata: 'Meta token bulunamadı' }, { status: 500 })
