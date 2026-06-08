@@ -4858,7 +4858,26 @@ function GaleriModul({ user, onGeri }) {
       {/* Sekme */}
       <div style={{display:'flex',gap:6,marginBottom:16}}>
         {[['kayserim','Kayserim.net','#00D4AA'],['radar','Kayseradar','#E63946']].map(([id,lbl,renk])=>(
-          <button key={id} onClick={()=>{ setSekme(id); setSonuc(null) }}
+          <button key={id} onClick={()=>{
+              setSekme(id)
+              setSonuc(null)
+              setHata(null)
+              // Radar sekmesine geçince 1ha verilerini temizle
+              if (id === 'radar') {
+                setBaslik('')
+                setSpot('')
+                setKategori('GÜNCEL')
+                setMedyaSync([])
+                setSecilenAkis(null)
+              }
+              // Kayserim sekmesine geçince radar verilerini temizle
+              if (id === 'kayserim') {
+                setBaslik('')
+                setSpot('')
+                setKategori('GÜNCEL')
+                setMedyaSync([])
+              }
+            }}
             style={{flex:1,padding:'8px 0',fontSize:13,fontWeight:600,
               background: sekme===id ? `rgba(${id==='kayserim'?'0,212,170':'230,57,70'},.15)` : 'transparent',
               border: `1.5px solid ${sekme===id ? renk : 'var(--border)'}`,
