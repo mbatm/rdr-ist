@@ -9,7 +9,19 @@
  */
 export async function onRequestGet({ env }) {
   try {
-    const haberler = (await env.HABERLER.get('liste', 'json')) || []
+    const haberler      = (await env.HABERLER.get('liste', 'json'))       || []
+    const radarHaberler = (await env.HABERLER.get('radar_liste', 'json')) || []
+
+    // Radar haberlerini Kayseradar kategorisiyle işaretle
+    const radarIsaretli = radarHaberler.map(h => ({
+      ...h,
+      kategori:   'KAYSERADAR',
+      _kayseradar: true,
+    }))
+
+    // Birleştir — tarihe göre sırala (en yeni önce)
+    const tumHaberler = [...haberler, ...radarIsaretli]
+      .sort((a, b) => new Date(b.tarih_iso || b.kaydedildi) - new Date(a.tarih_iso || a.kaydedildi))
 
     const esc = s => String(s || '')
       .replace(/&/g, '&amp;')
@@ -35,7 +47,7 @@ export async function onRequestGet({ env }) {
       return 'YEREL HABER'
     }
 
-    const items = haberler.slice(0, 100).map(h => {
+    const items = tumHaberler.slice(0, 150).map(h => {
       const haberKodu = esc(h.url_slug || h.id || '')
       const gorselUrl = h.gorsel_url || h.gorsel || ''
       const gorselKodu = haberKodu + '-1'
@@ -54,9 +66,10 @@ export async function onRequestGet({ env }) {
       return `
   <item>
     <HaberKodu>${esc(haberKodu)}</HaberKodu>
-    <UstKategori>${esc(ustKat(h.kategori))}</UstKategori>
+    <UstKategori>${h._kayseradar ? 'KAYSERADAR' : esc(ustKat(h.kategori))}</UstKategori>
     <Kategori>${esc((h.kategori || 'GENEL').toUpperCase())}</Kategori>
     <Sehir>KAYSERİ</Sehir>
+    ${h._kayseradar && h.fb_link ? `<link>${esc(h.fb_link)}</link>` : ''}
     <SonDakika>${sonDakika}</SonDakika>
     <title>${esc(h.site_basligi || h.baslik || '')}</title>
     <description><![CDATA[ ${h.meta_description || h.ozet || ''} ]]></description>
