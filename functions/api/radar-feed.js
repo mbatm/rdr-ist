@@ -14,14 +14,16 @@ export async function onRequestGet({ env }) {
     const icerik = h.optimize_icerik || h.icerik || ''
 
     // Görsel enclosure — RSS okuyucuların görseli göstermesi için
-    const isVideo    = gorsel.includes('.mp4') || gorsel.includes('video')
-    const gorselTag  = gorsel
-      ? `<enclosure url="${gorsel}" type="${isVideo ? 'video/mp4' : 'image/jpeg'}" length="0"/>`
+    // Video: önce post'un video alanı, yoksa görsel mp4 kontrolü
+    const videoSrc = h.video || ''
+    const isVideo  = !!videoSrc || gorsel.includes('.mp4')
+    const mediaSrc = videoSrc || gorsel
+    const gorselTag = mediaSrc
+      ? `<enclosure url="${mediaSrc}" type="${isVideo ? 'video/mp4' : 'image/jpeg'}" length="0"/>`
       : ''
 
-    // Media RSS — bazı okuyucular bu formatı tercih eder
-    const mediaTag = gorsel
-      ? `<media:content url="${gorsel}" medium="${isVideo ? 'video' : 'image'}"/>`
+    const mediaTag = mediaSrc
+      ? `<media:content url="${mediaSrc}" medium="${isVideo ? 'video' : 'image'}"/>`
       : ''
 
     return `    <item>

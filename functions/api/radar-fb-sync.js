@@ -80,6 +80,26 @@ function postToHaber(post, sayfaAdi) {
   const mesaj   = post.message || post.story || ''
   const gorsel  = post.full_picture || post.picture || ''
   const fbLink  = `https://www.facebook.com/${post.id.replace('_', '/posts/')}`
+
+  // Attachment'tan video URL'sini çek
+  let videoUrl = ''
+  const attachments = post.attachments?.data || []
+  for (const att of attachments) {
+    // Direkt video
+    if (att.type === 'video_inline' || att.type === 'video_autoplay') {
+      videoUrl = att.media?.source || ''
+      break
+    }
+    // Alt attachments içinde video
+    const subAtts = att.subattachments?.data || []
+    for (const sub of subAtts) {
+      if (sub.type === 'video_inline' || sub.type === 'video_autoplay' || sub.media?.source?.includes('.mp4')) {
+        videoUrl = sub.media?.source || ''
+        break
+      }
+    }
+    if (videoUrl) break
+  }
   const tarih   = post.created_time || new Date().toISOString()
 
   // Başlık: mesajın ilk satırı veya ilk 100 karakter
@@ -96,12 +116,13 @@ function postToHaber(post, sayfaAdi) {
     icerik,
     gorsel,
     gorsel_url:  gorsel,
+    video:       videoUrl,
     fb_link:     fbLink,
     fb_post_id:  post.id,
     kategori:    'Kayseri',
     tarih_iso:   tarih,
     kaynak:      sayfaAdi,
-    tip:         'facebook',
+    tip:         videoUrl ? 'video' : 'facebook',
   }
 }
 
@@ -142,7 +163,7 @@ export async function onRequestGet({ request, env }) {
   const sayfaAdi  = sayfa.page_name
 
   // Son 50 gönderiyi çek
-  const fields = 'id,message,story,created_time,full_picture,picture,permalink_url,attachments'
+  const fields = 'id,message,story,created_time,full_picture,picture,permalink_url,attachments{media{source,image},type,subattachments{media{source,image},type}}'
   const fbRes  = await fetch(
     `https://graph.facebook.com/v21.0/${pageId}/posts?fields=${fields}&limit=50&access_token=${pageToken}`,
     { headers: { 'Accept-Charset': 'utf-8' } }
