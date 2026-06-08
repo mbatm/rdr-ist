@@ -13,7 +13,7 @@ export async function onRequestPost({ request, env }) {
 
   // Token ile sayfa listesini çek
   const pagesRes = await fetch(
-    `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${token}`
+    `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,picture&limit=100&access_token=${token}`
   )
   const pagesData = await pagesRes.json()
 
@@ -24,11 +24,18 @@ export async function onRequestPost({ request, env }) {
   const pages = pagesData.data || []
   if (!pages.length) return Response.json({ hata: 'Hiç sayfa bulunamadı' }, { status: 400 })
 
-  // Her sayfa için IG hesabı çek
+  // Her sayfa için token'ı direkt çek (System User token ile)
   const hesaplar = []
   for (const page of pages) {
+    // Sayfa token'ını System User token ile yenile
+    const ptRes  = await fetch(
+      `https://graph.facebook.com/v21.0/${page.id}?fields=access_token&access_token=${token}`
+    )
+    const ptData = await ptRes.json()
+    const pageToken = ptData.access_token || token
+
     const igRes  = await fetch(
-      `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account{id,username,profile_picture_url}&access_token=${page.access_token}`
+      `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account{id,username,profile_picture_url}&access_token=${pageToken}`
     )
     const igData = await igRes.json()
     const ig     = igData.instagram_business_account || null
@@ -36,7 +43,7 @@ export async function onRequestPost({ request, env }) {
     hesaplar.push({
       page_id:     page.id,
       page_name:   page.name,
-      page_token:  page.access_token,
+      page_token:  pageToken,
       picture:     page.picture?.data?.url || null,
       ig_id:       ig?.id || null,
       ig_username: ig?.username || null,
