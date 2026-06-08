@@ -419,7 +419,7 @@ export async function onRequestGet({ env, request }) {
     // Sadece liste istendi — RSS'ten son haberleri döndür
     if (liste) {
       const listeAdet = Math.min(parseInt(url.searchParams.get('adet')||'20'), 50)
-      const rssRes2 = await fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`,
+      const rssRes2 = await fetch(`https://1ha.com.tr/api/rss/${env.OHA_RSS_TOKEN || env.RSS_API_KEY}`,
         { headers:{ 'User-Agent':'rdr.ist/1.0' } })
       if (!rssRes2.ok) return Response.json({ hata:`RSS ${rssRes2.status}` })
       const xml2  = await rssRes2.text()
@@ -445,7 +445,7 @@ export async function onRequestGet({ env, request }) {
 
     // 1ha RSS + Radar Facebook RSS — paralel çek
     const [rssRes, radarRssRes] = await Promise.all([
-      fetch(`https://1ha.com.tr/api/rss/${env.RSS_API_KEY}`, { headers:{ 'User-Agent':'rdr.ist/1.0' } }),
+      fetch(`https://1ha.com.tr/api/rss/${env.OHA_RSS_TOKEN || env.RSS_API_KEY}`, { headers:{ 'User-Agent':'rdr.ist/1.0' } }),
       fetch('https://rdr.ist/api/radar-rss').catch(() => null),
     ])
     if (!rssRes.ok) return Response.json({ hata:`RSS ${rssRes.status}` })
