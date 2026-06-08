@@ -161,11 +161,11 @@ export async function onRequestPost({ request, env }) {
           } catch(e) { sonuclar.instagram[igId] = { hata: e.message } }
         }
         // Feed post
-        else if (is_video && video_url) {
+        else if (is_video && (efektifVideo || video_url)) {
           const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
-              video_url, caption:metin, media_type:'REELS', share_to_feed:true,
+              video_url: efektifVideo || video_url, caption:metin, media_type:'REELS', share_to_feed:true,
               ...(ig_kolabor?.length ? { collaborators:ig_kolabor } : {}),
               access_token:sayfa.page_token
             }),
