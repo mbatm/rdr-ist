@@ -195,7 +195,12 @@ export async function onRequestPost({ request, env }) {
                 published = true
                 break
               } else if (statusData.status_code === 'ERROR') {
-                sonuclar.instagram[igId] = { hata: 'Video işleme hatası: ' + (statusData.status || 'ERROR') }
+                // Tam hata detayını al
+                const errRes = await fetch(
+                  `https://graph.facebook.com/v21.0/${containerId}?fields=status_code,status&access_token=${sayfa.page_token}`
+                )
+                const errData = await errRes.json()
+                sonuclar.instagram[igId] = { hata: 'Video ERROR: ' + JSON.stringify(errData.status || errData) }
                 published = true
                 break
               }
