@@ -4864,7 +4864,7 @@ function GaleriModul({ user, onGeri }) {
           galeriGorseller={tumUrller.map((url,i) => ({ url, kapak: i===0 }))}
           galeriRenderler={tumUrller.map(url => ({ kaynak_url: url, url }))}
           kayserimLink=""
-          videoRenders={{}}
+
         />
       </div>
     )

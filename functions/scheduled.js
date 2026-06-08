@@ -1,15 +1,15 @@
 /**
  * Cloudflare Pages Scheduled Worker
- * Cron 1: "*/5 * * * *"      — Her 5 dakika
- * Cron 2: "0 3 * * 1,3,5"   — Pzt/Çar/Cum 03:00 UTC
- * Cron 3: "0 0 * * *"        — Her gece 00:00 UTC
+ * Cron 1: her 5 dakika - haber isleme + radar FB
+ * Cron 2: Pzt-Car-Cum 03:00 UTC - Ahrefs sync
+ * Cron 3: her gece 00:00 UTC - video duzelt + temizlik
  */
 export async function onScheduled({ env, scheduledTime }) {
-  const gun   = new Date(scheduledTime).getUTCDay()    // 0=Pazar
-  const saat  = new Date(scheduledTime).getUTCHours()
+  const gun    = new Date(scheduledTime).getUTCDay()
+  const saat   = new Date(scheduledTime).getUTCHours()
   const dakika = new Date(scheduledTime).getUTCMinutes()
 
-  // Her 5 dakika — haber işleme + radar FB
+  // Her 5 dakika — haber isleme + radar FB
   if (dakika % 5 === 0) {
     try {
       const res  = await fetch(`https://rdr.ist/api/oto-isle?adet=10&secret=${env.RSS_API_KEY}`)
@@ -24,7 +24,7 @@ export async function onScheduled({ env, scheduledTime }) {
     } catch(e) { console.error('[radar-fb] Hata:', e.message) }
   }
 
-  // Pzt/Çar/Cum 03:00 UTC — Ahrefs sync
+  // Pzt-Car-Cum 03:00 UTC — Ahrefs sync
   if (saat === 3 && dakika === 0 && [1, 3, 5].includes(gun)) {
     try {
       const res  = await fetch(`https://rdr.ist/api/ahrefs-sync?secret=${env.RSS_API_KEY}`)
@@ -33,7 +33,7 @@ export async function onScheduled({ env, scheduledTime }) {
     } catch(e) { console.error('[ahrefs-sync] Hata:', e.message) }
   }
 
-  // Her gece 00:00 UTC — video düzelt + temizlik
+  // Her gece 00:00 UTC — video duzelt + temizlik
   if (saat === 0 && dakika === 0) {
     try {
       await fetch(`https://rdr.ist/api/video-duzelt?secret=${env.RSS_API_KEY}`)
