@@ -708,7 +708,7 @@
       <div class="card">
         <div class="card-title">Müşteri Seçimi</div>
         <div class="search-box">
-          <input type="text" id="ilan-cari-search" placeholder="Firma adı, vergi no…" oninput="searchCari('ilan')">
+          <input type="text" id="ilan-cari-search" placeholder="Firma adı, vergi no…" oninput="handleSearch('ilan', this.value)">
           <button class="btn btn-secondary" onclick="openCariModal('ilan')">+ Yeni Cari</button>
         </div>
         <div id="ilan-cari-results"></div>
@@ -785,7 +785,7 @@
       <div class="card">
         <div class="card-title">Müşteri Seçimi</div>
         <div class="search-box">
-          <input type="text" id="radyo-cari-search" placeholder="Firma adı, vergi no…" oninput="searchCari('radyo')">
+          <input type="text" id="radyo-cari-search" placeholder="Firma adı, vergi no…" oninput="handleSearch('radyo', this.value)">
           <button class="btn btn-secondary" onclick="openCariModal('radyo')">+ Yeni Cari</button>
         </div>
         <div id="radyo-cari-results"></div>
@@ -880,7 +880,7 @@
 
           <div class="card-title">Müşteri</div>
           <div class="search-box">
-            <input type="text" id="genel-cari-search" placeholder="Firma adı veya vergi no…" oninput="searchCari('genel')">
+            <input type="text" id="genel-cari-search" placeholder="Firma adı veya vergi no…" oninput="handleSearch('genel', this.value)">
             <button class="btn btn-secondary" onclick="openCariModal('genel')">+ Yeni</button>
           </div>
           <div id="genel-cari-results"></div>
@@ -1021,7 +1021,7 @@
       <div class="card">
         <div class="card-title">Cari Ara</div>
         <div class="search-box">
-          <input type="text" id="cari-ara-input" placeholder="Firma adı, vergi no, e-posta…" oninput="searchCariPage()">
+          <input type="text" id="cari-ara-input" placeholder="Firma adı, vergi no, e-posta…" oninput="handleSearch('page', this.value)">
           <button class="btn btn-primary" onclick="openCariModal('page')">+ Yeni Cari Aç</button>
         </div>
         <div id="cari-page-results" class="empty">
@@ -1565,9 +1565,23 @@ function addKalem() {
 // ============================================================
 // CARİ ARAMA
 // ============================================================
+function handleSearch(ctx, val) {
+  // oninput async fonksiyonu doğru tetiklemek için wrapper
+  searchCari(ctx);
+}
+
 async function searchCari(ctx) {
-  const q = document.getElementById(ctx + (ctx === 'page' ? '-ara' : '-cari') + (ctx === 'page' ? '-input' : '-search'))?.value?.toLowerCase() || '';
-  const resultsEl = document.getElementById(ctx === 'page' ? 'cari-page-results' : ctx + '-cari-results');
+  // Input ID mapping
+  let inputId, resultsId;
+  if (ctx === 'page') {
+    inputId = 'cari-ara-input';
+    resultsId = 'cari-page-results';
+  } else {
+    inputId = ctx + '-cari-search';
+    resultsId = ctx + '-cari-results';
+  }
+  const q = document.getElementById(inputId)?.value?.toLowerCase().trim() || '';
+  const resultsEl = document.getElementById(resultsId);
 
   if (!q || q.length < 2) {
     resultsEl.innerHTML = '';
