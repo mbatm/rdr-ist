@@ -1,5 +1,5 @@
 const BH_BASE = 'https://bizimhesap.com/api/b2b';
-const TOKEN = 'B6EB6FB130394703A7E12D5894802F09';
+const BH_TOKEN = 'B6EB6FB130394703A7E12D5894802F09';
 const FIRM_ID = 'BCA7835EDB784CA085729C2BD385A41A';
 
 const CORS = {
@@ -19,9 +19,10 @@ export async function onRequest(context) {
   const endpoint = url.searchParams.get('endpoint');
   const warehouseId = url.searchParams.get('warehouseId');
   const customerId = url.searchParams.get('customerId');
+  const debug = url.searchParams.get('debug') === '1';
 
   if (!endpoint) {
-    return json({ error: 'endpoint parametresi gerekli', ornek: '?endpoint=customers' }, 400);
+    return json({ error: 'endpoint parametresi gerekli' }, 400);
   }
 
   try {
@@ -29,18 +30,22 @@ export async function onRequest(context) {
     const GET_ENDPOINTS = ['customers', 'products', 'warehouses'];
 
     if (GET_ENDPOINTS.includes(endpoint)) {
+      // Farklı auth yöntemlerini dene
+      // 1. Authorization: Bearer
       response = await fetch(`${BH_BASE}/${endpoint}`, {
-        headers: { 'token': TOKEN },
+        headers: {
+          'token': BH_TOKEN,
+          'Authorization': `Bearer ${BH_TOKEN}`,
+          'Accept': 'application/json',
+        },
       });
     } else if (endpoint === 'inventory') {
-      if (!warehouseId) return json({ error: 'warehouseId gerekli' }, 400);
       response = await fetch(`${BH_BASE}/inventory/${warehouseId}`, {
-        headers: { 'token': TOKEN },
+        headers: { 'token': BH_TOKEN, 'Authorization': `Bearer ${BH_TOKEN}` },
       });
     } else if (endpoint === 'abstract') {
-      if (!customerId) return json({ error: 'customerId gerekli' }, 400);
       response = await fetch(`${BH_BASE}/abstract/${customerId}`, {
-        headers: { 'token': TOKEN },
+        headers: { 'token': BH_TOKEN, 'Authorization': `Bearer ${BH_TOKEN}` },
       });
     } else if (['addinvoice', 'addcustomer', 'cancelinvoice', 'addproduct'].includes(endpoint)) {
       const body = await request.json();
@@ -55,46 +60,44 @@ export async function onRequest(context) {
     }
 
     const text = await response.text();
-    
-    // XML mi JSON mu kontrol et
-    if (text.trim().startsWith('<')) {
-      // XML → JSON parse
-      const parsed = xmlToJson(text);
-      return json({ _format: 'xml', data: parsed, _raw: text.substring(0, 500) });
+    const status = response.status;
+
+    if (debug) {
+      return json({ status, headers: Object.fromEntries(response.headers), raw: text.substring(0, 2000) });
     }
 
-    try {
-      return json(JSON.parse(text));
-    } catch {
-      return json({ _format: 'unknown', _raw: text.substring(0, 1000) });
+    if (text.trim().startsWith('<')) {
+      const items = parseXml(text);
+      return json({ ok: true, count: items.length, items });
     }
+
+    try { return json(JSON.parse(text)); }
+    catch { return json({ ok: false, raw: text.substring(0, 500) }); }
 
   } catch (err) {
-    return json({ error: err.message, stack: err.stack?.substring(0, 300) }, 500);
+    return json({ error: err.message }, 500);
   }
 }
 
-// Basit XML parser
-function xmlToJson(xml) {
-  try {
-    // Tekrarlayan tag'leri bul ve array yap
-    const items = [];
-    const regex = /<(?:Customer|Product|Warehouse|Item)>([\s\S]*?)<\/(?:Customer|Product|Warehouse|Item)>/gi;
+function parseXml(xml) {
+  const items = [];
+  // Farklı tag isimlerini dene
+  const tags = ['Customer', 'Product', 'Warehouse', 'Item', 'B2BCustomer', 'B2BProduct'];
+  for (const tag of tags) {
+    const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'gi');
     let match;
     while ((match = regex.exec(xml)) !== null) {
       const item = {};
-      const inner = match[1];
       const fieldRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
       let field;
-      while ((field = fieldRegex.exec(inner)) !== null) {
+      while ((field = fieldRegex.exec(match[1])) !== null) {
         item[field[1]] = field[2].trim();
       }
       items.push(item);
     }
-    return items.length > 0 ? items : xml;
-  } catch {
-    return xml;
+    if (items.length > 0) break;
   }
+  return items.length > 0 ? items : [{ _raw: xml.substring(0, 500) }];
 }
 
 function json(data, status = 200) {
