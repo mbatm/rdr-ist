@@ -3518,28 +3518,49 @@ function ManuelHaberModul({ user, onGeri }) {
 
   const KATEGORILER = ['Güncel','Asayiş','Spor','Ekonomi','Sağlık','Eğitim','Siyaset','Kültür','Turizm','Belediye Haberleri']
 
-  // Büyük dosya chunk upload (>50MB) — Cloudflare 100MB limiti aşıyor
+  // Büyük dosya multipart upload (>50MB) — R2 Native Multipart API
   const chunkUpload = async (file) => {
-    const token     = localStorage.getItem('cms_token') || ''
-    const CHUNK     = 5 * 1024 * 1024  // 5MB
-    const total     = Math.ceil(file.size / CHUNK)
-    const key       = `${Date.now()}_${Math.random().toString(36).slice(2,5)}.${file.name.split('.').pop()}`
-    let finalUrl    = null
+    const token  = localStorage.getItem('cms_token') || ''
+    const CHUNK  = 5 * 1024 * 1024  // 5MB minimum (R2 şartı)
 
+    // 1. Upload başlat
+    const startRes = await fetch('/api/r2-upload-chunk?action=start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Token': token },
+      body: JSON.stringify({ filename: file.name, type: file.type }),
+    })
+    const startData = await startRes.json()
+    if (startData.hata) throw new Error(startData.hata)
+    const { uploadId, key, final_url } = startData
+
+    // 2. Parçaları yükle
+    const total = Math.ceil(file.size / CHUNK)
+    const parts = []
     for (let i = 0; i < total; i++) {
-      const form = new FormData()
-      form.append('chunk', file.slice(i * CHUNK, (i + 1) * CHUNK))
-      form.append('key',   key)
-      form.append('index', String(i))
-      form.append('total', String(total))
-      const res  = await fetch('/api/r2-upload-chunk', { method:'POST', headers:{'X-Token':token}, body:form })
+      const buf  = await file.slice(i * CHUNK, (i + 1) * CHUNK).arrayBuffer()
+      const res  = await fetch(
+        `/api/r2-upload-chunk?action=part&uploadId=${encodeURIComponent(uploadId)}&key=${encodeURIComponent(key)}&part=${i + 1}`,
+        { method: 'POST', headers: { 'X-Token': token }, body: buf }
+      )
       const data = await res.json()
-      if (data.hata) throw new Error(data.hata)
-      if (data.tamamlandi) finalUrl = data.url
-      // İlerleme güncelle
+      if (data.hata) { 
+        // Abort
+        fetch('/api/r2-upload-chunk?action=abort', { method:'POST', headers:{'Content-Type':'application/json','X-Token':token}, body: JSON.stringify({uploadId, key}) })
+        throw new Error(data.hata) 
+      }
+      parts.push({ partNumber: i + 1, etag: data.etag })
       setYukProgress(Math.round((i + 1) / total * 100))
     }
-    return finalUrl
+
+    // 3. Tamamla
+    const finishRes = await fetch('/api/r2-upload-chunk?action=finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Token': token },
+      body: JSON.stringify({ uploadId, key, parts }),
+    })
+    const finishData = await finishRes.json()
+    if (finishData.hata) throw new Error(finishData.hata)
+    return finishData.url
   }
 
   // Dosya yükle — R2'ye multipart upload

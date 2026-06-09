@@ -1,69 +1,90 @@
 /**
- * POST /api/r2-upload-chunk
- * Büyük dosyaları parça parça R2'ye yükler
- * Body: FormData { chunk: Blob, key: string, index: number, total: number }
+ * R2 Multipart Upload — büyük dosyalar için
+ * 
+ * POST /api/r2-upload-chunk?action=start   → uploadId, key döner
+ * POST /api/r2-upload-chunk?action=part    → partNumber, uploadId, key ile parça yükle → etag döner
+ * POST /api/r2-upload-chunk?action=finish  → tüm part'ları birleştir → final URL döner
+ * POST /api/r2-upload-chunk?action=abort   → iptal et
  */
-export async function onRequestPost({ request, env }) {
+
+async function authKontrol(request, env) {
   const token = request.headers.get('X-Token') || ''
-  if (!token) return Response.json({ hata: 'Token gerekli' }, { status: 401 })
+  if (!token) return null
   const kullanici = await env.HABERLER.get(`token:${token}`, 'json')
-  if (!kullanici) return Response.json({ hata: 'Geçersiz token' }, { status: 401 })
+  return kullanici
+}
+
+export async function onRequestPost({ request, env }) {
+  const url    = new URL(request.url)
+  const action = url.searchParams.get('action') || 'start'
+
+  const kullanici = await authKontrol(request, env)
+  if (!kullanici) return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
 
   try {
-    const form  = await request.formData()
-    const chunk = form.get('chunk')   // Blob
-    const key   = form.get('key')     // benzersiz dosya adı
-    const index = parseInt(form.get('index') || '0')
-    const total = parseInt(form.get('total') || '1')
+    // ── BAŞLAT ────────────────────────────────────────────────────
+    if (action === 'start') {
+      const { filename, type } = await request.json()
+      const ext  = (filename || 'video.mp4').split('.').pop()
+      const key  = `yuklemeler/${Date.now()}_${Math.random().toString(36).slice(2,5)}.${ext}`
+      const mime = type || (ext === 'mp4' ? 'video/mp4' : 'video/quicktime')
 
-    if (!chunk || !key) return Response.json({ hata: 'chunk ve key gerekli' }, { status: 400 })
-
-    // Her parçayı geçici olarak sakla
-    const chunkBuf = await chunk.arrayBuffer()
-    await env.MEDYA.put(`chunks/${key}_${index}`, chunkBuf, {
-      httpMetadata: { contentType: 'application/octet-stream' }
-    })
-
-    // Tüm parçalar yüklendiyse birleştir
-    if (index === total - 1) {
-      const parts = []
-      for (let i = 0; i < total; i++) {
-        const part = await env.MEDYA.get(`chunks/${key}_${i}`)
-        if (!part) return Response.json({ hata: `Parça ${i} bulunamadı` }, { status: 500 })
-        parts.push(await part.arrayBuffer())
-      }
-
-      // Birleştir
-      const combined = new Uint8Array(parts.reduce((acc, p) => acc + p.byteLength, 0))
-      let offset = 0
-      for (const p of parts) {
-        combined.set(new Uint8Array(p), offset)
-        offset += p.byteLength
-      }
-
-      // Final dosyayı kaydet
-      const ext      = key.split('.').pop() || 'mp4'
-      const finalKey = `yuklemeler/${key}`
-      const mimeType = ext === 'mp4' ? 'video/mp4' : ext === 'mov' ? 'video/quicktime' : 'video/mp4'
-      
-      await env.MEDYA.put(finalKey, combined.buffer, {
-        httpMetadata: { contentType: mimeType }
+      const upload = await env.MEDYA.createMultipartUpload(key, {
+        httpMetadata: { contentType: mime }
       })
-
-      // Geçici parçaları sil
-      for (let i = 0; i < total; i++) {
-        await env.MEDYA.delete(`chunks/${key}_${i}`).catch(() => {})
-      }
 
       return Response.json({
         ok: true,
-        tamamlandi: true,
-        url: `https://medya.rdr.ist/${finalKey}`,
-        key: finalKey,
+        uploadId: upload.uploadId,
+        key,
+        final_url: `https://medya.rdr.ist/${key}`,
       })
     }
 
-    return Response.json({ ok: true, tamamlandi: false, index, total })
+    // ── PARÇA YÜKLE ────────────────────────────────────────────────
+    if (action === 'part') {
+      const uploadId   = url.searchParams.get('uploadId')
+      const key        = url.searchParams.get('key')
+      const partNumber = parseInt(url.searchParams.get('part') || '1')
+
+      if (!uploadId || !key) return Response.json({ hata: 'uploadId ve key gerekli' }, { status: 400 })
+
+      const upload = env.MEDYA.resumeMultipartUpload(key, uploadId)
+      const buf    = await request.arrayBuffer()
+      const part   = await upload.uploadPart(partNumber, buf)
+
+      return Response.json({ ok: true, etag: part.etag, part: partNumber })
+    }
+
+    // ── BİTİR ──────────────────────────────────────────────────────
+    if (action === 'finish') {
+      const { uploadId, key, parts } = await request.json()
+      // parts: [{ partNumber, etag }, ...]
+
+      if (!uploadId || !key || !parts?.length)
+        return Response.json({ hata: 'uploadId, key, parts gerekli' }, { status: 400 })
+
+      const upload = env.MEDYA.resumeMultipartUpload(key, uploadId)
+      await upload.complete(parts)
+
+      return Response.json({
+        ok: true,
+        url: `https://medya.rdr.ist/${key}`,
+        key,
+      })
+    }
+
+    // ── İPTAL ──────────────────────────────────────────────────────
+    if (action === 'abort') {
+      const { uploadId, key } = await request.json()
+      if (uploadId && key) {
+        const upload = env.MEDYA.resumeMultipartUpload(key, uploadId)
+        await upload.abort()
+      }
+      return Response.json({ ok: true })
+    }
+
+    return Response.json({ hata: 'Geçersiz action' }, { status: 400 })
   } catch(e) {
     return Response.json({ hata: e.message }, { status: 500 })
   }
