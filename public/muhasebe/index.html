@@ -1384,8 +1384,18 @@ function setTodayDates() {
 async function loadCustomers() {
   try {
     const data = await getAPI('customers');
-    // JSON veya XML gelebilir, her ikisini handle et
-    return Array.isArray(data) ? data : (data.customers || data.Customers || []);
+    // Proxy { ok: true, items: [...] } döndürüyor
+    const raw = data.items || data.customers || data.Customers || (Array.isArray(data) ? data : []);
+    // BizimHesap field mapping: id, code, title, taxNo, taxOffice, phone, email, address
+    return raw.map(c => ({
+      id:        c.id        || c.Id        || c.code      || '',
+      title:     c.title     || c.Title     || c.name      || c.Name  || '',
+      taxNo:     c.taxNo     || c.TaxNo     || c.tax_no    || '',
+      taxOffice: c.taxOffice || c.TaxOffice || c.tax_office|| '',
+      phone:     c.phone     || c.Phone     || '',
+      email:     c.email     || c.Email     || '',
+      address:   c.address   || c.Address   || '',
+    }));
   } catch(e) {
     console.warn('Müşteri listesi yüklenemedi:', e.message);
     return [];
