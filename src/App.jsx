@@ -944,7 +944,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
         {Object.entries(sonuc.sonuclar?.instagram||{}).map(([igKey,s])=>(
           <div key={igKey} style={{color:'var(--muted)'}}>
             {s.story ? '📸 Story' : 'Instagram'} (@{s.ig_username||igKey.replace('_story','')}):
-            {s.ok ? ' ✓' : s.bekliyor ? ' ⏳ '+( s.mesaj||'İşleniyor…') : ' ✗ '+(s.hata||'Hata')}
+            {s.ok ? ' ✓' : s.bekliyor ? ' ⏳ '+(s.mesaj||'İşleniyor…') : s.kota_doldu ? ` ⚠️ Günlük limit (${s.kullanim}/${s.limit}) — yarın sıfırlanır` : ' ✗ '+(s.hata||'Hata')}
           </div>
         ))}
       </div>}

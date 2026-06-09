@@ -109,6 +109,18 @@ export async function onRequestPost({ request, env }) {
       await Promise.all(secilenIgIds.map(async (igId) => {
         const sayfa = hesaplar.find(h=>String(h.ig_id)===String(igId)) || hesaplar[0]
 
+        // Kota kontrolü — günde 50 post limiti
+        const kota = await kotaKontrol(igId, sayfa.page_token)
+        if (!kota.ok) {
+          sonuclar.instagram[igId] = {
+            hata: `Günlük limit doldu (${kota.kullanim}/${kota.limit}) — yarın sıfırlanır`,
+            kota_doldu: true,
+            kullanim: kota.kullanim,
+            limit: kota.limit,
+          }
+          return
+        }
+
         // Carousel (çoklu görsel)
         if (is_carousel && galeri_urls.length > 1) {
           try {
