@@ -1,6 +1,5 @@
 const BH_BASE = 'https://bizimhesap.com/api/b2b';
 const FIRM_ID = 'BCA7835EDB784CA085729C2BD385A41A';
-const ZIRVE_KEY = 'B6EB6FB130394703A7E12D5894802F09';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -17,60 +16,28 @@ export async function onRequest(context) {
 
   const url = new URL(request.url);
   const endpoint = url.searchParams.get('endpoint');
-  const debug = url.searchParams.get('debug') === '1';
-  const tokenOverride = url.searchParams.get('token');
   const warehouseId = url.searchParams.get('warehouseId');
   const customerId = url.searchParams.get('customerId');
 
   if (!endpoint) return json({ error: 'endpoint gerekli' }, 400);
 
-  // Test: tüm kombinasyonları dene
-  if (debug) {
-    const results = {};
-    const combos = [
-      { name: 'firmId_as_token',        headers: { 'token': FIRM_ID } },
-      { name: 'zirve_as_token',         headers: { 'token': ZIRVE_KEY } },
-      { name: 'firmId_bearer',          headers: { 'Authorization': `Bearer ${FIRM_ID}` } },
-      { name: 'zirve_bearer',           headers: { 'Authorization': `Bearer ${ZIRVE_KEY}` } },
-      { name: 'firmId_basic',           headers: { 'Authorization': `Basic ${btoa(FIRM_ID + ':')}` } },
-      { name: 'query_token_firmId',     url_suffix: `?token=${FIRM_ID}` },
-      { name: 'query_token_zirve',      url_suffix: `?token=${ZIRVE_KEY}` },
-      { name: 'query_apikey_firmId',    url_suffix: `?apiKey=${FIRM_ID}` },
-      { name: 'query_apikey_zirve',     url_suffix: `?apiKey=${ZIRVE_KEY}` },
-      { name: 'header_apikey_firmId',   headers: { 'ApiKey': FIRM_ID } },
-      { name: 'header_apikey_zirve',    headers: { 'ApiKey': ZIRVE_KEY } },
-    ];
-
-    for (const combo of combos) {
-      try {
-        const fetchUrl = `${BH_BASE}/${endpoint}${combo.url_suffix || ''}`;
-        const res = await fetch(fetchUrl, { headers: combo.headers || {} });
-        const text = await res.text();
-        results[combo.name] = { status: res.status, body: text.substring(0, 100) };
-      } catch(e) {
-        results[combo.name] = { error: e.message };
-      }
-    }
-    return json(results);
-  }
-
-  // Normal istek
   try {
-    const activeToken = tokenOverride || ZIRVE_KEY;
     let response;
     const GET_EP = ['customers', 'products', 'warehouses'];
 
     if (GET_EP.includes(endpoint)) {
       response = await fetch(`${BH_BASE}/${endpoint}`, {
-        headers: { 'token': activeToken }
+        headers: { 'token': FIRM_ID }
       });
     } else if (endpoint === 'inventory') {
+      if (!warehouseId) return json({ error: 'warehouseId gerekli' }, 400);
       response = await fetch(`${BH_BASE}/inventory/${warehouseId}`, {
-        headers: { 'token': activeToken }
+        headers: { 'token': FIRM_ID }
       });
     } else if (endpoint === 'abstract') {
+      if (!customerId) return json({ error: 'customerId gerekli' }, 400);
       response = await fetch(`${BH_BASE}/abstract/${customerId}`, {
-        headers: { 'token': activeToken }
+        headers: { 'token': FIRM_ID }
       });
     } else if (['addinvoice','addcustomer','cancelinvoice','addproduct'].includes(endpoint)) {
       const body = await request.json();
@@ -85,11 +52,24 @@ export async function onRequest(context) {
     }
 
     const text = await response.text();
-    if (text.trim().startsWith('<')) {
-      return json({ ok: true, items: parseXml(text) });
+
+    // JSON parse
+    try {
+      const data = JSON.parse(text);
+      // BizimHesap standart yanıt: { resultCode, errorText, data: { customers/products/... } }
+      if (data.resultCode === 1 && data.data) {
+        // İlk anahtarı al (customers, products vs.)
+        const key = Object.keys(data.data)[0];
+        return json({ ok: true, items: data.data[key] || [] });
+      }
+      return json(data);
+    } catch {
+      // XML fallback
+      if (text.trim().startsWith('<')) {
+        return json({ ok: true, items: parseXml(text) });
+      }
+      return json({ raw: text.substring(0, 500) });
     }
-    try { return json(JSON.parse(text)); }
-    catch { return json({ raw: text.substring(0, 500) }); }
 
   } catch(err) {
     return json({ error: err.message }, 500);
@@ -98,7 +78,7 @@ export async function onRequest(context) {
 
 function parseXml(xml) {
   const items = [];
-  const tags = ['Customer','Product','Warehouse','Item','B2BCustomer'];
+  const tags = ['Customer','Product','Warehouse','Item'];
   for (const tag of tags) {
     const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'gi');
     let m;
