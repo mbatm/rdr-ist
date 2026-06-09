@@ -3013,7 +3013,10 @@ function KayseradarModul({ user, onGeri }) {
                   onDragOver={e=>e.preventDefault()}
                   onDrop={e=>{e.preventDefault();dosyaSec(e.dataTransfer.files)}}>
                   {yukleniyorM
-                    ? <span style={{fontSize:12,color:'var(--muted)'}}>Yükleniyor…</span>
+                    ? <span style={{fontSize:12,color:'var(--muted)'}}>
+                        ⏳ Yükleniyor… {yukProgress > 0 && yukProgress < 100 ? `${yukProgress}%` : ''}
+                        {yukProgress > 0 && <div style={{height:2,background:'var(--border)',borderRadius:1,marginTop:2,width:100}}><div style={{height:'100%',width:`${yukProgress}%`,background:'#00D4AA',borderRadius:1,transition:'width .3s'}}/></div>}
+                      </span>
                     : <span style={{fontSize:12,color:'var(--muted)'}}>📎 Dosya seç veya sürükle bırak (görsel ve video)</span>
                   }
                 </div>
@@ -3505,6 +3508,7 @@ function ManuelHaberModul({ user, onGeri }) {
   const [kategori,   setKategori] = useState('Güncel')
   const [medyalar,   setMedyalar] = useState([])
   const [yukleniyorM,setYukM]     = useState(false)
+  const [yukProgress, setYukProgress] = useState(0)
   const [isleniyor,  setIsleniyor]= useState(false)
   const [sonuc,      setSonuc]    = useState(null) // işlenmiş kayit
   const [hata,       setHata]     = useState(null)
@@ -3514,22 +3518,56 @@ function ManuelHaberModul({ user, onGeri }) {
 
   const KATEGORILER = ['Güncel','Asayiş','Spor','Ekonomi','Sağlık','Eğitim','Siyaset','Kültür','Turizm','Belediye Haberleri']
 
+  // Büyük dosya chunk upload (>50MB) — Cloudflare 100MB limiti aşıyor
+  const chunkUpload = async (file) => {
+    const token     = localStorage.getItem('cms_token') || ''
+    const CHUNK     = 5 * 1024 * 1024  // 5MB
+    const total     = Math.ceil(file.size / CHUNK)
+    const key       = `${Date.now()}_${Math.random().toString(36).slice(2,5)}.${file.name.split('.').pop()}`
+    let finalUrl    = null
+
+    for (let i = 0; i < total; i++) {
+      const form = new FormData()
+      form.append('chunk', file.slice(i * CHUNK, (i + 1) * CHUNK))
+      form.append('key',   key)
+      form.append('index', String(i))
+      form.append('total', String(total))
+      const res  = await fetch('/api/r2-upload-chunk', { method:'POST', headers:{'X-Token':token}, body:form })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      if (data.tamamlandi) finalUrl = data.url
+      // İlerleme güncelle
+      setYukProgress(Math.round((i + 1) / total * 100))
+    }
+    return finalUrl
+  }
+
   // Dosya yükle — R2'ye multipart upload
   const dosyaSec = async (files) => {
-    setYukM(true); setHata(null)
+    setYukM(true); setHata(null); setYukProgress(0)
     const sid = `manuel_${Date.now()}`
     const yeni = []
     for (const file of Array.from(files)) {
       try {
-        const tip  = file.type.startsWith('video') ? 'video' : 'gorsel'
-        const form = new FormData()
-        form.append('file', file)
-        form.append('source_id', sid)
-        form.append('tip', tip)
-        const r = await fetch('/api/medya-yukle', { method:'POST', body:form })
-        const d = await r.json()
-        if (d.url) yeni.push({ url:d.url, tip, adi:file.name, mime:file.type, boyutMB:d.boyutMB })
-        else setHata(`${file.name}: ${d.hata||'Yükleme hatası'}`)
+        const tip = file.type.startsWith('video') ? 'video' : 'gorsel'
+        let url   = null
+
+        if (file.size > 50 * 1024 * 1024) {
+          // 50MB üzeri — chunk upload
+          url = await chunkUpload(file)
+        } else {
+          // Normal yükleme
+          const form = new FormData()
+          form.append('file', file)
+          form.append('source_id', sid)
+          form.append('tip', tip)
+          const r = await fetch('/api/medya-yukle', { method:'POST', body:form })
+          const d = await r.json()
+          url = d.url
+          if (!url) { setHata(`${file.name}: ${d.hata||'Yükleme hatası'}`); continue }
+        }
+
+        if (url) yeni.push({ url, tip, adi:file.name, mime:file.type })
       } catch(e) { setHata(e.message) }
     }
     setMedyalar(p => {
