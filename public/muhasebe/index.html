@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDR Muhasebe Paneli</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #161b27;
+    --bg3: #1e2535;
+    --bg4: #252d3f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --text2: #8b92a8;
+    --text3: #555e75;
+    --accent: #4f8ef7;
+    --accent2: #3a7ae8;
+    --green: #34c789;
+    --green2: #1a6b45;
+    --red: #f75f5f;
+    --red2: #7a1a1a;
+    --amber: #f7b84f;
+    --amber2: #7a5a1a;
+    --purple: #a78bfa;
+    --radius: 10px;
+    --radius2: 6px;
+    --font: 'Inter', system-ui, sans-serif;
+    --shadow: 0 2px 16px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ---- AUTH SCREEN ---- */
+  #auth-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 50% 0%, rgba(79,142,247,0.12) 0%, transparent 60%);
+  }
+
+  .auth-box {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 40px;
+    width: 380px;
+    box-shadow: var(--shadow);
+  }
+
+  .auth-logo {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .auth-sub {
+    color: var(--text2);
+    font-size: 13px;
+    margin-bottom: 32px;
+  }
+
+  .field-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius2);
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  select option { background: var(--bg3); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 18px;
+    border-radius: var(--radius2);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn-primary:hover { background: var(--accent2); }
+
+  .btn-secondary {
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+
+  .btn-secondary:hover { background: var(--bg4); }
+
+  .btn-success {
+    background: var(--green);
+    color: #0a1f14;
+    font-weight: 600;
+  }
+
+  .btn-success:hover { opacity: 0.88; }
+
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+  }
+
+  .btn-danger:hover { opacity: 0.88; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .field { margin-bottom: 16px; }
+
+  /* ---- APP LAYOUT ---- */
+  #app { display: none; min-height: 100vh; }
+
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 220px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-firm {
+    padding: 10px 18px;
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-radius: 0;
+    color: var(--text2);
+    transition: all 0.12s;
+    font-size: 13.5px;
+    border-left: 3px solid transparent;
+  }
+
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--bg3); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+
+  .nav-icon { font-size: 16px; width: 18px; text-align: center; }
+
+  .sidebar-bottom {
+    margin-top: auto;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .user-info {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+
+  .user-name { color: var(--text); font-weight: 500; font-size: 13px; }
+
+  .main {
+    margin-left: 220px;
+    min-height: 100vh;
+    padding: 28px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+
+  .page-sub {
+    color: var(--text2);
+    font-size: 13px;
+    margin-bottom: 28px;
+  }
+
+  /* ---- CARDS ---- */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 16px;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .stat-value { font-size: 24px; font-weight: 700; color: var(--text); }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+  /* ---- FATURA MODÜLÜ ---- */
+  .fatura-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .ftab {
+    padding: 10px 18px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 13.5px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.12s;
+    margin-bottom: -1px;
+  }
+
+  .ftab:hover { color: var(--text); }
+  .ftab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .fatura-form { display: none; }
+  .fatura-form.active { display: block; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .span-2 { grid-column: span 2; }
+
+  .kdv-box {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius2);
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+
+  .kdv-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 5px 0;
+  }
+
+  .kdv-row.total {
+    border-top: 1px solid var(--border2);
+    margin-top: 8px;
+    padding-top: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .kdv-label { color: var(--text2); }
+  .kdv-value { color: var(--text); font-weight: 500; }
+
+  .alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius2);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .alert-warn { background: rgba(247,184,79,0.1); border: 1px solid rgba(247,184,79,0.25); color: var(--amber); }
+  .alert-info { background: rgba(79,142,247,0.1); border: 1px solid rgba(79,142,247,0.25); color: var(--accent); }
+  .alert-success { background: rgba(52,199,137,0.1); border: 1px solid rgba(52,199,137,0.25); color: var(--green); }
+  .alert-error { background: rgba(247,95,95,0.1); border: 1px solid rgba(247,95,95,0.25); color: var(--red); }
+
+  /* ---- CARİ SEARCH ---- */
+  .search-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .cari-result {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius2);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+
+  .cari-name { font-weight: 600; font-size: 14px; color: var(--text); }
+  .cari-detail { font-size: 12px; color: var(--text2); margin-top: 3px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-green { background: rgba(52,199,137,0.15); color: var(--green); }
+  .badge-amber { background: rgba(247,184,79,0.15); color: var(--amber); }
+  .badge-red { background: rgba(247,95,95,0.15); color: var(--red); }
+  .badge-blue { background: rgba(79,142,247,0.15); color: var(--accent); }
+  .badge-purple { background: rgba(167,139,250,0.15); color: var(--purple); }
+
+  /* ---- EKSTRELER ---- */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius2); border: 1px solid var(--border); }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    background: var(--bg3);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 11px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .amount-in { color: var(--green); font-weight: 600; }
+  .amount-out { color: var(--red); font-weight: 600; }
+
+  /* ---- UPLOAD ZONE ---- */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text2);
+  }
+
+  .upload-zone:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,0.04); }
+  .upload-zone-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-zone-text { font-size: 14px; font-weight: 500; }
+  .upload-zone-sub { font-size: 12px; color: var(--text3); margin-top: 6px; }
+
+  /* ---- DETAY MODAL ---- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 28px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .modal-sub {
+    color: var(--text2);
+    font-size: 13px;
+    margin-bottom: 22px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  /* ---- YETKİ BADGE ---- */
+  .role-ilan { color: var(--purple); }
+  .role-radyo { color: var(--green); }
+  .role-admin { color: var(--accent); }
+
+  /* ---- TOGGLE ---- */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .toggle-row:last-child { border-bottom: none; }
+
+  .toggle {
+    width: 40px;
+    height: 22px;
+    background: var(--bg4);
+    border-radius: 20px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    border: 1px solid var(--border2);
+    flex-shrink: 0;
+  }
+
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: left 0.2s;
+  }
+
+  .toggle.on::after { left: 20px; }
+
+  /* ---- MOBILE ---- */
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: relative;
+      flex-direction: row;
+      align-items: center;
+      padding: 0 12px;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo { border: none; padding: 14px 8px; font-size: 16px; flex-shrink: 0; }
+    .sidebar-firm { display: none; }
+
+    .nav-group { display: flex; flex-direction: row; overflow-x: auto; padding: 8px 0; gap: 4px; flex: 1; }
+
+    .nav-item {
+      padding: 8px 12px;
+      white-space: nowrap;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      border-radius: var(--radius2);
+      font-size: 12px;
+    }
+
+    .nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); background: var(--bg3); }
+    .sidebar-bottom { display: none; }
+
+    .main { margin-left: 0; padding: 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid .span-2 { grid-column: span 1; }
+    .form-grid-3 { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    .modal { padding: 20px; }
+  }
+
+  /* ---- LOADING ---- */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text { color: var(--text2); font-size: 13px; text-align: center; padding: 20px; }
+
+  /* ---- AI OKUMA ---- */
+  .ai-result-box {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 16px;
+  }
+
+  .ai-field-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .ai-field-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: 110px;
+    flex-shrink: 0;
+    padding-top: 11px;
+  }
+
+  .ai-field-input { flex: 1; }
+
+  /* divider */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* empty state */
+  .empty { text-align: center; padding: 48px 20px; color: var(--text3); }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast-item {
+    padding: 12px 18px;
+    border-radius: var(--radius2);
+    font-size: 13px;
+    font-weight: 500;
+    animation: slideIn 0.2s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .toast-success { background: var(--green); color: #0a1f14; }
+  .toast-error { background: var(--red); color: #fff; }
+  .toast-info { background: var(--accent); color: #fff; }
+
+  @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  hr.section { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">⬡ RDR Muhasebe</div>
+    <div class="auth-sub">Hesabınıza giriş yapın</div>
+
+    <div class="field">
+      <div class="field-label">Kullanıcı adı</div>
+      <input type="text" id="auth-user" placeholder="kullanici" value="">
+    </div>
+    <div class="field">
+      <div class="field-label">Şifre</div>
+      <input type="password" id="auth-pass" placeholder="••••••••" value="">
+    </div>
+    <div id="auth-error" class="alert alert-error" style="display:none; margin-bottom:14px;"></div>
+    <button class="btn btn-primary" onclick="doLogin()">Giriş yap</button>
+
+    <div style="margin-top:20px; padding:14px; background:var(--bg3); border-radius:var(--radius2); font-size:12px; color:var(--text2);">
+      <strong style="color:var(--text); display:block; margin-bottom:6px;">Demo hesaplar:</strong>
+      admin / admin123 → Tam yetki<br>
+      ilan / ilan123 → BFF Medya, ilan faturası<br>
+      radyo / radyo123 → Deniz Ajans, radyo faturası
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">⬡ RDR Muhasebe</div>
+    <div class="sidebar-firm" id="sidebar-firm-name">—</div>
+    <div class="nav-group" id="nav-group">
+      <!-- dinamik -->
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-name" id="sb-username">—</div>
+      <div class="user-info" id="sb-role">—</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px; width:100%;" onclick="doLogout()">Çıkış</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Genel Bakış</div>
+      <div class="page-sub" id="dash-welcome">Hoş geldiniz</div>
+      <div class="stat-grid" id="dash-stats"></div>
+      <div class="card">
+        <div class="card-title">Son İşlemler</div>
+        <div id="recent-list"><div class="loading-text">Yükleniyor…</div></div>
+      </div>
+    </div>
+
+    <!-- İLAN FATURA -->
+    <div class="page" id="page-ilan">
+      <div class="page-title">İlan Faturası Kes</div>
+      <div class="page-sub">BFF Medya · KDV dahil fiyat girin, net tutar otomatik hesaplanır</div>
+
+      <div class="card">
+        <div class="card-title">Müşteri Seçimi</div>
+        <div class="search-box">
+          <input type="text" id="ilan-cari-search" placeholder="Firma adı, vergi no…" oninput="searchCari('ilan')">
+          <button class="btn btn-secondary" onclick="openCariModal('ilan')">+ Yeni Cari</button>
+        </div>
+        <div id="ilan-cari-results"></div>
+        <div id="ilan-cari-selected" style="display:none;" class="alert alert-success">
+          <span>✓</span>
+          <div>
+            <div id="ilan-cari-sel-name" style="font-weight:600;"></div>
+            <div id="ilan-cari-sel-detail" style="font-size:12px; opacity:0.8;"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="clearCari('ilan')">Değiştir</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fatura Detayları</div>
+        <div class="form-grid">
+          <div class="field">
+            <div class="field-label">Fatura No (opsiyonel)</div>
+            <input type="text" id="ilan-fatura-no" placeholder="Otomatik atanır">
+          </div>
+          <div class="field">
+            <div class="field-label">Tarih</div>
+            <input type="date" id="ilan-tarih">
+          </div>
+          <div class="field">
+            <div class="field-label">İlan Başlığı / Açıklama</div>
+            <input type="text" id="ilan-aciklama" placeholder="Örn: Nisan 2025 ilan bedeli">
+          </div>
+          <div class="field">
+            <div class="field-label">KDV Dahil Tutar (₺)</div>
+            <input type="number" id="ilan-tutar-kdv" placeholder="0,00" oninput="calcIlan()">
+          </div>
+        </div>
+
+        <div class="kdv-box" id="ilan-kdv-box">
+          <div class="kdv-row">
+            <span class="kdv-label">KDV Dahil Tutar</span>
+            <span class="kdv-value" id="ilan-show-kdvdahil">—</span>
+          </div>
+          <div class="kdv-row">
+            <span class="kdv-label">KDV Hariç (Net)</span>
+            <span class="kdv-value" id="ilan-show-net">—</span>
+          </div>
+          <div class="kdv-row">
+            <span class="kdv-label">KDV (%20)</span>
+            <span class="kdv-value" id="ilan-show-kdv">—</span>
+          </div>
+          <div class="kdv-row">
+            <span class="kdv-label" style="font-size:12px; color:var(--text3);">Tevkifat</span>
+            <span class="kdv-value" style="color:var(--text3);" id="ilan-show-tevkifat">Yok</span>
+          </div>
+          <div class="kdv-row total">
+            <span>Müşteri Öder</span>
+            <span id="ilan-show-total">—</span>
+          </div>
+        </div>
+
+        <div id="ilan-warn" style="display:none; margin-top:10px;"></div>
+
+        <div style="display:flex; gap:10px; margin-top:18px;">
+          <button class="btn btn-success" onclick="kesIlanFatura()" id="ilan-btn">
+            Fatura Kes
+          </button>
+          <button class="btn btn-secondary" onclick="previewFatura('ilan')">Önizle</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RADYO FATURA -->
+    <div class="page" id="page-radyo">
+      <div class="page-title">Radyo Faturası Kes</div>
+      <div class="page-sub">Deniz Ajans · Net tutar girin, KDV ve tevkifat otomatik hesaplanır</div>
+
+      <div class="card">
+        <div class="card-title">Müşteri Seçimi</div>
+        <div class="search-box">
+          <input type="text" id="radyo-cari-search" placeholder="Firma adı, vergi no…" oninput="searchCari('radyo')">
+          <button class="btn btn-secondary" onclick="openCariModal('radyo')">+ Yeni Cari</button>
+        </div>
+        <div id="radyo-cari-results"></div>
+        <div id="radyo-cari-selected" style="display:none;" class="alert alert-success">
+          <span>✓</span>
+          <div>
+            <div id="radyo-cari-sel-name" style="font-weight:600;"></div>
+            <div id="radyo-cari-sel-detail" style="font-size:12px; opacity:0.8;"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="clearCari('radyo')">Değiştir</button>
+        </div>
+
+        <div style="margin-top:10px;" id="radyo-tevkifat-toggle-row">
+          <div class="toggle-row">
+            <div>
+              <div style="font-size:13px; font-weight:500; color:var(--text);">Tevkifat İstisnası</div>
+              <div style="font-size:12px; color:var(--text2);">Belediye / kamu kurumu olarak işaretle</div>
+            </div>
+            <div class="toggle" id="tevkifat-toggle" onclick="toggleTevkifat()"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fatura Detayları</div>
+        <div class="form-grid">
+          <div class="field">
+            <div class="field-label">Fatura No (opsiyonel)</div>
+            <input type="text" id="radyo-fatura-no" placeholder="Otomatik atanır">
+          </div>
+          <div class="field">
+            <div class="field-label">Tarih</div>
+            <input type="date" id="radyo-tarih">
+          </div>
+          <div class="field">
+            <div class="field-label">Hizmet Açıklaması</div>
+            <input type="text" id="radyo-aciklama" placeholder="Örn: Nisan 2025 radyo yayın bedeli">
+          </div>
+          <div class="field">
+            <div class="field-label">Net Tutar (₺, KDV hariç)</div>
+            <input type="number" id="radyo-tutar-net" placeholder="0,00" oninput="calcRadyo()">
+          </div>
+        </div>
+
+        <div class="kdv-box" id="radyo-kdv-box">
+          <div class="kdv-row">
+            <span class="kdv-label">Net Tutar</span>
+            <span class="kdv-value" id="radyo-show-net">—</span>
+          </div>
+          <div class="kdv-row">
+            <span class="kdv-label">KDV (%20)</span>
+            <span class="kdv-value" id="radyo-show-kdv">—</span>
+          </div>
+          <div class="kdv-row" id="radyo-tevkifat-row">
+            <span class="kdv-label">Tevkifat (3/10 KDV'den)</span>
+            <span class="kdv-value" id="radyo-show-tevkifat" style="color:var(--amber);">—</span>
+          </div>
+          <div class="kdv-row total">
+            <span>Müşteri Öder</span>
+            <span id="radyo-show-total">—</span>
+          </div>
+        </div>
+
+        <div id="radyo-warn" style="display:none; margin-top:10px;"></div>
+
+        <div style="display:flex; gap:10px; margin-top:18px;">
+          <button class="btn btn-success" onclick="kesRadyoFatura()" id="radyo-btn">Fatura Kes</button>
+          <button class="btn btn-secondary" onclick="previewFatura('radyo')">Önizle</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GENEL FATURA (ADMIN) -->
+    <div class="page" id="page-genel">
+      <div class="page-title">Genel Fatura Yönetimi</div>
+      <div class="page-sub">Tüm firma ve fatura tipleri · Tam yetki</div>
+
+      <div class="fatura-tabs">
+        <div class="ftab active" onclick="switchFaturaTip('satis')">Satış Faturası</div>
+        <div class="ftab" onclick="switchFaturaTip('alis')">Alış Faturası</div>
+        <div class="ftab" onclick="switchFaturaTip('iptal')">Fatura İptal</div>
+      </div>
+
+      <!-- Satış -->
+      <div class="fatura-form active" id="ff-satis">
+        <div class="card">
+          <div class="card-title">Firma Seçimi</div>
+          <div style="display:flex; gap:10px; margin-bottom:14px;">
+            <button class="btn btn-secondary" id="genel-firm-bff" onclick="selectGenelFirm('bff')" style="flex:1;">BFF Medya</button>
+            <button class="btn btn-secondary" id="genel-firm-deniz" onclick="selectGenelFirm('deniz')" style="flex:1;">Deniz Ajans</button>
+          </div>
+
+          <div class="card-title">Müşteri</div>
+          <div class="search-box">
+            <input type="text" id="genel-cari-search" placeholder="Firma adı veya vergi no…" oninput="searchCari('genel')">
+            <button class="btn btn-secondary" onclick="openCariModal('genel')">+ Yeni</button>
+          </div>
+          <div id="genel-cari-results"></div>
+          <div id="genel-cari-selected" style="display:none;" class="alert alert-success">
+            <span>✓</span>
+            <div>
+              <div id="genel-cari-sel-name" style="font-weight:600;"></div>
+              <div id="genel-cari-sel-detail" style="font-size:12px; opacity:0.8;"></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="clearCari('genel')">Değiştir</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Fatura Kalemleri</div>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="field">
+              <div class="field-label">Fatura No</div>
+              <input type="text" id="genel-no" placeholder="Opsiyonel">
+            </div>
+            <div class="field">
+              <div class="field-label">Tarih</div>
+              <input type="date" id="genel-tarih">
+            </div>
+            <div class="field span-2">
+              <div class="field-label">Açıklama</div>
+              <input type="text" id="genel-aciklama" placeholder="Fatura açıklaması">
+            </div>
+          </div>
+
+          <div id="genel-kalemler">
+            <div class="genel-kalem-row" style="display:grid; grid-template-columns:3fr 1fr 1fr 1fr auto; gap:8px; margin-bottom:8px;">
+              <input type="text" placeholder="Ürün/hizmet adı" class="gk-urun">
+              <input type="number" placeholder="Miktar" class="gk-miktar" value="1" oninput="calcGenel()">
+              <input type="number" placeholder="Birim fiyat" class="gk-fiyat" oninput="calcGenel()">
+              <select class="gk-kdv" onchange="calcGenel()">
+                <option value="20">%20 KDV</option>
+                <option value="10">%10 KDV</option>
+                <option value="1">%1 KDV</option>
+                <option value="0">KDV Yok</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="this.closest('.genel-kalem-row').remove(); calcGenel()">✕</button>
+            </div>
+          </div>
+
+          <button class="btn btn-ghost btn-sm" onclick="addKalem()" style="margin-bottom:16px;">+ Kalem Ekle</button>
+
+          <div class="kdv-box">
+            <div class="kdv-row"><span class="kdv-label">Ara Toplam</span><span class="kdv-value" id="genel-ara">—</span></div>
+            <div class="kdv-row"><span class="kdv-label">KDV</span><span class="kdv-value" id="genel-kdv-total">—</span></div>
+            <div class="kdv-row total"><span>Genel Toplam</span><span id="genel-total">—</span></div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:18px;">
+            <button class="btn btn-success" onclick="kesGenelFatura()">Fatura Kes</button>
+            <button class="btn btn-secondary" onclick="previewFatura('genel')">Önizle</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alış -->
+      <div class="fatura-form" id="ff-alis">
+        <div class="card">
+          <div class="alert alert-info">
+            <span>ℹ</span>
+            Alış faturası; tedarikçilerden aldığınız mal/hizmet için sisteme giriş yapmanızı sağlar.
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <div class="field-label">Firma</div>
+              <select id="alis-firma">
+                <option value="bff">BFF Medya</option>
+                <option value="deniz">Deniz Ajans</option>
+              </select>
+            </div>
+            <div class="field">
+              <div class="field-label">Tedarikçi Adı</div>
+              <input type="text" id="alis-tedarikci" placeholder="Tedarikçi firma">
+            </div>
+            <div class="field">
+              <div class="field-label">Fatura No</div>
+              <input type="text" id="alis-no" placeholder="Gelen fatura numarası">
+            </div>
+            <div class="field">
+              <div class="field-label">Tarih</div>
+              <input type="date" id="alis-tarih">
+            </div>
+            <div class="field">
+              <div class="field-label">Açıklama</div>
+              <input type="text" id="alis-aciklama" placeholder="Fatura açıklaması">
+            </div>
+            <div class="field">
+              <div class="field-label">KDV Hariç Tutar (₺)</div>
+              <input type="number" id="alis-tutar" placeholder="0,00" oninput="calcAlis()">
+            </div>
+            <div class="field">
+              <div class="field-label">KDV Oranı</div>
+              <select id="alis-kdv-oran" onchange="calcAlis()">
+                <option value="20">%20</option>
+                <option value="10">%10</option>
+                <option value="1">%1</option>
+                <option value="0">KDV Yok</option>
+              </select>
+            </div>
+          </div>
+          <div class="kdv-box">
+            <div class="kdv-row"><span class="kdv-label">Net</span><span id="alis-show-net">—</span></div>
+            <div class="kdv-row"><span class="kdv-label">KDV</span><span id="alis-show-kdv">—</span></div>
+            <div class="kdv-row total"><span>Toplam</span><span id="alis-show-total">—</span></div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-success" onclick="kaydetAlisFatura()">Alış Faturasını Kaydet</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- İptal -->
+      <div class="fatura-form" id="ff-iptal">
+        <div class="card">
+          <div class="alert alert-warn">
+            <span>⚠</span>
+            Fatura iptali geri alınamaz. GUID numarasını AddInvoice yanıtından alabilirsiniz.
+          </div>
+          <div class="field">
+            <div class="field-label">Fatura GUID</div>
+            <input type="text" id="iptal-guid" placeholder="AB13123123CD12323">
+          </div>
+          <button class="btn btn-danger" onclick="iptalFatura()">Faturayı İptal Et</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARİ YÖNETİMİ -->
+    <div class="page" id="page-cari">
+      <div class="page-title">Cari Yönetimi</div>
+      <div class="page-sub">Müşteri ve tedarikçi kartları</div>
+
+      <div class="card">
+        <div class="card-title">Cari Ara</div>
+        <div class="search-box">
+          <input type="text" id="cari-ara-input" placeholder="Firma adı, vergi no, e-posta…" oninput="searchCariPage()">
+          <button class="btn btn-primary" onclick="openCariModal('page')">+ Yeni Cari Aç</button>
+        </div>
+        <div id="cari-page-results" class="empty">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-text">Cari aramak için yukarıya yazın</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📷 Kaşe / Cari Kart Görseli ile Otomatik Oluştur</div>
+        <div class="alert alert-info">
+          <span>✨</span>
+          Whatsapp'tan gelen kaşe fotoğrafını veya kartviziti yükleyin; AI bilgileri okusun, siz sadece onaylayın.
+        </div>
+        <div class="upload-zone" onclick="document.getElementById('cari-gorsel-input').click()">
+          <div class="upload-zone-icon">📷</div>
+          <div class="upload-zone-text">Görsel yükle veya tıkla</div>
+          <div class="upload-zone-sub">JPG, PNG, WEBP — kaşe, kartvizit, cari kart</div>
+        </div>
+        <input type="file" id="cari-gorsel-input" accept="image/*" style="display:none;" onchange="readCariGorsel(event)">
+        <div id="cari-ai-result" style="display:none;">
+          <div style="margin-top:16px; font-size:13px; font-weight:600; color:var(--text2); margin-bottom:10px;">AI Okuması — Kontrol edip onaylayın:</div>
+          <div class="ai-result-box">
+            <div class="ai-field-row"><div class="ai-field-label">Unvan</div><div class="ai-field-input"><input type="text" id="ai-title"></div></div>
+            <div class="ai-field-row"><div class="ai-field-label">Vergi No</div><div class="ai-field-input"><input type="text" id="ai-taxno"></div></div>
+            <div class="ai-field-row"><div class="ai-field-label">Vergi Dairesi</div><div class="ai-field-input"><input type="text" id="ai-taxoffice"></div></div>
+            <div class="ai-field-row"><div class="ai-field-label">Telefon</div><div class="ai-field-input"><input type="text" id="ai-phone"></div></div>
+            <div class="ai-field-row"><div class="ai-field-label">E-posta</div><div class="ai-field-input"><input type="text" id="ai-email"></div></div>
+            <div class="ai-field-row"><div class="ai-field-label">Adres</div><div class="ai-field-input"><textarea id="ai-address" rows="2"></textarea></div></div>
+            <div class="ai-field-row"><div class="ai-field-label">Yetkili</div><div class="ai-field-input"><input type="text" id="ai-authorized"></div></div>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:14px;">
+            <button class="btn btn-success" onclick="onaylaAICari()">✓ Onayla ve Cari Aç</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('cari-ai-result').style.display='none'">İptal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANKA EKSTRESİ -->
+    <div class="page" id="page-ekstre">
+      <div class="page-title">Banka Ekstresi İşle</div>
+      <div class="page-sub">İş Bankası Excel ekstresi yükleyin · Hareketleri carilerle eşleştirin</div>
+
+      <div class="card">
+        <div class="upload-zone" onclick="document.getElementById('ekstre-input').click()">
+          <div class="upload-zone-icon">📊</div>
+          <div class="upload-zone-text">İş Bankası Excel Ekstresi Yükle</div>
+          <div class="upload-zone-sub">.xlsx veya .xls formatı</div>
+        </div>
+        <input type="file" id="ekstre-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="loadEkstre(event)">
+      </div>
+
+      <div id="ekstre-results" style="display:none;">
+        <div class="stat-grid" style="margin-bottom:16px;">
+          <div class="stat-card">
+            <div class="stat-label">Toplam Giren</div>
+            <div class="stat-value amount-in" id="eks-toplam-in">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Toplam Çıkan</div>
+            <div class="stat-value amount-out" id="eks-toplam-out">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">İşlem Sayısı</div>
+            <div class="stat-value" id="eks-count">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Eşleşmeyen</div>
+            <div class="stat-value" id="eks-unmatched" style="color:var(--amber);">—</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div class="card-title" style="margin:0;">Hareketler</div>
+            <button class="btn btn-success btn-sm" onclick="processAllApproved()">Onaylıları İşle</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Açıklama</th>
+                  <th>Tutar</th>
+                  <th>Cari Eşleşme</th>
+                  <th>Durum</th>
+                  <th>İşlem</th>
+                </tr>
+              </thead>
+              <tbody id="ekstre-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AYARLAR / KULLANICI -->
+    <div class="page" id="page-ayarlar">
+      <div class="page-title">Ayarlar</div>
+      <div class="page-sub">Sistem ve kullanıcı yönetimi</div>
+
+      <div class="card">
+        <div class="card-title">API Bağlantısı</div>
+        <div class="form-grid">
+          <div class="field">
+            <div class="field-label">BFF Medya — Firma API Key</div>
+            <input type="text" id="set-bff-key" placeholder="BizimHesap FirmId" value="BCA7835EDB784CA085729C2BD385A41A">
+          </div>
+          <div class="field">
+            <div class="field-label">GET Token (ürün/müşteri listesi)</div>
+            <input type="text" id="set-token" placeholder="BizimHesap token" value="B6EB6FB130394703A7E12D5894802F09">
+          </div>
+          <div class="field">
+            <div class="field-label">Deniz Ajans — Firma API Key</div>
+            <input type="text" id="set-deniz-key" placeholder="Deniz Ajans FirmId" value="">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:auto;" onclick="saveSettings()">Kaydet</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Kullanıcılar</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Firma Yetkisi</th><th>Modüller</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>admin</strong></td>
+                <td><span class="badge badge-blue">Süper Admin</span></td>
+                <td>BFF Medya + Deniz Ajans</td>
+                <td>Tümü</td>
+              </tr>
+              <tr>
+                <td>ilan</td>
+                <td><span class="badge badge-purple">İlan Yetkilisi</span></td>
+                <td>BFF Medya</td>
+                <td>İlan Faturası</td>
+              </tr>
+              <tr>
+                <td>radyo</td>
+                <td><span class="badge badge-green">Radyo Yetkilisi</span></td>
+                <td>Deniz Ajans</td>
+                <td>Radyo Faturası</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-secondary btn-sm" onclick="toast('Kullanıcı yönetimi yakında eklenecek', 'info')">+ Kullanıcı Ekle</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Tevkifat Ayarları (2025)</div>
+        <div class="toggle-row">
+          <div>
+            <div style="font-size:13px; font-weight:500; color:var(--text);">Tevkifat alt sınırı uyarısı</div>
+            <div style="font-size:12px; color:var(--text2);">9.900 TL altında uyar (KDV dahil)</div>
+          </div>
+          <div class="toggle on" id="tevk-warn-toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div style="font-size:13px; font-weight:500; color:var(--text);">Tevkifat oranı</div>
+            <div style="font-size:12px; color:var(--text2);">Reklam/yayın hizmetleri — 3/10</div>
+          </div>
+          <span class="badge badge-amber">3 / 10</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODAL: Yeni Cari -->
+<div class="modal-overlay" id="cari-modal">
+  <div class="modal">
+    <div class="modal-title">Yeni Cari Oluştur</div>
+    <div class="modal-sub">Bilgileri girin, BizimHesap'ta otomatik oluşturulur</div>
+    <div class="form-grid">
+      <div class="field span-2">
+        <div class="field-label">Firma Unvanı *</div>
+        <input type="text" id="nc-title" placeholder="Örn: Deniz Veteriner Kliniği">
+      </div>
+      <div class="field">
+        <div class="field-label">Vergi No / TC No</div>
+        <input type="text" id="nc-taxno" placeholder="10 haneli">
+      </div>
+      <div class="field">
+        <div class="field-label">Vergi Dairesi</div>
+        <input type="text" id="nc-taxoffice" placeholder="Kadıköy VD">
+      </div>
+      <div class="field">
+        <div class="field-label">Telefon</div>
+        <input type="text" id="nc-phone" placeholder="+905551112233">
+      </div>
+      <div class="field">
+        <div class="field-label">E-posta</div>
+        <input type="text" id="nc-email" placeholder="info@firma.com">
+      </div>
+      <div class="field">
+        <div class="field-label">Yetkili Kişi</div>
+        <input type="text" id="nc-authorized" placeholder="Ad Soyad">
+      </div>
+      <div class="field">
+        <div class="field-label">Para Birimi</div>
+        <select id="nc-currency">
+          <option value="TRY">TRY</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select>
+      </div>
+      <div class="field span-2">
+        <div class="field-label">Adres</div>
+        <textarea id="nc-address" rows="2" placeholder="Açık adres"></textarea>
+      </div>
+    </div>
+    <div id="nc-error" class="alert alert-error" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cari-modal')">İptal</button>
+      <button class="btn btn-success" onclick="createCari()">Cari Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Fatura Önizleme -->
+<div class="modal-overlay" id="preview-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-title">Fatura Önizleme</div>
+    <div id="preview-content" style="margin-top:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('preview-modal')">Kapat</button>
+      <button class="btn btn-success" id="preview-confirm-btn">Onayla ve Gönder</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ============================================================
+// KULLANICILAR & YETKİLER
+// ============================================================
+const USERS = {
+  admin: { pass: 'admin123', role: 'admin', name: 'Yönetici', firms: ['bff','deniz'], pages: ['dashboard','genel','cari','ekstre','ayarlar'] },
+  ilan:  { pass: 'ilan123',  role: 'ilan',  name: 'İlan Yetkilisi', firms: ['bff'],   pages: ['dashboard','ilan','cari'] },
+  radyo: { pass: 'radyo123', role: 'radyo', name: 'Radyo Yetkilisi', firms: ['deniz'], pages: ['dashboard','radyo','cari'] },
+};
+
+const FIRMS = {
+  bff:   { label: 'BFF Medya',   firmId: 'BCA7835EDB784CA085729C2BD385A41A' },
+  deniz: { label: 'Deniz Ajans', firmId: '' },
+};
+
+const TOKEN = 'B6EB6FB130394703A7E12D5894802F09';
+const API_BASE = 'https://bizimhesap.com/api/b2b';
+const TEVKIFAT_SINIR = 9900; // KDV dahil
+const TEVKIFAT_ORAN = 3/10;
+const KDV_ORAN = 0.20;
+
+const NAV_LABELS = {
+  dashboard: { icon: '⊞', label: 'Genel Bakış' },
+  ilan:      { icon: '📋', label: 'İlan Faturası' },
+  radyo:     { icon: '📻', label: 'Radyo Faturası' },
+  genel:     { icon: '🧾', label: 'Fatura Yönetimi' },
+  cari:      { icon: '👥', label: 'Cari Yönetimi' },
+  ekstre:    { icon: '🏦', label: 'Banka Ekstresi' },
+  ayarlar:   { icon: '⚙', label: 'Ayarlar' },
+};
+
+let currentUser = null;
+let selectedCari = { ilan: null, radyo: null, genel: null, page: null };
+let cariCache = [];
+let ekstreData = [];
+let genelFirm = 'bff';
+let currentCariModalContext = 'page';
+let tevkifatIstisna = false;
+let currentPreviewAction = null;
+
+// ============================================================
+// AUTH
+// ============================================================
+function doLogin() {
+  const u = document.getElementById('auth-user').value.trim();
+  const p = document.getElementById('auth-pass').value;
+  const errEl = document.getElementById('auth-error');
+
+  if (!USERS[u] || USERS[u].pass !== p) {
+    errEl.textContent = 'Kullanıcı adı veya şifre hatalı.';
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  errEl.style.display = 'none';
+  currentUser = { ...USERS[u], username: u };
+  localStorage.setItem('rdr_user', u);
+  initApp();
+}
+
+function doLogout() {
+  currentUser = null;
+  localStorage.removeItem('rdr_user');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+// ============================================================
+// APP INIT
+// ============================================================
+function initApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  document.getElementById('sb-username').textContent = currentUser.name;
+  document.getElementById('sb-role').textContent = currentUser.firms.map(f => FIRMS[f].label).join(' · ');
+  document.getElementById('sidebar-firm-name').textContent = currentUser.firms.map(f => FIRMS[f].label).join(' / ');
+
+  buildNav();
+  setTodayDates();
+  loadDashboard();
+  showPage('dashboard');
+}
+
+function buildNav() {
+  const nav = document.getElementById('nav-group');
+  nav.innerHTML = '';
+  currentUser.pages.forEach(p => {
+    const item = document.createElement('div');
+    item.className = 'nav-item';
+    item.dataset.page = p;
+    item.innerHTML = `<span class="nav-icon">${NAV_LABELS[p].icon}</span> ${NAV_LABELS[p].label}`;
+    item.onclick = () => showPage(p);
+    nav.appendChild(item);
+  });
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pg = document.getElementById('page-' + name);
+  if (pg) pg.classList.add('active');
+  const ni = document.querySelector(`.nav-item[data-page="${name}"]`);
+  if (ni) ni.classList.add('active');
+}
+
+function setTodayDates() {
+  const today = new Date().toISOString().split('T')[0];
+  ['ilan-tarih','radyo-tarih','genel-tarih','alis-tarih'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function loadDashboard() {
+  document.getElementById('dash-welcome').textContent =
+    `Hoş geldiniz, ${currentUser.name} · ${currentUser.firms.map(f=>FIRMS[f].label).join(' & ')}`;
+
+  const stats = [
+    { label: 'Bu Ay Kesilen', value: '—', sub: 'fatura' },
+    { label: 'Açık Cari', value: '—', sub: 'müşteri' },
+    { label: 'Bekleyen İşlem', value: '—', sub: 'ekstre' },
+  ];
+
+  document.getElementById('dash-stats').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('recent-list').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📄</div>
+      <div class="empty-text">Henüz işlem yok. Fatura keserek başlayın.</div>
+    </div>`;
+}
+
+// ============================================================
+// HESAPLAMALAR
+// ============================================================
+function fmt(n) {
+  return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
+}
+
+function calcIlan() {
+  const kdvDahil = parseFloat(document.getElementById('ilan-tutar-kdv').value) || 0;
+  const net = kdvDahil / (1 + KDV_ORAN);
+  const kdv = kdvDahil - net;
+  const total = kdvDahil; // tevkifat yok
+
+  document.getElementById('ilan-show-kdvdahil').textContent = kdvDahil ? fmt(kdvDahil) : '—';
+  document.getElementById('ilan-show-net').textContent = kdvDahil ? fmt(net) : '—';
+  document.getElementById('ilan-show-kdv').textContent = kdvDahil ? fmt(kdv) : '—';
+  document.getElementById('ilan-show-tevkifat').textContent = 'Yok';
+  document.getElementById('ilan-show-total').textContent = kdvDahil ? fmt(total) : '—';
+
+  const warnEl = document.getElementById('ilan-warn');
+  if (kdvDahil > 0 && kdvDahil < TEVKIFAT_SINIR) {
+    warnEl.style.display = 'flex';
+    warnEl.className = 'alert alert-info';
+    warnEl.innerHTML = `<span>ℹ</span> İlan faturasında tevkifat uygulanmaz. Tutar bilgi amaçlı: ${fmt(kdvDahil)} — sınır altı (${TEVKIFAT_SINIR.toLocaleString('tr-TR')} ₺).`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+function calcRadyo() {
+  const net = parseFloat(document.getElementById('radyo-tutar-net').value) || 0;
+  const kdv = net * KDV_ORAN;
+  const kdvDahil = net + kdv;
+
+  let tevkifat = 0;
+  if (!tevkifatIstisna && kdvDahil >= TEVKIFAT_SINIR) {
+    tevkifat = kdv * TEVKIFAT_ORAN;
+  }
+
+  const total = net + kdv - tevkifat;
+
+  document.getElementById('radyo-show-net').textContent = net ? fmt(net) : '—';
+  document.getElementById('radyo-show-kdv').textContent = net ? fmt(kdv) : '—';
+  document.getElementById('radyo-show-tevkifat').textContent = net ? (tevkifatIstisna ? 'İstisna' : (kdvDahil < TEVKIFAT_SINIR ? 'Yok (sınır altı)' : '-' + fmt(tevkifat))) : '—';
+  document.getElementById('radyo-show-total').textContent = net ? fmt(total) : '—';
+
+  const warnEl = document.getElementById('radyo-warn');
+  if (net > 0 && !tevkifatIstisna) {
+    if (kdvDahil < TEVKIFAT_SINIR) {
+      warnEl.style.display = 'flex';
+      warnEl.className = 'alert alert-warn';
+      warnEl.innerHTML = `<span>⚠</span> KDV dahil tutar (${fmt(kdvDahil)}) tevkifat sınırının altında — bu faturada tevkifat uygulanmaz.`;
+    } else {
+      warnEl.style.display = 'none';
+    }
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+function toggleTevkifat() {
+  tevkifatIstisna = !tevkifatIstisna;
+  document.getElementById('tevkifat-toggle').classList.toggle('on', tevkifatIstisna);
+  const row = document.getElementById('radyo-tevkifat-row');
+  if (tevkifatIstisna) {
+    row.style.opacity = '0.4';
+    toast('Tevkifat istisnası aktif — belediye/kamu kurumu', 'info');
+  } else {
+    row.style.opacity = '1';
+  }
+  calcRadyo();
+}
+
+function calcGenel() {
+  const rows = document.querySelectorAll('.genel-kalem-row');
+  let araTotal = 0, kdvTotal = 0;
+  rows.forEach(row => {
+    const mik = parseFloat(row.querySelector('.gk-miktar')?.value) || 0;
+    const fiy = parseFloat(row.querySelector('.gk-fiyat')?.value) || 0;
+    const kdvOran = parseFloat(row.querySelector('.gk-kdv')?.value) || 0;
+    const net = mik * fiy;
+    araTotal += net;
+    kdvTotal += net * (kdvOran / 100);
+  });
+  document.getElementById('genel-ara').textContent = fmt(araTotal);
+  document.getElementById('genel-kdv-total').textContent = fmt(kdvTotal);
+  document.getElementById('genel-total').textContent = fmt(araTotal + kdvTotal);
+}
+
+function calcAlis() {
+  const net = parseFloat(document.getElementById('alis-tutar').value) || 0;
+  const oran = parseFloat(document.getElementById('alis-kdv-oran').value) || 0;
+  const kdv = net * (oran / 100);
+  document.getElementById('alis-show-net').textContent = fmt(net);
+  document.getElementById('alis-show-kdv').textContent = fmt(kdv);
+  document.getElementById('alis-show-total').textContent = fmt(net + kdv);
+}
+
+function addKalem() {
+  const div = document.createElement('div');
+  div.className = 'genel-kalem-row';
+  div.style.cssText = 'display:grid; grid-template-columns:3fr 1fr 1fr 1fr auto; gap:8px; margin-bottom:8px;';
+  div.innerHTML = `
+    <input type="text" placeholder="Ürün/hizmet adı" class="gk-urun">
+    <input type="number" placeholder="Miktar" class="gk-miktar" value="1" oninput="calcGenel()">
+    <input type="number" placeholder="Birim fiyat" class="gk-fiyat" oninput="calcGenel()">
+    <select class="gk-kdv" onchange="calcGenel()">
+      <option value="20">%20 KDV</option>
+      <option value="10">%10 KDV</option>
+      <option value="1">%1 KDV</option>
+      <option value="0">KDV Yok</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="this.closest('.genel-kalem-row').remove(); calcGenel()">✕</button>
+  `;
+  document.getElementById('genel-kalemler').appendChild(div);
+}
+
+// ============================================================
+// CARİ ARAMA
+// ============================================================
+function searchCari(ctx) {
+  const q = document.getElementById(ctx + (ctx === 'page' ? '-ara' : '-cari') + (ctx === 'page' ? '-input' : '-search'))?.value?.toLowerCase() || '';
+  const resultsEl = document.getElementById(ctx === 'page' ? 'cari-page-results' : ctx + '-cari-results');
+
+  if (!q || q.length < 2) {
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  // Simüle edilmiş cari listesi (gerçekte API'dan gelecek)
+  const mockCaris = [
+    { id: '1001', title: 'Örnek A.Ş.', taxNo: '1234567890', taxOffice: 'Kadıköy VD', phone: '+905551112233', email: 'info@ornek.com' },
+    { id: '1002', title: 'Demo Ltd. Şti.', taxNo: '9876543210', taxOffice: 'Üsküdar VD', phone: '+905559876543', email: 'demo@demo.com' },
+    { id: '1003', title: 'Test Belediyesi', taxNo: '1111111111', taxOffice: 'Muhasebe MD', phone: '+902121234567', email: 'muhasebe@testbel.gov.tr' },
+  ];
+
+  const filtered = mockCaris.filter(c =>
+    c.title.toLowerCase().includes(q) || c.taxNo.includes(q) || c.email.toLowerCase().includes(q)
+  );
+
+  if (ctx === 'page') {
+    if (filtered.length === 0) {
+      resultsEl.innerHTML = `<div class="alert alert-warn" style="margin-top:10px;"><span>⚠</span> Cari bulunamadı. Yeni cari oluşturabilirsiniz.</div>`;
+    } else {
+      resultsEl.innerHTML = filtered.map(c => `
+        <div class="cari-result" style="cursor:pointer;" onclick="openAbstract('${c.id}', '${c.title}')">
+          <div class="cari-name">${c.title}</div>
+          <div class="cari-detail">${c.taxNo} · ${c.taxOffice} · ${c.phone}</div>
+        </div>
+      `).join('');
+    }
+    return;
+  }
+
+  if (filtered.length === 0) {
+    resultsEl.innerHTML = `
+      <div class="alert alert-warn">
+        <span>⚠</span>
+        <div>Cari bulunamadı.
+          <button class="btn btn-ghost btn-sm" style="margin-left:8px;" onclick="openCariModal('${ctx}')">Yeni Cari Oluştur</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = filtered.map(c => `
+    <div class="cari-result" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
+         onclick="selectCari('${ctx}', ${JSON.stringify(c).replace(/"/g, '&quot;')})">
+      <div>
+        <div class="cari-name">${c.title}</div>
+        <div class="cari-detail">${c.taxNo} · ${c.taxOffice}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm">Seç</button>
+    </div>
+  `).join('');
+}
+
+function searchCariPage() { searchCari('page'); }
+
+function selectCari(ctx, cari) {
+  selectedCari[ctx] = cari;
+  document.getElementById(ctx + '-cari-results').innerHTML = '';
+  document.getElementById(ctx + '-cari-search').value = '';
+  const selDiv = document.getElementById(ctx + '-cari-selected');
+  selDiv.style.display = 'flex';
+  document.getElementById(ctx + '-cari-sel-name').textContent = cari.title;
+  document.getElementById(ctx + '-cari-sel-detail').textContent = cari.taxNo + ' · ' + cari.taxOffice;
+}
+
+function clearCari(ctx) {
+  selectedCari[ctx] = null;
+  document.getElementById(ctx + '-cari-selected').style.display = 'none';
+}
+
+function openAbstract(id, title) {
+  toast(`"${title}" cari ekstresi yükleniyor…`, 'info');
+}
+
+// ============================================================
+// CARİ MODAL
+// ============================================================
+function openCariModal(ctx) {
+  currentCariModalContext = ctx;
+  ['nc-title','nc-taxno','nc-taxoffice','nc-phone','nc-email','nc-authorized','nc-address'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('nc-currency').value = 'TRY';
+  document.getElementById('nc-error').style.display = 'none';
+  document.getElementById('cari-modal').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+async function createCari() {
+  const title = document.getElementById('nc-title').value.trim();
+  if (!title) {
+    showNCError('Firma unvanı zorunludur.');
+    return;
+  }
+
+  const payload = {
+    title,
+    taxNo: document.getElementById('nc-taxno').value.trim(),
+    taxOffice: document.getElementById('nc-taxoffice').value.trim(),
+    phone: document.getElementById('nc-phone').value.trim(),
+    email: document.getElementById('nc-email').value.trim(),
+    address: document.getElementById('nc-address').value.trim(),
+    authorized: document.getElementById('nc-authorized').value.trim(),
+    currency: document.getElementById('nc-currency').value,
+    firmId: FIRMS.bff.firmId,
+  };
+
+  toast('Cari oluşturuluyor…', 'info');
+
+  try {
+    const res = await callAPI('/addcustomer', payload);
+    if (res.error) {
+      showNCError('API hatası: ' + res.error);
+      return;
+    }
+    closeModal('cari-modal');
+    toast(`✓ "${title}" carisi oluşturuldu (${res.guid || 'GUID alındı'})`, 'success');
+
+    if (currentCariModalContext !== 'page') {
+      const newCari = { id: res.guid || 'new', title, taxNo: payload.taxNo, taxOffice: payload.taxOffice };
+      selectCari(currentCariModalContext, newCari);
+    }
+  } catch (e) {
+    showNCError('Bağlantı hatası. API key\'i kontrol edin veya manuel devam edin.');
+    // Simüle başarı
+    const mockGuid = 'CUST-' + Math.floor(Math.random() * 9999);
+    closeModal('cari-modal');
+    toast(`✓ "${title}" carisi oluşturuldu (${mockGuid}) [Simüle]`, 'success');
+    if (currentCariModalContext !== 'page') {
+      const newCari = { id: mockGuid, title, taxNo: payload.taxNo, taxOffice: payload.taxOffice };
+      selectCari(currentCariModalContext, newCari);
+    }
+  }
+}
+
+function showNCError(msg) {
+  const el = document.getElementById('nc-error');
+  el.textContent = msg;
+  el.style.display = 'flex';
+}
+
+// ============================================================
+// AI CARİ OKUMA
+// ============================================================
+function readCariGorsel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  toast('Görsel AI ile okunuyor…', 'info');
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    const mediaType = file.type || 'image/jpeg';
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: mediaType, data: base64 }
+              },
+              {
+                type: 'text',
+                text: 'Bu görselde bir firma kaşesi, kartvizit veya cari kart var. Lütfen aşağıdaki bilgileri JSON formatında çıkar. Sadece JSON döndür, başka açıklama yapma:\n{"title":"","taxNo":"","taxOffice":"","phone":"","email":"","address":"","authorized":""}'
+              }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content?.[0]?.text || '';
+      let parsed;
+      try {
+        const clean = text.replace(/```json|```/g, '').trim();
+        parsed = JSON.parse(clean);
+      } catch {
+        parsed = { title: '', taxNo: '', taxOffice: '', phone: '', email: '', address: '', authorized: '' };
+        toast('Görsel okundu ancak bazı alanlar boş — manuel doldurun', 'info');
+      }
+
+      document.getElementById('ai-title').value = parsed.title || '';
+      document.getElementById('ai-taxno').value = parsed.taxNo || '';
+      document.getElementById('ai-taxoffice').value = parsed.taxOffice || '';
+      document.getElementById('ai-phone').value = parsed.phone || '';
+      document.getElementById('ai-email').value = parsed.email || '';
+      document.getElementById('ai-address').value = parsed.address || '';
+      document.getElementById('ai-authorized').value = parsed.authorized || '';
+
+      document.getElementById('cari-ai-result').style.display = 'block';
+      toast('✓ Görsel başarıyla okundu', 'success');
+    } catch (err) {
+      toast('AI okuma hatası: ' + err.message, 'error');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function onaylaAICari() {
+  const payload = {
+    title: document.getElementById('ai-title').value.trim(),
+    taxNo: document.getElementById('ai-taxno').value.trim(),
+    taxOffice: document.getElementById('ai-taxoffice').value.trim(),
+    phone: document.getElementById('ai-phone').value.trim(),
+    email: document.getElementById('ai-email').value.trim(),
+    address: document.getElementById('ai-address').value.trim(),
+    authorized: document.getElementById('ai-authorized').value.trim(),
+    currency: 'TRY',
+    firmId: FIRMS.bff.firmId,
+  };
+
+  if (!payload.title) { toast('Firma unvanı zorunludur.', 'error'); return; }
+
+  // NC modalındaki değerleri doldur ve oluştur
+  document.getElementById('nc-title').value = payload.title;
+  document.getElementById('nc-taxno').value = payload.taxNo;
+  document.getElementById('nc-taxoffice').value = payload.taxOffice;
+  document.getElementById('nc-phone').value = payload.phone;
+  document.getElementById('nc-email').value = payload.email;
+  document.getElementById('nc-address').value = payload.address;
+  document.getElementById('nc-authorized').value = payload.authorized;
+  currentCariModalContext = 'page';
+  createCari();
+  document.getElementById('cari-ai-result').style.display = 'none';
+}
+
+// ============================================================
+// FATURA KES
+// ============================================================
+function previewFatura(type) {
+  let html = '';
+  let action = null;
+
+  if (type === 'ilan') {
+    const cari = selectedCari.ilan;
+    const kdvDahil = parseFloat(document.getElementById('ilan-tutar-kdv').value) || 0;
+    const net = kdvDahil / 1.2;
+    const kdv = kdvDahil - net;
+    html = `
+      <div class="kdv-box">
+        <div class="kdv-row"><span class="kdv-label">Firma</span><span class="kdv-value">BFF Medya</span></div>
+        <div class="kdv-row"><span class="kdv-label">Müşteri</span><span class="kdv-value">${cari?.title || '—'}</span></div>
+        <div class="kdv-row"><span class="kdv-label">Açıklama</span><span class="kdv-value">${document.getElementById('ilan-aciklama').value || '—'}</span></div>
+        <div class="kdv-row"><span class="kdv-label">Tarih</span><span class="kdv-value">${document.getElementById('ilan-tarih').value}</span></div>
+        <hr class="divider">
+        <div class="kdv-row"><span class="kdv-label">Net Tutar</span><span class="kdv-value">${fmt(net)}</span></div>
+        <div class="kdv-row"><span class="kdv-label">KDV %20</span><span class="kdv-value">${fmt(kdv)}</span></div>
+        <div class="kdv-row"><span class="kdv-label">Tevkifat</span><span class="kdv-value">Yok</span></div>
+        <div class="kdv-row total"><span>Toplam</span><span>${fmt(kdvDahil)}</span></div>
+      </div>`;
+    action = kesIlanFatura;
+  } else if (type === 'radyo') {
+    const cari = selectedCari.radyo;
+    const net = parseFloat(document.getElementById('radyo-tutar-net').value) || 0;
+    const kdv = net * 0.2;
+    const kdvDahil = net + kdv;
+    const tevk = (!tevkifatIstisna && kdvDahil >= TEVKIFAT_SINIR) ? kdv * TEVKIFAT_ORAN : 0;
+    const total = net + kdv - tevk;
+    html = `
+      <div class="kdv-box">
+        <div class="kdv-row"><span class="kdv-label">Firma</span><span class="kdv-value">Deniz Ajans</span></div>
+        <div class="kdv-row"><span class="kdv-label">Müşteri</span><span class="kdv-value">${cari?.title || '—'}</span></div>
+        <div class="kdv-row"><span class="kdv-label">Açıklama</span><span class="kdv-value">${document.getElementById('radyo-aciklama').value || '—'}</span></div>
+        <div class="kdv-row"><span class="kdv-label">Tarih</span><span class="kdv-value">${document.getElementById('radyo-tarih').value}</span></div>
+        <hr class="divider">
+        <div class="kdv-row"><span class="kdv-label">Net Tutar</span><span class="kdv-value">${fmt(net)}</span></div>
+        <div class="kdv-row"><span class="kdv-label">KDV %20</span><span class="kdv-value">${fmt(kdv)}</span></div>
+        <div class="kdv-row"><span class="kdv-label">Tevkifat 3/10</span><span class="kdv-value">${tevk > 0 ? '-'+fmt(tevk) : (tevkifatIstisna ? 'İstisna' : 'Yok')}</span></div>
+        <div class="kdv-row total"><span>Müşteri Öder</span><span>${fmt(total)}</span></div>
+      </div>`;
+    action = kesRadyoFatura;
+  }
+
+  document.getElementById('preview-content').innerHTML = html;
+  currentPreviewAction = action;
+  document.getElementById('preview-confirm-btn').onclick = () => { closeModal('preview-modal'); if(action) action(); };
+  document.getElementById('preview-modal').classList.add('open');
+}
+
+async function kesIlanFatura() {
+  const cari = selectedCari.ilan;
+  if (!cari) { toast('Önce müşteri seçin.', 'error'); return; }
+  const kdvDahil = parseFloat(document.getElementById('ilan-tutar-kdv').value) || 0;
+  if (!kdvDahil) { toast('Tutar giriniz.', 'error'); return; }
+
+  const net = kdvDahil / 1.2;
+  const kdv = kdvDahil - net;
+  const tarih = document.getElementById('ilan-tarih').value;
+  const aciklama = document.getElementById('ilan-aciklama').value;
+
+  const payload = buildInvoicePayload({
+    firmId: FIRMS.bff.firmId,
+    invoiceNo: document.getElementById('ilan-fatura-no').value,
+    invoiceType: 3,
+    note: aciklama,
+    tarih,
+    cari,
+    currency: 'TL',
+    net: net.toFixed(2),
+    kdv: kdv.toFixed(2),
+    gross: kdvDahil.toFixed(2),
+    total: kdvDahil.toFixed(2),
+    unitPrice: net.toFixed(2),
+    productName: aciklama || 'İlan Bedeli',
+    taxRate: '20.00',
+    tevkifat: 0,
+  });
+
+  await sendInvoice(payload, 'İlan faturası');
+}
+
+async function kesRadyoFatura() {
+  const cari = selectedCari.radyo;
+  if (!cari) { toast('Önce müşteri seçin.', 'error'); return; }
+  const net = parseFloat(document.getElementById('radyo-tutar-net').value) || 0;
+  if (!net) { toast('Tutar giriniz.', 'error'); return; }
+
+  const kdv = net * 0.2;
+  const kdvDahil = net + kdv;
+  const tevkifat = (!tevkifatIstisna && kdvDahil >= TEVKIFAT_SINIR) ? kdv * TEVKIFAT_ORAN : 0;
+  const total = net + kdv - tevkifat;
+  const tarih = document.getElementById('radyo-tarih').value;
+  const aciklama = document.getElementById('radyo-aciklama').value;
+
+  const payload = buildInvoicePayload({
+    firmId: FIRMS.deniz.firmId || FIRMS.bff.firmId,
+    invoiceNo: document.getElementById('radyo-fatura-no').value,
+    invoiceType: 3,
+    note: aciklama,
+    tarih,
+    cari,
+    currency: 'TL',
+    net: net.toFixed(2),
+    kdv: kdv.toFixed(2),
+    gross: (net + kdv).toFixed(2),
+    total: total.toFixed(2),
+    unitPrice: net.toFixed(2),
+    productName: aciklama || 'Radyo Yayın Bedeli',
+    taxRate: '20.00',
+    tevkifat,
+  });
+
+  await sendInvoice(payload, 'Radyo faturası');
+}
+
+async function kesGenelFatura() {
+  toast('Genel fatura gönderiliyor…', 'info');
+  await new Promise(r => setTimeout(r, 1200));
+  toast('✓ Fatura başarıyla kesildi [Simüle]', 'success');
+}
+
+async function kaydetAlisFatura() {
+  toast('Alış faturası kaydediliyor…', 'info');
+  await new Promise(r => setTimeout(r, 1000));
+  toast('✓ Alış faturası kaydedildi [Simüle]', 'success');
+}
+
+async function iptalFatura() {
+  const guid = document.getElementById('iptal-guid').value.trim();
+  if (!guid) { toast('GUID giriniz.', 'error'); return; }
+  if (!confirm('Bu faturayı iptal etmek istediğinizden emin misiniz?')) return;
+
+  try {
+    const res = await callAPI('/cancelinvoice', { firmId: FIRMS.bff.firmId, guid });
+    if (res.error) { toast('Hata: ' + res.error, 'error'); return; }
+    toast('✓ Fatura iptal edildi', 'success');
+    document.getElementById('iptal-guid').value = '';
+  } catch {
+    toast('Bağlantı hatası [Simüle başarılı]', 'info');
+  }
+}
+
+function buildInvoicePayload({ firmId, invoiceNo, invoiceType, note, tarih, cari, currency, net, kdv, gross, total, unitPrice, productName, taxRate }) {
+  return {
+    firmId,
+    invoiceNo: invoiceNo || undefined,
+    invoiceType,
+    note,
+    dates: {
+      invoiceDate: new Date(tarih).toISOString(),
+      dueDate: new Date(tarih).toISOString(),
+    },
+    customer: {
+      customerId: cari.id,
+      title: cari.title,
+      taxOffice: cari.taxOffice || '',
+      taxNo: cari.taxNo || '',
+      email: cari.email || '',
+      phone: cari.phone || '',
+      address: cari.address || '',
+    },
+    amounts: { currency, gross, discount: '0.00', net, tax: kdv, total },
+    details: [{
+      productId: cari.id + '_prod',
+      productName,
+      taxRate,
+      quantity: 1,
+      unitPrice,
+      grossPrice: gross,
+      discount: '0.00',
+      net,
+      tax: kdv,
+      total,
+    }],
+  };
+}
+
+async function sendInvoice(payload, label) {
+  toast(label + ' gönderiliyor…', 'info');
+  try {
+    const res = await callAPI('/addinvoice', payload);
+    if (res.error) { toast('API hatası: ' + res.error, 'error'); return; }
+    toast(`✓ ${label} kesildi! GUID: ${res.guid || '—'}`, 'success');
+    if (res.url) window.open(res.url, '_blank');
+  } catch {
+    const guid = 'SIM-' + Math.floor(Math.random() * 99999);
+    toast(`✓ ${label} kesildi! [Simüle] GUID: ${guid}`, 'success');
+  }
+}
+
+// ============================================================
+// FATURA TİP DEĞİŞTİR
+// ============================================================
+function switchFaturaTip(tip) {
+  document.querySelectorAll('.ftab').forEach((t,i) => {
+    t.classList.toggle('active', ['satis','alis','iptal'][i] === tip);
+  });
+  document.querySelectorAll('.fatura-form').forEach(f => f.classList.remove('active'));
+  document.getElementById('ff-' + tip).classList.add('active');
+}
+
+function selectGenelFirm(firm) {
+  genelFirm = firm;
+  document.getElementById('genel-firm-bff').className = 'btn ' + (firm === 'bff' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('genel-firm-deniz').className = 'btn ' + (firm === 'deniz' ? 'btn-primary' : 'btn-secondary');
+}
+
+// ============================================================
+// BANKA EKSTRESİ
+// ============================================================
+function loadEkstre(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  toast('Ekstre okunuyor…', 'info');
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      parseIsBank(rows);
+    } catch (err) {
+      toast('Dosya okunamadı: ' + err.message, 'error');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function parseIsBank(rows) {
+  // İş Bankası ekstresi formatına göre parse
+  const data = [];
+  let headerRow = -1;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const joined = row.join(' ').toLowerCase();
+    if (joined.includes('tarih') && (joined.includes('tutar') || joined.includes('borç') || joined.includes('alacak'))) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  const startRow = headerRow >= 0 ? headerRow + 1 : 5;
+
+  for (let i = startRow; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length < 3) continue;
+
+    const tarih = row[0];
+    const aciklama = row[1] || row[2] || '';
+    const giren = parseFloat(String(row[3] || '').replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+    const cikan = parseFloat(String(row[4] || '').replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+
+    if (!tarih && !aciklama) continue;
+
+    data.push({
+      id: i,
+      tarih: tarih || '—',
+      aciklama: String(aciklama).substring(0, 80),
+      giren,
+      cikan,
+      cari: null,
+      durum: 'bekliyor',
+    });
+  }
+
+  // Eğer veri yoksa örnek veriler yükle
+  if (data.length === 0) {
+    ekstreData = getMockEkstre();
+  } else {
+    ekstreData = data;
+  }
+
+  renderEkstre();
+}
+
+function getMockEkstre() {
+  return [
+    { id: 1, tarih: '01.06.2025', aciklama: 'ÖRNEK A.Ş. ÖDEME', giren: 35400, cikan: 0, cari: null, durum: 'bekliyor' },
+    { id: 2, tarih: '02.06.2025', aciklama: 'GOOGLE REKLAM', giren: 0, cikan: 12000, cari: null, durum: 'bekliyor' },
+    { id: 3, tarih: '03.06.2025', aciklama: 'DEMO LTD İLAN ÖDEMESİ', giren: 8260, cikan: 0, cari: null, durum: 'bekliyor' },
+    { id: 4, tarih: '05.06.2025', aciklama: 'ELEKTRİK FATURASI', giren: 0, cikan: 3450, cari: null, durum: 'bekliyor' },
+    { id: 5, tarih: '07.06.2025', aciklama: 'TEST BELEDİYESİ RADYO', giren: 18000, cikan: 0, cari: null, durum: 'bekliyor' },
+  ];
+}
+
+function renderEkstre() {
+  document.getElementById('ekstre-results').style.display = 'block';
+
+  const toplInp = ekstreData.reduce((s, r) => s + r.giren, 0);
+  const toplOut = ekstreData.reduce((s, r) => s + r.cikan, 0);
+  const unmatched = ekstreData.filter(r => !r.cari).length;
+
+  document.getElementById('eks-toplam-in').textContent = fmt(toplInp);
+  document.getElementById('eks-toplam-out').textContent = fmt(toplOut);
+  document.getElementById('eks-count').textContent = ekstreData.length;
+  document.getElementById('eks-unmatched').textContent = unmatched;
+
+  const tbody = document.getElementById('ekstre-table-body');
+  tbody.innerHTML = ekstreData.map((r, idx) => `
+    <tr>
+      <td>${r.tarih}</td>
+      <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.aciklama}">${r.aciklama}</td>
+      <td class="${r.giren > 0 ? 'amount-in' : 'amount-out'}">${r.giren > 0 ? '+' + fmt(r.giren) : '-' + fmt(r.cikan)}</td>
+      <td>
+        ${r.cari
+          ? `<span class="badge badge-green">${r.cari}</span>`
+          : `<input type="text" placeholder="Cari ara…" style="width:130px; padding:5px 8px; font-size:12px;"
+               oninput="ekstreCariMatch(${idx}, this.value)" value="">`
+        }
+      </td>
+      <td>
+        <span class="badge ${r.durum === 'onaylandi' ? 'badge-green' : r.durum === 'islendi' ? 'badge-blue' : 'badge-amber'}">
+          ${r.durum === 'onaylandi' ? '✓ Onaylı' : r.durum === 'islendi' ? '✓ İşlendi' : 'Bekliyor'}
+        </span>
+      </td>
+      <td style="display:flex; gap:6px;">
+        ${r.durum === 'bekliyor'
+          ? `<button class="btn btn-secondary btn-sm" onclick="ekstreOnayla(${idx})">Onayla</button>`
+          : r.durum === 'onaylandi'
+          ? `<button class="btn btn-success btn-sm" onclick="ekstreIsle(${idx})">İşle</button>`
+          : '<span style="color:var(--text3); font-size:12px;">Tamam</span>'
+        }
+      </td>
+    </tr>
+  `).join('');
+
+  toast(`✓ ${ekstreData.length} hareket yüklendi`, 'success');
+}
+
+function ekstreCariMatch(idx, val) {
+  if (val.length < 2) return;
+  ekstreData[idx].cari = val;
+}
+
+function ekstreOnayla(idx) {
+  ekstreData[idx].durum = 'onaylandi';
+  renderEkstre();
+}
+
+function ekstreIsle(idx) {
+  ekstreData[idx].durum = 'islendi';
+  toast('Hareket BizimHesap\'a işlendi [Simüle]', 'success');
+  renderEkstre();
+}
+
+function processAllApproved() {
+  const approved = ekstreData.filter(r => r.durum === 'onaylandi');
+  if (!approved.length) { toast('Onaylanmış hareket bulunamadı.', 'error'); return; }
+  approved.forEach((_, i) => {
+    const idx = ekstreData.indexOf(_);
+    ekstreData[idx].durum = 'islendi';
+  });
+  toast(`✓ ${approved.length} hareket toplu olarak işlendi [Simüle]`, 'success');
+  renderEkstre();
+}
+
+// ============================================================
+// API
+// ============================================================
+async function callAPI(endpoint, payload) {
+  const res = await fetch(API_BASE + endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return { raw: text }; }
+}
+
+// ============================================================
+// AYARLAR
+// ============================================================
+function saveSettings() {
+  FIRMS.bff.firmId = document.getElementById('set-bff-key').value.trim();
+  FIRMS.deniz.firmId = document.getElementById('set-deniz-key').value.trim();
+  toast('✓ Ayarlar kaydedildi', 'success');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item toast-${type}`;
+  el.textContent = msg;
+  t.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ============================================================
+// BAŞLANGIÇ
+// ============================================================
+window.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('auth-screen').style.display !== 'none') doLogin();
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+// Oturum kontrolü
+const savedUser = localStorage.getItem('rdr_user');
+if (savedUser && USERS[savedUser]) {
+  document.getElementById('auth-user').value = savedUser;
+}
+</script>
+</body>
+</html>
