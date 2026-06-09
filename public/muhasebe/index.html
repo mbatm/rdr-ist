@@ -1280,7 +1280,7 @@ const FIRMS = {
 };
 
 const TOKEN = 'B6EB6FB130394703A7E12D5894802F09';
-const API_BASE = 'https://bizimhesap.com/api/b2b';
+const API_BASE = '/api/muhasebe/proxy';
 const TEVKIFAT_SINIR = 9900; // KDV dahil
 const TEVKIFAT_ORAN = 3/10;
 const KDV_ORAN = 0.20;
@@ -1381,6 +1381,35 @@ function setTodayDates() {
 // ============================================================
 // DASHBOARD
 // ============================================================
+async function loadCustomers() {
+  try {
+    const data = await getAPI('customers');
+    // JSON veya XML gelebilir, her ikisini handle et
+    return Array.isArray(data) ? data : (data.customers || data.Customers || []);
+  } catch(e) {
+    console.warn('Müşteri listesi yüklenemedi:', e.message);
+    return [];
+  }
+}
+
+async function loadProducts() {
+  try {
+    const data = await getAPI('products');
+    return Array.isArray(data) ? data : (data.products || data.Products || []);
+  } catch(e) {
+    console.warn('Ürün listesi yüklenemedi:', e.message);
+    return [];
+  }
+}
+
+// Cari arama - önce API, bulamazsa uyar
+let _cariCache = null;
+async function getCariCache() {
+  if (_cariCache) return _cariCache;
+  _cariCache = await loadCustomers();
+  return _cariCache;
+}
+
 function loadDashboard() {
   document.getElementById('dash-welcome').textContent =
     `Hoş geldiniz, ${currentUser.name} · ${currentUser.firms.map(f=>FIRMS[f].label).join(' & ')}`;
@@ -1526,7 +1555,7 @@ function addKalem() {
 // ============================================================
 // CARİ ARAMA
 // ============================================================
-function searchCari(ctx) {
+async function searchCari(ctx) {
   const q = document.getElementById(ctx + (ctx === 'page' ? '-ara' : '-cari') + (ctx === 'page' ? '-input' : '-search'))?.value?.toLowerCase() || '';
   const resultsEl = document.getElementById(ctx === 'page' ? 'cari-page-results' : ctx + '-cari-results');
 
@@ -1535,14 +1564,19 @@ function searchCari(ctx) {
     return;
   }
 
-  // Simüle edilmiş cari listesi (gerçekte API'dan gelecek)
-  const mockCaris = [
-    { id: '1001', title: 'Örnek A.Ş.', taxNo: '1234567890', taxOffice: 'Kadıköy VD', phone: '+905551112233', email: 'info@ornek.com' },
-    { id: '1002', title: 'Demo Ltd. Şti.', taxNo: '9876543210', taxOffice: 'Üsküdar VD', phone: '+905559876543', email: 'demo@demo.com' },
-    { id: '1003', title: 'Test Belediyesi', taxNo: '1111111111', taxOffice: 'Muhasebe MD', phone: '+902121234567', email: 'muhasebe@testbel.gov.tr' },
-  ];
+  const allCaris = await getCariCache();
+  // API'den gelen veriyi normalize et
+  const normalized = allCaris.map(c => ({
+    id: c.id || c.Id || c.customerId || c.CustomerId || '',
+    title: c.title || c.Title || c.name || c.Name || '',
+    taxNo: c.taxNo || c.TaxNo || c.vergiNo || '',
+    taxOffice: c.taxOffice || c.TaxOffice || c.vergiDairesi || '',
+    phone: c.phone || c.Phone || '',
+    email: c.email || c.Email || '',
+    address: c.address || c.Address || '',
+  }));
 
-  const filtered = mockCaris.filter(c =>
+  const filtered = normalized.filter(c =>
     c.title.toLowerCase().includes(q) || c.taxNo.includes(q) || c.email.toLowerCase().includes(q)
   );
 
@@ -2135,7 +2169,9 @@ function processAllApproved() {
 // API
 // ============================================================
 async function callAPI(endpoint, payload) {
-  const res = await fetch(API_BASE + endpoint, {
+  // endpoint: /addinvoice → ?endpoint=addinvoice
+  const ep = endpoint.replace('/', '');
+  const res = await fetch(API_BASE + '?endpoint=' + ep, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -2143,6 +2179,13 @@ async function callAPI(endpoint, payload) {
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const text = await res.text();
   try { return JSON.parse(text); } catch { return { raw: text }; }
+}
+
+async function getAPI(endpoint, params = {}) {
+  const qs = new URLSearchParams({ endpoint, ...params }).toString();
+  const res = await fetch(API_BASE + '?' + qs);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
 }
 
 // ============================================================
