@@ -22,6 +22,26 @@ function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
 
 import { renderHash, cacheGet, cacheSet } from './_render-cache.js'
 
+// Video süresini kontrol et — HEAD request ile Content-Length'ten tahmin
+// Tam süre için ffprobe gerekir ama Workers'ta yok; Content-Length / tahmini bit rate
+// Alternatif: video URL'den süre başlığı oku (bazı sunucular X-Duration döndürür)
+async function videoSureKontrol(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD' })
+    // X-Duration veya Content-Duration header'ı varsa kullan
+    const xDuration = res.headers.get('x-duration') || res.headers.get('x-video-duration')
+    if (xDuration) return parseFloat(xDuration)
+    
+    // Content-Length üzerinden tahmini süre (mp4, ~2 Mbps ortalama bit rate)
+    const contentLength = parseInt(res.headers.get('content-length') || '0')
+    if (contentLength > 0) {
+      const tahminiSure = contentLength / (2 * 1024 * 1024 / 8)  // 2 Mbps
+      return tahminiSure
+    }
+    return 0  // Bilinmiyor — güvenli tarafta kal, Creatomate'e gönder
+  } catch { return 0 }
+}
+
 // 1ha CDN / Backblaze URL'lerini R2'ye kopyala — Creatomate erişemiyor
 async function videoR2Kopyala(url, env) {
   if (!url) return url
@@ -60,6 +80,30 @@ export async function onRequestPost({ request, env }) {
 
     const mediaUrl  = video_url_r2 || gorsel_url_r2 || video_url || gorsel_url
     const isVideo   = !!video_url_r2
+
+    // Video süresi/boyutu kontrolü — 3 dakikadan uzun (tahminen >45MB) Creatomate'e gönderme
+    if (isVideo && video_url_r2) {
+      const sureSaniye = await videoSureKontrol(video_url_r2)
+      // sureSaniye 0 ise bilinmiyor — boyuta bak (45MB = ~3dk @ 2Mbps)
+      const r2Obj = await env.MEDYA.head(video_url_r2.replace('https://medya.rdr.ist/', '')).catch(()=>null)
+      const boyutMB = r2Obj ? r2Obj.size / (1024 * 1024) : 0
+      const uzunVideo = (sureSaniye > 180) || (sureSaniye === 0 && boyutMB > 45)
+      if (uzunVideo) {
+        // Creatomate'e gönderme — vidoyu olduğu gibi döndür
+        return Response.json({
+          ok: true,
+          renders: [{
+            format,
+            render_id: `direkt_${Date.now()}`,
+            status:    'succeeded',
+            url:       video_url_r2,
+            tip:       'video',
+            direkt:    true,
+            sure_sn:   sureSaniye,
+          }]
+        })
+      }
+    }
     const tarihStr  = tarih    || new Date().toLocaleDateString('tr-TR')
     const katStr    = (kategori || 'GÜNCEL').toUpperCase()
     const baslikStr = (baslik   || '').slice(0, 120)
