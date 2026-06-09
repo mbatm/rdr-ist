@@ -11,6 +11,23 @@ export async function onRequestPost({ request, env }) {
     if (!efektifGorselUrl && !video_url) return Response.json({ hata: 'gorsel_url veya video_url gerekli' }, { status: 400 })
 
     // R2'ye kopyala — Instagram 1ha CDN ve Backblaze URL'lerine erişemiyor
+    // Instagram günlük kota kontrolü — 50 post/gün limiti
+    const kotaKontrol = async (igId, pageToken) => {
+      try {
+        const res  = await fetch(
+          `https://graph.facebook.com/v21.0/${igId}/content_publishing_limit?fields=quota_usage,config&access_token=${pageToken}`
+        )
+        const data = await res.json()
+        const kota = data?.data?.[0]
+        if (!kota) return { ok: true, kullanim: 0, limit: 50 }
+        const kullanim = kota.quota_usage || 0
+        const limit    = kota.config?.quota_total || 50
+        return { ok: kullanim < limit - 2, kullanim, limit }
+      } catch {
+        return { ok: true, kullanim: 0, limit: 50 }
+      }
+    }
+
     const r2Kopyala = async (url, tip = 'gorsel') => {
       if (!url) return url
       // Zaten medya.rdr.ist ise kopyalama
