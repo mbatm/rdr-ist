@@ -2672,6 +2672,7 @@ function KayseradarModul({ user, onGeri }) {
   const [metin,        setMetin]      = useState('')
   const [medyalar,     setMedyalar]   = useState([]) // { url, tip, adi, mime }
   const [yukleniyorM,  setYukleniyorM]= useState(false)
+  const [yukProgress,  setYukProgress] = useState(0)
   const [isleniyor,    setIsleniyor]  = useState(false)
   const [onayKayit,    setOnayKayit]  = useState(null)
   const [liste,        setListe]      = useState([])
@@ -2701,13 +2702,53 @@ function KayseradarModul({ user, onGeri }) {
   }, [])
 
   // Dosya seç ve yükle
+  // Büyük dosya multipart upload (>50MB)
+  const chunkUploadRadar = async (file) => {
+    const CHUNK = 5 * 1024 * 1024
+    const startRes = await fetch('/api/r2-upload-chunk?action=start', {
+      method: 'POST', headers: {'Content-Type':'application/json','X-Token':token},
+      body: JSON.stringify({ filename: file.name, type: file.type }),
+    })
+    const startData = await startRes.json()
+    if (startData.hata) throw new Error(startData.hata)
+    const { uploadId, key, final_url } = startData
+    const total = Math.ceil(file.size / CHUNK)
+    const parts = []
+    for (let i = 0; i < total; i++) {
+      const buf  = await file.slice(i * CHUNK, (i + 1) * CHUNK).arrayBuffer()
+      const res  = await fetch(
+        `/api/r2-upload-chunk?action=part&uploadId=${encodeURIComponent(uploadId)}&key=${encodeURIComponent(key)}&part=${i+1}`,
+        { method: 'POST', headers: {'X-Token':token}, body: buf }
+      )
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      parts.push({ partNumber: i + 1, etag: data.etag })
+      setYukProgress(Math.round((i + 1) / total * 100))
+    }
+    const finishRes = await fetch('/api/r2-upload-chunk?action=finish', {
+      method: 'POST', headers: {'Content-Type':'application/json','X-Token':token},
+      body: JSON.stringify({ uploadId, key, parts }),
+    })
+    const finishData = await finishRes.json()
+    if (finishData.hata) throw new Error(finishData.hata)
+    return finishData.url
+  }
+
   const dosyaSec = async (files) => {
-    setYukleniyorM(true); setHata(null)
+    setYukleniyorM(true); setHata(null); setYukProgress(0)
     const sourceId = `radar_${Date.now()}`
     const yeniMedyalar = []
     for (const file of Array.from(files)) {
       try {
-        const m = await dosyaYukle(file, sourceId)
+        let m
+        if (file.size > 50 * 1024 * 1024) {
+          // 50MB üzeri — chunk upload
+          const tip = file.type.startsWith('video') ? 'video' : 'gorsel'
+          const url = await chunkUploadRadar(file)
+          m = { url, tip, adi: file.name, mime: file.type }
+        } else {
+          m = await dosyaYukle(file, sourceId)
+        }
         yeniMedyalar.push(m)
       } catch(e) { setHata(`${file.name}: ${e.message}`) }
     }
