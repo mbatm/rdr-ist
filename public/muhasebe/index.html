@@ -703,7 +703,7 @@
     <!-- İLAN FATURA -->
     <div class="page" id="page-ilan">
       <div class="page-title">İlan Faturası Kes</div>
-      <div class="page-sub">BFF Medya · KDV dahil fiyat girin, net tutar otomatik hesaplanır</div>
+      <div class="page-sub">BFF Medya · KDV dahil fiyat girin, net tutar otomatik hesaplanır · Tevkifat yok</div>
 
       <div class="card">
         <div class="card-title">Müşteri Seçimi</div>
@@ -723,6 +723,23 @@
       </div>
 
       <div class="card">
+        <div class="card-title">Ürün / Hizmet Seçimi</div>
+        <div class="search-box">
+          <input type="text" id="ilan-urun-search" placeholder="Ürün adı ara…" oninput="searchUrun('ilan', this.value)">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ilan-urun-search').value=''; document.getElementById('ilan-urun-results').innerHTML=''">Temizle</button>
+        </div>
+        <div id="ilan-urun-results"></div>
+        <div id="ilan-urun-selected" style="display:none;" class="alert alert-info">
+          <span>📦</span>
+          <div>
+            <div id="ilan-urun-sel-name" style="font-weight:600;"></div>
+            <div id="ilan-urun-sel-detail" style="font-size:12px; opacity:0.8;"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="clearUrun('ilan')">Değiştir</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Fatura Detayları</div>
         <div class="form-grid">
           <div class="field">
@@ -733,8 +750,8 @@
             <div class="field-label">Tarih</div>
             <input type="date" id="ilan-tarih">
           </div>
-          <div class="field">
-            <div class="field-label">İlan Başlığı / Açıklama</div>
+          <div class="field span-2">
+            <div class="field-label">Açıklama / Not</div>
             <input type="text" id="ilan-aciklama" placeholder="Örn: Nisan 2025 ilan bedeli">
           </div>
           <div class="field">
@@ -743,36 +760,18 @@
           </div>
         </div>
 
-        <div class="kdv-box" id="ilan-kdv-box">
-          <div class="kdv-row">
-            <span class="kdv-label">KDV Dahil Tutar</span>
-            <span class="kdv-value" id="ilan-show-kdvdahil">—</span>
-          </div>
-          <div class="kdv-row">
-            <span class="kdv-label">KDV Hariç (Net)</span>
-            <span class="kdv-value" id="ilan-show-net">—</span>
-          </div>
-          <div class="kdv-row">
-            <span class="kdv-label">KDV (%20)</span>
-            <span class="kdv-value" id="ilan-show-kdv">—</span>
-          </div>
-          <div class="kdv-row">
-            <span class="kdv-label" style="font-size:12px; color:var(--text3);">Tevkifat</span>
-            <span class="kdv-value" style="color:var(--text3);" id="ilan-show-tevkifat">Yok</span>
-          </div>
-          <div class="kdv-row total">
-            <span>Müşteri Öder</span>
-            <span id="ilan-show-total">—</span>
-          </div>
+        <div class="kdv-box">
+          <div class="kdv-row"><span class="kdv-label">KDV Dahil</span><span class="kdv-value" id="ilan-show-kdvdahil">—</span></div>
+          <div class="kdv-row"><span class="kdv-label">Net (KDV hariç)</span><span class="kdv-value" id="ilan-show-net">—</span></div>
+          <div class="kdv-row"><span class="kdv-label">KDV (%20)</span><span class="kdv-value" id="ilan-show-kdv">—</span></div>
+          <div class="kdv-row"><span class="kdv-label" style="color:var(--text3);">Tevkifat</span><span style="color:var(--text3);" id="ilan-show-tevkifat">Yok</span></div>
+          <div class="kdv-row total"><span>Müşteri Öder</span><span id="ilan-show-total">—</span></div>
         </div>
 
         <div id="ilan-warn" style="display:none; margin-top:10px;"></div>
 
         <div style="display:flex; gap:10px; margin-top:18px;">
-          <button class="btn btn-success" onclick="kesIlanFatura()" id="ilan-btn">
-            Fatura Kes
-          </button>
-          <button class="btn btn-secondary" onclick="previewFatura('ilan')">Önizle</button>
+          <button class="btn btn-success" onclick="previewFatura('ilan')">Önizle ve Kes</button>
         </div>
       </div>
     </div>
@@ -820,8 +819,21 @@
             <div class="field-label">Tarih</div>
             <input type="date" id="radyo-tarih">
           </div>
+          <div class="field span-2">
+            <div class="field-label">Ürün / Hizmet</div>
+            <div class="search-box" style="margin-bottom:0;">
+              <input type="text" id="radyo-urun-search" placeholder="Ürün adı ara…" oninput="searchUrun('radyo', this.value)">
+              <button class="btn btn-ghost btn-sm" onclick="clearUrun('radyo')">Temizle</button>
+            </div>
+            <div id="radyo-urun-results"></div>
+            <div id="radyo-urun-selected" style="display:none; margin-top:8px;" class="alert alert-info">
+              <span>📦</span>
+              <div><div id="radyo-urun-sel-name" style="font-weight:600;"></div></div>
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="clearUrun('radyo')">Değiştir</button>
+            </div>
+          </div>
           <div class="field">
-            <div class="field-label">Hizmet Açıklaması</div>
+            <div class="field-label">Açıklama / Not</div>
             <input type="text" id="radyo-aciklama" placeholder="Örn: Nisan 2025 radyo yayın bedeli">
           </div>
           <div class="field">
@@ -852,7 +864,7 @@
         <div id="radyo-warn" style="display:none; margin-top:10px;"></div>
 
         <div style="display:flex; gap:10px; margin-top:18px;">
-          <button class="btn btn-success" onclick="kesRadyoFatura()" id="radyo-btn">Fatura Kes</button>
+          <button class="btn btn-success" onclick="previewFatura('radyo')">Önizle ve Kes</button>
           <button class="btn btn-secondary" onclick="previewFatura('radyo')">Önizle</button>
         </div>
       </div>
@@ -1390,8 +1402,8 @@ async function loadCustomers() {
     return raw.map(c => ({
       id:        c.id        || c.Id        || c.code      || '',
       title:     c.title     || c.Title     || c.name      || c.Name  || '',
-      taxNo:     c.taxNo     || c.TaxNo     || c.tax_no    || '',
-      taxOffice: c.taxOffice || c.TaxOffice || c.tax_office|| '',
+      taxNo:     c.taxNo     || c.TaxNo     || c.taxno     || c.tax_no    || '',
+      taxOffice: c.taxOffice || c.TaxOffice || c.taxoffice || c.tax_office|| '',
       phone:     c.phone     || c.Phone     || '',
       email:     c.email     || c.Email     || '',
       address:   c.address   || c.Address   || '',
@@ -1405,11 +1417,27 @@ async function loadCustomers() {
 async function loadProducts() {
   try {
     const data = await getAPI('products');
-    return Array.isArray(data) ? data : (data.products || data.Products || []);
+    const raw = data.items || data.products || (Array.isArray(data) ? data : []);
+    return raw.map(p => ({
+      id:       p.id    || p.Id    || '',
+      title:    p.title || p.Title || p.name || '',
+      price:    parseFloat(p.price || p.Price || 0),
+      tax:      parseInt(p.tax   || p.Tax   || 20),
+      unit:     p.unit  || p.Unit  || 'Adet',
+      barcode:  p.barcode || '',
+      currency: p.currency || 'TL',
+    }));
   } catch(e) {
     console.warn('Ürün listesi yüklenemedi:', e.message);
     return [];
   }
+}
+
+let _productCache = null;
+async function getProductCache() {
+  if (_productCache) return _productCache;
+  _productCache = await loadProducts();
+  return _productCache;
 }
 
 // Cari arama - önce API, bulamazsa uyar
@@ -1874,7 +1902,17 @@ function previewFatura(type) {
 
   document.getElementById('preview-content').innerHTML = html;
   currentPreviewAction = action;
-  document.getElementById('preview-confirm-btn').onclick = () => { closeModal('preview-modal'); if(action) action(); };
+  const confirmBtn = document.getElementById('preview-confirm-btn');
+  confirmBtn.textContent = 'Onayla ve Fatura Kes';
+  confirmBtn.disabled = false;
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="spinner"></span> Kesiliyor…';
+    closeModal('preview-modal');
+    if (action) await action();
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Onayla ve Fatura Kes';
+  };
   document.getElementById('preview-modal').classList.add('open');
 }
 
@@ -1888,23 +1926,24 @@ async function kesIlanFatura() {
   const kdv = kdvDahil - net;
   const tarih = document.getElementById('ilan-tarih').value;
   const aciklama = document.getElementById('ilan-aciklama').value;
+  const urun = selectedUrun.ilan;
+  const productName = urun ? urun.title : (aciklama || 'İlan Bedeli');
+  const productId = urun ? urun.id : ('ILAN-' + Date.now());
 
   const payload = buildInvoicePayload({
     firmId: FIRMS.bff.firmId,
     invoiceNo: document.getElementById('ilan-fatura-no').value,
     invoiceType: 3,
     note: aciklama,
-    tarih,
-    cari,
+    tarih, cari,
     currency: 'TL',
     net: net.toFixed(2),
     kdv: kdv.toFixed(2),
-    gross: kdvDahil.toFixed(2),
-    total: kdvDahil.toFixed(2),
+    gross: net.toFixed(2),
+    total: (net + kdv).toFixed(2),
     unitPrice: net.toFixed(2),
-    productName: aciklama || 'İlan Bedeli',
+    productName, productId,
     taxRate: '20.00',
-    tevkifat: 0,
   });
 
   await sendInvoice(payload, 'İlan faturası');
@@ -1922,23 +1961,24 @@ async function kesRadyoFatura() {
   const total = net + kdv - tevkifat;
   const tarih = document.getElementById('radyo-tarih').value;
   const aciklama = document.getElementById('radyo-aciklama').value;
+  const urun = selectedUrun.radyo;
+  const productName = urun ? urun.title : (aciklama || 'Radyo Yayın Bedeli');
+  const productId = urun ? urun.id : ('RADYO-' + Date.now());
 
   const payload = buildInvoicePayload({
     firmId: FIRMS.deniz.firmId || FIRMS.bff.firmId,
     invoiceNo: document.getElementById('radyo-fatura-no').value,
     invoiceType: 3,
     note: aciklama,
-    tarih,
-    cari,
+    tarih, cari,
     currency: 'TL',
     net: net.toFixed(2),
     kdv: kdv.toFixed(2),
-    gross: (net + kdv).toFixed(2),
+    gross: net.toFixed(2),
     total: total.toFixed(2),
     unitPrice: net.toFixed(2),
-    productName: aciklama || 'Radyo Yayın Bedeli',
+    productName, productId,
     taxRate: '20.00',
-    tevkifat,
   });
 
   await sendInvoice(payload, 'Radyo faturası');
@@ -2006,17 +2046,104 @@ function buildInvoicePayload({ firmId, invoiceNo, invoiceType, note, tarih, cari
   };
 }
 
+// ============================================================
+// ÜRÜN ARAMA
+// ============================================================
+let selectedUrun = { ilan: null, radyo: null, genel: null };
+
+async function searchUrun(ctx, q) {
+  const resultsEl = document.getElementById(ctx + '-urun-results');
+  if (!q || q.length < 2) { resultsEl.innerHTML = ''; return; }
+  const products = await getProductCache();
+  const filtered = products.filter(p => p.title.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  if (!filtered.length) {
+    resultsEl.innerHTML = '<div style="font-size:12px; color:var(--text3); padding:8px 0;">Ürün bulunamadı</div>';
+    return;
+  }
+  resultsEl.innerHTML = filtered.map(p => `
+    <div class="cari-result" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
+         onclick="selectUrun('${ctx}', ${JSON.stringify(p).replace(/"/g, '&quot;')})">
+      <div>
+        <div class="cari-name">${p.title}</div>
+        <div class="cari-detail">%${p.tax} KDV · ${fmt(p.price)} · ${p.unit}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm">Seç</button>
+    </div>`).join('');
+}
+
+function selectUrun(ctx, urun) {
+  selectedUrun[ctx] = urun;
+  document.getElementById(ctx + '-urun-results').innerHTML = '';
+  if (document.getElementById(ctx + '-urun-search')) document.getElementById(ctx + '-urun-search').value = '';
+  const selDiv = document.getElementById(ctx + '-urun-selected');
+  if (selDiv) {
+    selDiv.style.display = 'flex';
+    document.getElementById(ctx + '-urun-sel-name').textContent = urun.title;
+    const det = document.getElementById(ctx + '-urun-sel-detail');
+    if (det) det.textContent = '%' + urun.tax + ' KDV · ' + fmt(urun.price);
+  }
+  // Fiyatı otomatik doldur
+  if (ctx === 'radyo' && document.getElementById('radyo-tutar-net')) {
+    document.getElementById('radyo-tutar-net').value = urun.price;
+    calcRadyo();
+  }
+  if (ctx === 'ilan' && document.getElementById('ilan-tutar-kdv')) {
+    // Ürün fiyatı KDV hariç, KDV dahil hesapla
+    const kdvDahil = urun.price * (1 + urun.tax / 100);
+    document.getElementById('ilan-tutar-kdv').value = kdvDahil.toFixed(2);
+    calcIlan();
+  }
+}
+
+function clearUrun(ctx) {
+  selectedUrun[ctx] = null;
+  const selDiv = document.getElementById(ctx + '-urun-selected');
+  if (selDiv) selDiv.style.display = 'none';
+  if (document.getElementById(ctx + '-urun-search')) document.getElementById(ctx + '-urun-search').value = '';
+  if (document.getElementById(ctx + '-urun-results')) document.getElementById(ctx + '-urun-results').innerHTML = '';
+}
+
+// ============================================================
+// GERÇEK FATURA KESME
+// ============================================================
 async function sendInvoice(payload, label) {
   toast(label + ' gönderiliyor…', 'info');
   try {
     const res = await callAPI('/addinvoice', payload);
-    if (res.error) { toast('API hatası: ' + res.error, 'error'); return; }
-    toast(`✓ ${label} kesildi! GUID: ${res.guid || '—'}`, 'success');
-    if (res.url) window.open(res.url, '_blank');
-  } catch {
-    const guid = 'SIM-' + Math.floor(Math.random() * 99999);
-    toast(`✓ ${label} kesildi! [Simüle] GUID: ${guid}`, 'success');
+    if (res.error && res.error !== '') {
+      toast('Hata: ' + res.error, 'error');
+      return;
+    }
+    const guid = res.guid || res.Guid || '—';
+    const url  = res.url  || res.Url  || '';
+    toast(`✓ ${label} kesildi! GUID: ${guid}`, 'success');
+    // PDF linkini aç
+    if (url) {
+      setTimeout(() => {
+        showFaturaPDF(url, guid, label);
+      }, 400);
+    }
+  } catch(e) {
+    toast('Bağlantı hatası: ' + e.message, 'error');
   }
+}
+
+function showFaturaPDF(url, guid, label) {
+  const modal = document.getElementById('preview-modal');
+  document.querySelector('#preview-modal .modal-title').textContent = '✓ Fatura Kesildi';
+  document.querySelector('#preview-modal .modal-sub').textContent = label + ' · GUID: ' + guid;
+  document.getElementById('preview-content').innerHTML = `
+    <div class="alert alert-success" style="margin-bottom:14px;">
+      <span>✓</span> Fatura başarıyla BizimHesap sistemine kaydedildi.
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="${url}" target="_blank" class="btn btn-primary">📄 PDF Görüntüle / İndir</a>
+      <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Link kopyalandı','success'))">🔗 Linki Kopyala</button>
+    </div>
+    <div style="margin-top:12px; font-size:12px; color:var(--text3);">${url}</div>
+  `;
+  document.getElementById('preview-confirm-btn').style.display = 'none'; document.querySelector('#preview-modal .modal-title').textContent = 'Fatura Önizleme'; document.querySelector('#preview-modal .modal-sub').textContent = '';
+  modal.classList.add('open');
 }
 
 // ============================================================
