@@ -407,8 +407,6 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
   const [loading,   setLoading]  = useState({}) // { dikey: bool, yatay: bool }
   const [hatalar,   setHatalar]  = useState({})
   const [format,    setFormat]   = useState('dikey')
-  const [kadraj,      setKadraj]      = useState({ yatay: null, dikey: null })
-  const [kadrajAcFmt, setKadrajAcFmt] = useState(null)  // 'yatay' | 'dikey' | null
 
   // Kaynağın orientasyonunu belirle — video yatay mı dikey mi?
   const kaynakOrientation = (() => {
@@ -474,7 +472,6 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
           tarih: haber.tarih,
           source_id: haber.source_id,
           format: fmt,
-          kadraj: kadraj || undefined,  // { yatay, dikey } objesi
         }),
       })
       const data = await res.json()
@@ -528,53 +525,7 @@ function VideoIsle({ haber, baslik, kategori, spot, onVideoHazir }) {
 
   return (
     <div style={{marginBottom:8}}>
-      {/* Video → Odak noktası | Görsel → Kadraj kutusu */}
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-        <button onClick={()=>setKadrajAcFmt('yatay')}
-          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.yatay?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.yatay?'#00D4AA':'#FFB700',cursor:'pointer'}}>
-          {haber?.video ? `🎯 Yatay Odak ${kadraj.yatay ? `✓ ${(kadraj.yatay.x*100).toFixed(0)}%` : ''}` : `✂ Yatay Kadraj ${kadraj.yatay ? '✓' : ''}`}
-        </button>
-        <button onClick={()=>setKadrajAcFmt('dikey')}
-          style={{fontSize:11,padding:'4px 10px',background:'rgba(255,183,0,.08)',border:`0.5px solid ${kadraj.dikey?'rgba(0,212,170,.5)':'rgba(255,183,0,.3)'}`,color:kadraj.dikey?'#00D4AA':'#FFB700',cursor:'pointer'}}>
-          {haber?.video ? `🎯 Dikey Odak ${kadraj.dikey ? `✓ ${(kadraj.dikey.x*100).toFixed(0)}%` : ''}` : `✂ Dikey Kadraj ${kadraj.dikey ? '✓' : ''}`}
-        </button>
-        {(kadraj.yatay || kadraj.dikey) && (
-          <button onClick={()=>setKadraj({ yatay: null, dikey: null })}
-            style={{fontSize:11,padding:'4px 8px',background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)',cursor:'pointer'}}>
-            × Sıfırla
-          </button>
-        )}
-      </div>
 
-      {/* Kadraj modalı — tek format için */}
-      {kadrajAcFmt && (() => {
-        const gorsel   = haber?.gorsel_url || haber?.gorsel || ''
-        const videoSrc = haber?.video || null
-        const isVideo  = !!videoSrc
-        return (
-          <OnKadraj
-            gorselUrl={gorsel}
-            videoUrl={videoSrc}
-            fmt={kadrajAcFmt}
-            modType={isVideo ? 'odak' : 'kadraj'}
-            baslik={isVideo
-              ? `🎯 ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} — Odak noktası seç`
-              : `✂ ${kadrajAcFmt === 'yatay' ? 'Yatay (FB/TW/YT)' : 'Dikey (Instagram)'} — Kadraj seç`}
-            onOnayla={k => {
-              if (k) {
-                // k = { yatay: {x,y}, dikey: {x,y} } formatında geliyor (OdakPanel'den)
-                // kadrajAcFmt'e karşılık gelen odak noktasını al
-                const odak = k[kadrajAcFmt] || k
-                if (odak?.x !== undefined) {
-                  setKadraj(prev => ({ ...prev, [kadrajAcFmt]: odak }))
-                }
-              }
-              setKadrajAcFmt(null)
-            }}
-            onIptal={() => setKadrajAcFmt(null)}
-          />
-        )
-      })()}
 
       {/* Format butonları */}
       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
@@ -1250,227 +1201,12 @@ function GorselOnizleme({ editedHaber, onGorsellerHazir, onSetRefresh }) {
         </button>
       </div>
       <OtoGorselUret key={`${editedHaber?.source_id}_${gorselKey}`} haber={haberRef.current} onGorsellerHazir={onGorsellerHazir}
-        kadraj={haberRef.current?.kapakKadraj || null}
         forceRefresh={forceRefresh}/>
     </>
   )
 }
 
 
-// ── ÖN KADRAJ ─────────────────────────────────────────────────────────────
-function OnKadraj({ gorselUrl, videoUrl = null, fmt = null, modType = 'odak', onOnayla, onIptal, baslik = 'Kadraj seç' }) {
-  const [onizleme,  setOnizleme]  = useState({ yatay: null, dikey: null })
-  const [yukleniyor, setYukleniyor] = useState(true)
-  // Her panel için odak noktası { x, y } — 0..1 arası
-  const [odakYatay, setOdakYatay] = useState({ x: 0.5, y: 0.5 })
-  const [odakDikey, setOdakDikey] = useState({ x: 0.5, y: 0.5 })
-  const yatayImgRef = useRef(null)
-  const dikeyImgRef = useRef(null)
-
-  useEffect(() => {
-    if (!gorselUrl) return
-    setYukleniyor(true)
-    const fmtQs = fmt ? `&fmt=${fmt}` : ''
-    const apiUrl = videoUrl
-      ? `/api/gorsel-uret?kadraj_onizleme=1&video_url=${encodeURIComponent(videoUrl)}&gorsel_url=${encodeURIComponent(gorselUrl)}${fmtQs}`
-      : `/api/gorsel-uret?kadraj_onizleme=1&gorsel_url=${encodeURIComponent(gorselUrl)}${fmtQs}`
-    fetch(apiUrl)
-      .then(r => r.json())
-      .then(data => {
-        const url = data.yatay || data.dikey || gorselUrl
-        setOnizleme({ yatay: url, dikey: url })
-        setYukleniyor(false)
-      })
-      .catch(() => {
-        setOnizleme({ yatay: gorselUrl, dikey: gorselUrl })
-        setYukleniyor(false)
-      })
-  }, [gorselUrl, videoUrl])
-
-  const getPos = (ref, e) => {
-    const rect = ref.current?.getBoundingClientRect()
-    if (!rect) return { x: 0.5, y: 0.5 }
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    return {
-      x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
-      y: Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height)),
-    }
-  }
-
-  const OdakPanel = ({ fmt: panelFmt, imgUrl, imgRef, odak, setOdak }) => (
-    <div style={{flex:1, display:'flex', flexDirection:'column', gap:6, minWidth:0}}>
-      <div style={{fontSize:11, color:'#00D4AA', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.06em'}}>
-        {panelFmt === 'yatay' ? '⬛ Yatay (FB/TW/YT)' : '📱 Dikey (Instagram)'}
-      </div>
-      <div style={{position:'relative', cursor:'crosshair', lineHeight:0, background:'#111'}}
-        onClick={e => setOdak(getPos(imgRef, e))}
-        onTouchEnd={e => { e.preventDefault(); setOdak(getPos(imgRef, e)) }}>
-        {imgUrl
-          ? <img ref={imgRef} src={imgUrl} alt={panelFmt} draggable={false}
-              style={{display:'block', width:'100%', maxHeight: panelFmt==='dikey'?'55vh':'40vh', objectFit:'contain'}}/>
-          : <div style={{aspectRatio: panelFmt==='yatay'?'16/9':'9/16', background:'#222',
-              display:'flex', alignItems:'center', justifyContent:'center', color:'var(--muted)', fontSize:12, minHeight:120}}>
-              Yükleniyor…
-            </div>
-        }
-        {/* Odak noktası göstergesi */}
-        {imgUrl && (() => {
-          const ref = imgRef.current
-          if (!ref) return null
-          return (
-            <div style={{
-              position:'absolute',
-              left: `${odak.x * 100}%`,
-              top:  `${odak.y * 100}%`,
-              transform: 'translate(-50%, -50%)',
-              pointerEvents: 'none',
-            }}>
-              {/* Artı işareti */}
-              <div style={{position:'absolute', left:-20, top:-1, width:40, height:2, background:'#00D4AA', opacity:0.9}}/>
-              <div style={{position:'absolute', top:-20, left:-1, width:2, height:40, background:'#00D4AA', opacity:0.9}}/>
-              {/* Merkez nokta */}
-              <div style={{position:'absolute', left:-6, top:-6, width:12, height:12,
-                border:'2px solid #00D4AA', borderRadius:'50%', background:'rgba(0,212,170,.3)'}}/>
-            </div>
-          )
-        })()}
-      </div>
-      <div style={{fontSize:10, color:'var(--muted)', textAlign:'center'}}>
-        Tıklayarak odak noktası seç · Şu an: {(odak.x*100).toFixed(0)}% {(odak.y*100).toFixed(0)}%
-      </div>
-    </div>
-  )
-
-  return (
-    <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.92)', zIndex:1000,
-      display:'flex', flexDirection:'column', alignItems:'center',
-      justifyContent:'flex-start', padding:'16px 16px 0', overflowY:'auto'}}>
-      <div style={{fontSize:13, color:'#fff', marginBottom:8, textAlign:'center', paddingTop:8}}>
-        {baslik}
-        {yukleniyor && <span style={{fontSize:11, color:'var(--muted)', marginLeft:8}}>⏳ Hazırlanıyor…</span>}
-      </div>
-
-      {modType === 'odak'
-        /* ── ODAK NOKTASI MODU (video) ── */
-        ? <div style={{display:'flex', gap:12, maxWidth:'95vw', width:'100%', alignItems:'flex-start', justifyContent:'center'}}>
-            <OdakPanel panelFmt="yatay" fmt="yatay" imgUrl={onizleme.yatay} imgRef={yatayImgRef} odak={odakYatay} setOdak={setOdakYatay}/>
-            <OdakPanel panelFmt="dikey" fmt="dikey" imgUrl={onizleme.dikey} imgRef={dikeyImgRef} odak={odakDikey} setOdak={setOdakDikey}/>
-          </div>
-        /* ── KADRAJ KUTUSU MODU (görsel) ── */
-        : <KadrajKutu
-            gorselUrl={gorselUrl}
-            fmt={fmt || 'yatay'}
-            odakYatay={odakYatay} setOdakYatay={setOdakYatay}
-            odakDikey={odakDikey} setOdakDikey={setOdakDikey}
-          />
-      }
-
-      <div style={{display:'flex', gap:8, margin:'12px 0', flexShrink:0}}>
-        <button onClick={()=>onOnayla(null)}
-          style={{fontSize:12, padding:'6px 16px', background:'rgba(255,255,255,.08)', border:'0.5px solid rgba(255,255,255,.2)', color:'#aaa', cursor:'pointer'}}>
-          Seçimsiz Devam Et
-        </button>
-        <button onClick={()=>onOnayla({ yatay: odakYatay, dikey: odakDikey })}
-          style={{fontSize:12, padding:'6px 16px', background:'rgba(0,212,170,.15)', border:'0.5px solid rgba(0,212,170,.4)', color:'#00D4AA', cursor:'pointer'}}>
-          {modType === 'odak' ? '✓ Odak Noktalarını Onayla' : '✓ Kadrajı Onayla'}
-        </button>
-        <button onClick={onIptal}
-          style={{fontSize:12, padding:'6px 16px', background:'rgba(230,57,70,.1)', border:'0.5px solid rgba(230,57,70,.3)', color:'#ff7b7b', cursor:'pointer'}}>
-          İptal
-        </button>
-      </div>
-      <div style={{fontSize:10, color:'rgba(255,255,255,.3)', marginBottom:12}}>
-        {modType === 'odak' ? 'Seçim yapmazsan merkez (50% 50%) kullanılır' : 'Sürükleyerek kadraj alanını belirle'}
-      </div>
-    </div>
-  )
-}
-
-// ── KADRAJ KUTUSU (Görsel için) ──────────────────────────────────────────────
-function KadrajKutu({ gorselUrl, fmt, odakYatay, setOdakYatay, odakDikey, setOdakDikey }) {
-  const imgRef  = useRef(null)
-  const [drag, setDrag]   = useState(null)
-  const secim    = fmt === 'yatay' ? odakYatay : odakDikey
-  const setSecim = fmt === 'yatay' ? setOdakYatay : setOdakDikey
-
-  const initKutu = () => {
-    const img = imgRef.current
-    if (!img || !img.clientWidth) return
-    const cw = img.clientWidth, ch = img.clientHeight
-    const boxW = 0.7
-    const boxH = fmt === 'yatay' ? boxW * cw * (9/16) / ch : boxW * cw * (16/9) / ch
-    const x = (1 - boxW) / 2
-    const y = Math.max(0, (1 - boxH) / 2)
-    setSecim({ oranX: x, oranY: y, oranW: boxW, oranH: Math.min(boxH, 0.95) })
-  }
-
-  useEffect(() => {
-    if (secim) return
-    const img = imgRef.current
-    if (!img) return
-    if (img.complete && img.naturalWidth) { initKutu(); return }
-    img.addEventListener('load', initKutu, { once: true })
-    return () => img.removeEventListener('load', initKutu)
-  }, [gorselUrl, fmt])
-
-  const getPos = (e) => {
-    const rect = imgRef.current?.getBoundingClientRect()
-    if (!rect) return { x: 0, y: 0 }
-    const cx = e.touches ? e.touches[0].clientX : e.clientX
-    const cy = e.touches ? e.touches[0].clientY : e.clientY
-    return {
-      x: Math.max(0, Math.min(1, (cx - rect.left) / rect.width)),
-      y: Math.max(0, Math.min(1, (cy - rect.top)  / rect.height)),
-    }
-  }
-
-  const onMove = (e) => {
-    if (!drag || !secim) return
-    const p = getPos(e)
-    const dx = p.x - drag.sx, dy = p.y - drag.sy
-    if (drag.mode === 'move') {
-      setSecim({ ...drag.s,
-        oranX: Math.max(0, Math.min(1 - drag.s.oranW, drag.s.oranX + dx)),
-        oranY: Math.max(0, Math.min(1 - drag.s.oranH, drag.s.oranY + dy)),
-      })
-    } else {
-      const img = imgRef.current
-      if (!img) return
-      const cw = img.clientWidth, ch = img.clientHeight
-      const nw = Math.max(0.1, Math.min(1 - drag.s.oranX, drag.s.oranW + dx))
-      const nh = fmt === 'yatay' ? nw * cw * (9/16) / ch : nw * cw * (16/9) / ch
-      if (nh <= 1 - drag.s.oranY) setSecim({ ...drag.s, oranW: nw, oranH: Math.min(nh, 0.99) })
-    }
-  }
-
-  return (
-    <div style={{maxWidth:'90vw', display:'flex', flexDirection:'column', alignItems:'center', gap:6}}>
-      <div style={{fontSize:11, color:'#00D4AA'}}>{fmt === 'yatay' ? '\u2B1B Yatay (16:9)' : '\uD83D\uDCF1 Dikey (9:16)'}</div>
-      <div style={{position:'relative', lineHeight:0, userSelect:'none'}}
-        onMouseMove={onMove} onMouseUp={()=>setDrag(null)} onMouseLeave={()=>setDrag(null)}
-        onTouchMove={onMove} onTouchEnd={()=>setDrag(null)}>
-        <img ref={imgRef} src={gorselUrl} alt="kadraj" draggable={false}
-          style={{display:'block', maxWidth:'80vw', maxHeight:'50vh'}}/>
-        {secim && <>
-          <div style={{position:'absolute',left:0,right:0,top:0,height:`${secim.oranY*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-          <div style={{position:'absolute',left:0,right:0,top:`${(secim.oranY+secim.oranH)*100}%`,bottom:0,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-          <div style={{position:'absolute',left:0,top:`${secim.oranY*100}%`,width:`${secim.oranX*100}%`,height:`${secim.oranH*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-          <div style={{position:'absolute',left:`${(secim.oranX+secim.oranW)*100}%`,right:0,top:`${secim.oranY*100}%`,height:`${secim.oranH*100}%`,background:'rgba(0,0,0,.55)',pointerEvents:'none'}}/>
-          <div onMouseDown={e=>{e.preventDefault();e.stopPropagation();const p=getPos(e);setDrag({mode:'move',sx:p.x,sy:p.y,s:{...secim}})}}
-            onTouchStart={e=>{const p=getPos(e);setDrag({mode:'move',sx:p.x,sy:p.y,s:{...secim}})}}
-            style={{position:'absolute',left:`${secim.oranX*100}%`,top:`${secim.oranY*100}%`,width:`${secim.oranW*100}%`,height:`${secim.oranH*100}%`,
-              border:'2px solid #00D4AA',cursor:'grab',boxSizing:'border-box',touchAction:'none'}}>
-            <div onMouseDown={e=>{e.preventDefault();e.stopPropagation();const p=getPos(e);setDrag({mode:'resize',sx:p.x,sy:p.y,s:{...secim}})}}
-              onTouchStart={e=>{e.stopPropagation();const p=getPos(e);setDrag({mode:'resize',sx:p.x,sy:p.y,s:{...secim}})}}
-              style={{position:'absolute',right:-7,bottom:-7,width:14,height:14,background:'#00D4AA',borderRadius:2,cursor:'nwse-resize',touchAction:'none'}}/>
-          </div>
-        </>}
-      </div>
-      <div style={{fontSize:10, color:'var(--muted)'}}>\u2194 Surukle · \u25E2 Koseden boyutlandir</div>
-    </div>
-  )
-}
 
 // ── ÇOKLU GÖRSEL YÜKLEYİCİ ────────────────────────────────────────────────────
 function CokluGorselEkle({ sourceId, gorseller = [], onGuncel, maxGorsel = 10, orijinalGorsel = null }) {
