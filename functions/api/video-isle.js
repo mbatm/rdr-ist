@@ -22,24 +22,78 @@ function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
 
 import { renderHash, cacheGet, cacheSet } from './_render-cache.js'
 
-// Video süresini kontrol et — HEAD request ile Content-Length'ten tahmin
-// Tam süre için ffprobe gerekir ama Workers'ta yok; Content-Length / tahmini bit rate
-// Alternatif: video URL'den süre başlığı oku (bazı sunucular X-Duration döndürür)
+// MP4 dosyasından gerçek süreyi oku — moov/mvhd atom'dan
+// İlk 512KB yeterli (moov genellikle başta olur) ama bazı dosyalarda sonda
 async function videoSureKontrol(url) {
   try {
-    const res = await fetch(url, { method: 'HEAD' })
-    // X-Duration veya Content-Duration header'ı varsa kullan
-    const xDuration = res.headers.get('x-duration') || res.headers.get('x-video-duration')
-    if (xDuration) return parseFloat(xDuration)
-    
-    // Content-Length üzerinden tahmini süre (mp4, ~2 Mbps ortalama bit rate)
-    const contentLength = parseInt(res.headers.get('content-length') || '0')
-    if (contentLength > 0) {
-      const tahminiSure = contentLength / (2 * 1024 * 1024 / 8)  // 2 Mbps
-      return tahminiSure
+    // Önce HEAD ile dosya boyutunu al
+    const head = await fetch(url, { method: 'HEAD' })
+    const fileSize = parseInt(head.headers.get('content-length') || '0')
+
+    // İlk 512KB oku — moov atom genellikle başta
+    const res  = await fetch(url, { headers: { Range: 'bytes=0-524287' } })
+    const buf  = await res.arrayBuffer()
+    const view = new DataView(buf)
+
+    const sure = mp4SureOku(view, buf.byteLength)
+    if (sure > 0) return sure
+
+    // moov sonda olabilir — son 512KB oku
+    if (fileSize > 524288) {
+      const start = Math.max(0, fileSize - 524288)
+      const res2  = await fetch(url, { headers: { Range: `bytes=${start}-${fileSize - 1}` } })
+      const buf2  = await res2.arrayBuffer()
+      const view2 = new DataView(buf2)
+      const sure2 = mp4SureOku(view2, buf2.byteLength)
+      if (sure2 > 0) return sure2
     }
-    return 0  // Bilinmiyor — güvenli tarafta kal, Creatomate'e gönder
+
+    return 0  // Bulunamadı
   } catch { return 0 }
+}
+
+// MP4 atom'larını tarayarak mvhd'den süre çıkar
+function mp4SureOku(view, length) {
+  try {
+    let offset = 0
+    while (offset + 8 < length) {
+      const size = view.getUint32(offset, false)
+      if (size < 8 || offset + size > length) break
+
+      const type = String.fromCharCode(
+        view.getUint8(offset+4), view.getUint8(offset+5),
+        view.getUint8(offset+6), view.getUint8(offset+7)
+      )
+
+      if (type === 'mvhd') {
+        // mvhd version 0: offset+8=version, +12=creation, +16=modification, +20=timescale, +24=duration
+        // mvhd version 1: offset+8=version, +12=creation(8), +20=modification(8), +28=timescale(4), +32=duration(8)
+        const version = view.getUint8(offset + 8)
+        if (version === 0) {
+          const timescale = view.getUint32(offset + 20, false)
+          const duration  = view.getUint32(offset + 24, false)
+          if (timescale > 0) return duration / timescale
+        } else if (version === 1) {
+          const timescale = view.getUint32(offset + 28, false)
+          // duration 64-bit — yüksek 32 bit yeterince büyük değilse sadece düşük 32 bit
+          const durationHi = view.getUint32(offset + 32, false)
+          const durationLo = view.getUint32(offset + 36, false)
+          const duration   = durationHi === 0 ? durationLo : durationHi * 4294967296 + durationLo
+          if (timescale > 0) return duration / timescale
+        }
+        return 0
+      }
+
+      // Container atom'larına gir (moov, trak, mdia, minf, stbl)
+      if (['moov','trak','mdia','minf','stbl','udta'].includes(type)) {
+        const inner = mp4SureOku(new DataView(view.buffer, view.byteOffset + offset + 8, size - 8), size - 8)
+        if (inner > 0) return inner
+      }
+
+      offset += size
+    }
+  } catch {}
+  return 0
 }
 
 // 1ha CDN / Backblaze URL'lerini R2'ye kopyala — Creatomate erişemiyor
@@ -81,14 +135,11 @@ export async function onRequestPost({ request, env }) {
     const mediaUrl  = video_url_r2 || gorsel_url_r2 || video_url || gorsel_url
     const isVideo   = !!video_url_r2
 
-    // Video süresi/boyutu kontrolü — 3 dakikadan uzun (tahminen >45MB) Creatomate'e gönderme
+    // Video süresi kontrolü — 3 dakikadan uzun videoları Creatomate'e gönderme
     if (isVideo && video_url_r2) {
       const sureSaniye = await videoSureKontrol(video_url_r2)
-      // sureSaniye 0 ise bilinmiyor — boyuta bak (45MB = ~3dk @ 2Mbps)
-      const r2Obj = await env.MEDYA.head(video_url_r2.replace('https://medya.rdr.ist/', '')).catch(()=>null)
-      const boyutMB = r2Obj ? r2Obj.size / (1024 * 1024) : 0
-      const uzunVideo = (sureSaniye > 180) || (sureSaniye === 0 && boyutMB > 45)
-      if (uzunVideo) {
+      console.log(`[video-isle] Video süresi: ${sureSaniye.toFixed(1)}sn (${(sureSaniye/60).toFixed(1)}dk)`)
+      if (sureSaniye > 0 && sureSaniye > 180) {
         // Creatomate'e gönderme — vidoyu olduğu gibi döndür
         return Response.json({
           ok: true,
