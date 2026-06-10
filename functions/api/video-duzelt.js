@@ -51,6 +51,41 @@ export async function onRequestGet({ env }) {
 
     const videoSayisi = liste.filter(h => h.video).length
 
+    // Meta sayfa token'larını otomatik yenile
+    try {
+      const metaTokens = await env.HABERLER.get('meta_tokens', 'json')
+      const sysToken   = metaTokens?.system_token
+      if (sysToken) {
+        // /me/accounts ile tüm sayfaların token'larını taze çek
+        const pagesRes  = await fetch(
+          `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,picture&limit=100&access_token=${sysToken}`
+        )
+        const pagesData = await pagesRes.json()
+        if (!pagesData.error && pagesData.data?.length) {
+          const pages     = pagesData.data
+          const hesaplar  = metaTokens.instagram || []
+          let guncellendi = 0
+          for (const page of pages) {
+            // Her sayfa için taze token al
+            const ptRes  = await fetch(`https://graph.facebook.com/v21.0/${page.id}?fields=access_token&access_token=${sysToken}`)
+            const ptData = await ptRes.json()
+            if (ptData.access_token) {
+              const idx = hesaplar.findIndex(h => h.page_id === page.id)
+              if (idx >= 0) {
+                hesaplar[idx].page_token = ptData.access_token
+                guncellendi++
+              }
+            }
+          }
+          if (guncellendi > 0) {
+            metaTokens.instagram = hesaplar
+            await env.HABERLER.put('meta_tokens', JSON.stringify(metaTokens))
+            console.log(`[video-duzelt] Meta token yenilendi: ${guncellendi} hesap`)
+          }
+        }
+      }
+    } catch(e) { console.error('[video-duzelt] Meta token yenileme hatası:', e.message) }
+
     // Bekleyen IG container'larını publish et
     let yayinlanan = 0
     try {
