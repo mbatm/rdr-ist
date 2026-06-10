@@ -876,11 +876,19 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
           style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
       </div>
 
+      {/* Render bekleniyorsa uyarı */}
+      {!gorselUrls?.instagram && !gorselUrls?.facebook && (
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,padding:'6px 10px',background:'rgba(255,183,0,.06)',border:'0.5px solid rgba(255,183,0,.2)',borderRadius:'var(--radius-md)'}}>
+          ⏳ Sosyal medya görseli hazırlanıyor — hazır olunca paylaşabilirsiniz
+        </div>
+      )}
       <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
         {[['facebook','Facebook','#1877F2'],['instagram','Instagram','#E1306C'],['her_ikisi','FB + IG','#4dabf7']].map(([p,l,c])=>(
-          <button key={p} onClick={()=>paylas(p)} disabled={gonderiyor}
+          <button key={p} onClick={()=>paylas(p)}
+            disabled={gonderiyor || (!gorselUrls?.instagram && !gorselUrls?.facebook)}
             style={{fontSize:12,background:`rgba(${p==='facebook'?'24,119,242':p==='instagram'?'225,48,108':'24,119,242'},.15)`,
-              border:`0.5px solid ${c}44`,color:c}}>
+              border:`0.5px solid ${c}44`,color:c,
+              opacity:(gonderiyor||(!gorselUrls?.instagram&&!gorselUrls?.facebook))?0.4:1}}>
             <Ic n={gonderiyor?'loader-2':'send'} size={13}/> {l}
           </button>
         ))}
