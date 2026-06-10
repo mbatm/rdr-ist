@@ -700,7 +700,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       // Carousel: igTip'e değil galeriGorseller sayısına bak — state gecikmesi olabilir
       const isCarousel = platform === 'instagram' && galeriUrls.length > 0
       // GaleriModul'dan gelince galeriUrls zaten kapağı içeriyor — tekrar ekleme
-      const carouselUrls = galeriUrls[0] === gorselUrl
+      // gorselUrl boşsa (GaleriModul) direkt galeriUrls kullan
+      const carouselUrls = (!gorselUrl || galeriUrls[0] === gorselUrl)
         ? galeriUrls
         : [gorselUrl, ...galeriUrls]
 
@@ -4689,18 +4690,17 @@ function GaleriModul({ user, onGeri }) {
         <MetaPaylas
           content={{ baslik, site_basligi: baslik }}
           gorselUrls={{
-            instagram: isVideoKapak ? '' : kapakUrl,
-            facebook:  isVideoKapak ? '' : kapakUrl,
-            twitter:   isVideoKapak ? '' : kapakUrl,
+            instagram: '',
+            facebook:  '',
+            twitter:   '',
           }}
           videoRenders={galeriVideoRenders}
           selectedHaber={isVideoKapak
             ? { video: kapakUrl, video_dikey: kapakUrl, gorsel_url: '', gorsel: '' }
-            : { gorsel_url: kapakUrl, gorsel: kapakUrl, video: null }}
+            : { gorsel_url: '', gorsel: '', video: null }}
           galeriGorseller={tumUrller.map((url,i) => ({ url, kapak: i===0 }))}
           galeriRenderler={tumUrller.map(url => ({ kaynak_url: url, url }))}
           kayserimLink=""
-
         />
       </div>
     )
