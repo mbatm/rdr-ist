@@ -139,7 +139,7 @@ export async function onRequestPost({ request, env }) {
     // Tüm render'ları başlat (beklemeden)
     const [kapakR, ...digerR] = await Promise.all([
       renderBaslat(kapakTpl, kapakMods, apiKey, kapakFmt),
-      ...diger.map(g => {
+      ...diger.map((g, i) => {
         const tpl = GALERI_SABLON[kaynak]?.[g.tip === 'video' ? 'video' : 'foto']
         const fmt = g.tip === 'video' ? 'mp4' : 'png'
         return renderBaslat(tpl, { '16dbfe06-e201-4aa4-887b-f166f95832af': digerR2[i] || g.url }, apiKey, fmt)
