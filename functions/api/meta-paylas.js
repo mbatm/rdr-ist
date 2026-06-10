@@ -126,6 +126,11 @@ export async function onRequestPost({ request, env }) {
       await Promise.all(secilenIgIds.map(async (igId) => {
         const sayfa = hesaplar.find(h=>String(h.ig_id)===String(igId)) || hesaplar[0]
 
+        if (!sayfa?.page_token) {
+          sonuclar.instagram[igId] = { hata: 'Hesap token bulunamadı — Meta token yenile' }
+          return
+        }
+
         // Kota kontrolü — günde 50 post limiti
         const kota = await kotaKontrol(igId, sayfa.page_token)
         if (!kota.ok) {
