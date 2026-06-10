@@ -48,10 +48,17 @@ export async function onRequestPost({ request, env }) {
       // Galeri görselleri — kapak olarak kullanılan görseli çıkar
       // medyaUrl render edilmiş URL, orijinal görsel kayit.gorsel_url'de — ikisini de çıkar
       const kapakUrls = new Set([medyaUrl, kayit.gorsel_url].filter(Boolean))
+      const tumGorseller = (kayit.medyalar || []).filter(m => m.tip === 'gorsel')
       const galeriUrls = galeri_urls.length > 0
         ? galeri_urls
-        : (kayit.medyalar || []).filter(m => m.tip === 'gorsel' && !kapakUrls.has(m.url)).map(m => m.url)
+        : tumGorseller.filter(m => !kapakUrls.has(m.url)).map(m => m.url)
       const isCarousel = !isVideo && platformlar.includes('instagram') && galeriUrls.length > 0
+
+      console.log('[radar-paylas] medyaUrl:', medyaUrl?.substring(0,60))
+      console.log('[radar-paylas] gorsel_url:', kayit.gorsel_url?.substring(0,60))
+      console.log('[radar-paylas] tumGorseller:', tumGorseller.map(m=>m.url?.substring(0,60)))
+      console.log('[radar-paylas] galeriUrls:', galeriUrls)
+      console.log('[radar-paylas] isCarousel:', isCarousel)
 
       const metaPayload = {
         // Carousel ise gorsel_url gönderme — galeri_urls yeterli (çift görsel önle)
