@@ -31,7 +31,7 @@ export async function onRequestPost({ request, env }) {
     const r2Kopyala = async (url, tip = 'gorsel') => {
       if (!url) return url
       // Zaten medya.rdr.ist ise kopyalama
-      if (url.includes('medya.rdr.ist')) return url
+      if (!url || url.includes('medya.rdr.ist')) return url
       // Sadece bilinen sorunlu domain'leri kopyala
       const sorunlu = ['backblazeb2.com', '1ha.com.tr', 'creatomate-c8xg3hsxdu', 'cdn.']
       if (!sorunlu.some(d => url.includes(d))) return url
@@ -144,7 +144,7 @@ export async function onRequestPost({ request, env }) {
             // Her görsel için container oluştur
             const containerIds = []
             for (const itemUrl of galeri_urls) {
-              const isItemVideo = itemUrl.includes('.mp4') || itemUrl.includes('video')
+              const isItemVideo = (itemUrl || '').includes('.mp4') || (itemUrl || '').includes('video')
               const itemBody = isItemVideo
                 ? { video_url: itemUrl, media_type: 'VIDEO', is_carousel_item: true, access_token: sayfa.page_token }
                 : { image_url: itemUrl, is_carousel_item: true, access_token: sayfa.page_token }
@@ -192,8 +192,8 @@ export async function onRequestPost({ request, env }) {
         // Feed post
         else if (is_video && (efektifVideo || video_url)) {
           // Render edilmiş video (medya.rdr.ist) ise REELS, ham video ise foto olarak paylaş
-          const kullanilanVideo = efektifVideo || video_url
-          const isR2Video = kullanilanVideo.includes('medya.rdr.ist')
+          const kullanilanVideo = efektifVideo || video_url || ''
+          const isR2Video = (kullanilanVideo || '').includes('medya.rdr.ist')
           const igMediaType = isR2Video ? 'REELS' : 'IMAGE'
           const igBody = isR2Video
             ? { video_url: kullanilanVideo, caption: metin, media_type: 'REELS', share_to_feed: true }
