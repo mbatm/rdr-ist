@@ -5,8 +5,39 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Odak noktası x_anchor/y_anchor ile belirlenir (varsayılan merkez)
-function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
+// Video kadraj — içerik oranına ve render formatına göre konumlandır
+function kadrajHesapla(genislik, yukseklik, format) {
+  const oran = (genislik && yukseklik) ? genislik / yukseklik : 0
+  const icerikYatay = oran === 0 ? null : oran >= 1.0  // null = bilinmiyor
+
+  if (format === 'yatay') {
+    if (icerikYatay === false) {
+      // Dikey içerik yatay şablonda: üstten %10 kes, kalanı sığdır, alt siyah
+      return {
+        'video.width':    '100%',
+        'video.height':   '100%',
+        'video.x':        '50%',
+        'video.y':        '50%',
+        'video.x_anchor': '50%',
+        'video.y_anchor': '10%',
+        'video.fit':      'contain',
+      }
+    }
+    // Yatay içerik yatay şablonda: cover ile doldur
+    return {
+      'video.width':    '100%',
+      'video.height':   '100%',
+      'video.x':        '50%',
+      'video.y':        '50%',
+      'video.x_anchor': '50%',
+      'video.y_anchor': '50%',
+      'video.fit':      'cover',
+    }
+  }
+
+  // Dikey render: her durumda cover + merkez
+  // Yatay içerik → ortası kadraja alınır, kenarlar dışarıda kalır
+  // Dikey içerik → alana tam oturtulur
   return {
     'video.width':    '100%',
     'video.height':   '100%',
@@ -173,7 +204,7 @@ export async function onRequestPost({ request, env }) {
       if (!isVideo && fmt === 'yatay') continue
 
       // Kadraj — her format için ayrı odak noktası
-      const kadrajMods = kadrajHesapla(genislik, yukseklik)
+      const kadrajMods = kadrajHesapla(genislik, yukseklik, fmt)
       const kadrajFmt  = kadraj?.[fmt] ?? null
       if (kadrajFmt?.x !== undefined) {
         // Yeni format: { x, y } — doğrudan merkez koordinat
