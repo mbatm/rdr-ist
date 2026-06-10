@@ -5,17 +5,21 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Odak noktası x_anchor/y_anchor ile belirlenir (varsayılan merkez)
+// Odak noktası x_anchor/y_anchor ile belirlenir
+// y_anchor: 0% = videonun üstü elementin üstüne yapışır (kafa kesilmez)
 function kadrajHesapla(genislik, yukseklik, sablonW=720, sablonH=1280) {
-  // Video boyutları bilinmese de fit:cover ile Creatomate halleder
-  // x/y: şablonun merkezi, x_anchor/y_anchor: videonun hangi noktası oraya gelsin
+  // Görsel/video oran tespiti
+  const oran = (genislik && yukseklik) ? genislik / yukseklik : 0
+  const dikey = oran > 0 && oran < 0.85  // 0.85 altı = dikey/kare görsel
+
   return {
     'video.width':    '100%',
     'video.height':   '100%',
     'video.x':        '50%',
     'video.y':        '50%',
     'video.x_anchor': '50%',
-    'video.y_anchor': '50%',
+    // Dikey/kare görsel: merkez. Yatay görsel/video: üstten sabitle
+    'video.y_anchor': dikey ? '50%' : '0%',
     'video.fit':      'cover',
   }
 }
@@ -99,14 +103,14 @@ function mp4SureOku(view, length) {
 // 1ha CDN / Backblaze URL'lerini R2'ye kopyala — Creatomate erişemiyor
 async function videoR2Kopyala(url, env) {
   if (!url) return url
-  if (url.includes('medya.rdr.ist')) return url
+  if (!url || url.includes('medya.rdr.ist')) return url
   const sorunlu = ['1ha.com.tr', 'backblazeb2.com', 'cdn.']
   if (!sorunlu.some(d => url.includes(d))) return url
   try {
     const res = await fetch(url)
     if (!res.ok) return url
     const buf = await res.arrayBuffer()
-    const ext = url.includes('.mp4') ? 'mp4' : 'jpg'
+    const ext = (url || '').includes('.mp4') ? 'mp4' : 'jpg'
     const key = `video_isle/${Date.now()}.${ext}`
     await env.MEDYA.put(key, buf, { httpMetadata: { contentType: ext === 'mp4' ? 'video/mp4' : 'image/jpeg' } })
     return `https://medya.rdr.ist/${key}`
