@@ -54,7 +54,8 @@ export async function onRequestPost({ request, env }) {
       const isCarousel = !isVideo && platformlar.includes('instagram') && galeriUrls.length > 0
 
       const metaPayload = {
-        gorsel_url:   isVideo ? undefined : medyaUrl,
+        // Carousel ise gorsel_url gönderme — galeri_urls yeterli (çift görsel önle)
+        gorsel_url:   (isVideo || isCarousel) ? undefined : medyaUrl,
         video_url:    isVideo ? medyaUrl  : undefined,
         is_video:     isVideo,
         is_carousel:  isCarousel,
