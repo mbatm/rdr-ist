@@ -45,9 +45,12 @@ export async function onRequestPost({ request, env }) {
     // ── FACEBOOK / INSTAGRAM ──────────────────────────────────────────────────
     if (platformlar.includes('facebook') || platformlar.includes('instagram')) {
       // Galeri görselleri — kayit.medyalar'dan kapak dışındakileri al
+      // Galeri görselleri — kapak olarak kullanılan görseli çıkar
+      // medyaUrl render edilmiş URL, orijinal görsel kayit.gorsel_url'de — ikisini de çıkar
+      const kapakUrls = new Set([medyaUrl, kayit.gorsel_url].filter(Boolean))
       const galeriUrls = galeri_urls.length > 0
         ? galeri_urls
-        : (kayit.medyalar || []).filter(m => m.tip === 'gorsel' && m.url !== medyaUrl).map(m => m.url)
+        : (kayit.medyalar || []).filter(m => m.tip === 'gorsel' && !kapakUrls.has(m.url)).map(m => m.url)
       const isCarousel = !isVideo && platformlar.includes('instagram') && galeriUrls.length > 0
 
       const metaPayload = {
