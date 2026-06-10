@@ -25,46 +25,47 @@ export async function onRequestPost({ request, env }) {
 
     // ── Claude — oto-isle ile aynı prompt ────────────────────────────────────
     const metinKisa = (metin||'').slice(0, 1500)
+    const metinUzunluk = (metin||'').trim().split(/\s+/).length
+    const kisaMetin = metinUzunluk < 50
+
     const prompt = `Sen kayserim.net için çalışan kıdemli bir SEO editörüsün.
 
-## KRİTİK KURAL — GERÇEK HABER DİLİ
-Optimize içeriği gerçek haber ajansı dilinde yaz. KAYSERİ(1HA)- gibi kaynak önekleri kaldır.
+## KRİTİK KURALLAR
+- Kaynak öneklerini (KAYSERİ(1HA)- gibi) kaldır
+- VERİLEN METNİ ŞIŞIRME: Kısa metin geldiyse olduğu gibi kullan, uydurma ekleme yapma
+- SADECE JSON döndür
+${isVideo ? '- VİDEO HABER: Sosyal metinlere "izle" ekle' : ''}
 
-## HABER BİLGİSİ
-Başlık: ${baslik||''}
-İçerik: ${metinKisa}
+## HABER
+Başlık: ${baslik||'(yok)'}
+İçerik (${metinUzunluk} kelime): ${metinKisa}
 Kategori: ${kategori}
-${isVideo ? 'İçerik Tipi: VİDEO HABER — sosyal medya metinlerine "izle", "videolu haber" ekle' : ''}
+SEO kelimeleri: ${katKw}
 
-## SEO STRATEJİSİ
-Hedef kelimeler: ${katKw}
-- "Kayseri" ilk 3 kelimede geçmeli
-- Başlık 55-65 karakter
-- URL slug "kayseri-" ile başlamalı
+## KURALLAR
+- site_basligi: 55-65 karakter, Kayseri içermeli
+- url_slug: kayseri- ile başlasın
+- optimize_icerik: ${kisaMetin ? 'ORİJİNAL METNİ AYNEN KULLAN, hiç değiştirme' : '150-250 kelime haber ajansı dili'}
+- Sosyal medya: Mevcut içerikten üret, uydurma
 
-SADECE şu JSON formatını döndür:
 {
-  "site_basligi": "55-65 karakter, Kayseri içeren SEO başlık",
-  "h1_basligi": "H1 başlık",
-  "sosyal_baslik": "max 7 kelime, Kayseri ile başlayan sosyal medya başlığı",
-  "meta_description": "max 155 karakter",
-  "url_slug": "kayseri-ile-baslayan-slug",
-  "optimize_icerik": "150-250 kelime, Türk haber ajansı dilinde özet",
-  "ozet": "1 cümle, haberin özü",
-  "instagram": "Haberi Instagram için yeniden yaz. 1) Kaynak öneklerini kaldır 2) Doğal akıcı dil 3) Konuya uygun emoji 4) 1200-2000 karakter 5) Sondan önce 'Haber detayları kayserim.net\\'te 🔗' 6) Son satırda 6-10 hashtag (#kayseri #kayserihaber ve konuya özel) 7) URL ekleme",
-  "facebook": "Dikkat çekici ilk cümle + özet. Kayseri zorunlu değil. Konuya uygun emoji. Max 300 karakter. Konuya özel 2-3 hashtag",
-  "x_twitter": "Çarpıcı tweet. Kayseri zorunlu değil. Max 230 karakter. 1-2 emoji. Konuya özel 2-3 hashtag",
-  "youtube_baslik": "max 80 karakter, arama odaklı",
-  "youtube_aciklama": "250-300 karakter özet. Sonuna 'Detaylar için: [LINK]'",
-  "hedef_kelimeler": ["kelime1","kelime2","kelime3"],
+  "site_basligi": "",
+  "h1_basligi": "",
+  "sosyal_baslik": "",
+  "meta_description": "",
+  "url_slug": "",
+  "ozet": "",
+  "optimize_icerik": "",
+  "instagram": "",
+  "facebook": "",
+  "x_twitter": "",
+  "youtube_baslik": "",
+  "youtube_aciklama": "",
+  "hedef_kelimeler": [],
   "kategori": "${kategori}",
-  "gorsel_prompt": "realistic Turkish news photo, Kayseri Turkey, max 12 words",
-  "alternatif_basliklar": [
-    "Merak uyandıran, soru veya sürpriz içeren 5-8 kelimelik başlık",
-    "Rakam veya çarpıcı detay öne çıkaran 5-8 kelimelik başlık",
-    "Duygusal bağ kuran veya yerel kimlik vurgulayan 5-8 kelimelik başlık"
-  ],
-  "optimize_icerik_kwh": "SEO optimize 150-250 kelime, hedef kelimeler doğal yedirilerek"
+  "gorsel_prompt": "",
+  "alternatif_basliklar": ["","",""],
+  "optimize_icerik_kwh": ""
 }`
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
