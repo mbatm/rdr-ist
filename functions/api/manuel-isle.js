@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env }) {
     } catch(e) {}
 
     // ── Claude — oto-isle ile aynı prompt ────────────────────────────────────
-    const metinKisa = (metin||'').slice(0, 3000)
+    const metinKisa = (metin||'').slice(0, 1500)
     const prompt = `Sen kayserim.net için çalışan kıdemli bir SEO editörüsün.
 
 ## KRİTİK KURAL — GERÇEK HABER DİLİ
@@ -49,7 +49,7 @@ SADECE şu JSON formatını döndür:
   "sosyal_baslik": "max 7 kelime, Kayseri ile başlayan sosyal medya başlığı",
   "meta_description": "max 155 karakter",
   "url_slug": "kayseri-ile-baslayan-slug",
-  "optimize_icerik": "250-400 kelime, Türk haber ajansı dilinde düz metin, başlık veya HTML tag kullanma",
+  "optimize_icerik": "150-250 kelime, Türk haber ajansı dilinde özet",
   "ozet": "1 cümle, haberin özü",
   "instagram": "Haberi Instagram için yeniden yaz. 1) Kaynak öneklerini kaldır 2) Doğal akıcı dil 3) Konuya uygun emoji 4) 1200-2000 karakter 5) Sondan önce 'Haber detayları kayserim.net\\'te 🔗' 6) Son satırda 6-10 hashtag (#kayseri #kayserihaber ve konuya özel) 7) URL ekleme",
   "facebook": "Dikkat çekici ilk cümle + özet. Kayseri zorunlu değil. Konuya uygun emoji. Max 300 karakter. Konuya özel 2-3 hashtag",
@@ -64,7 +64,7 @@ SADECE şu JSON formatını döndür:
     "Rakam veya çarpıcı detay öne çıkaran 5-8 kelimelik başlık",
     "Duygusal bağ kuran veya yerel kimlik vurgulayan 5-8 kelimelik başlık"
   ],
-  "optimize_icerik_kwh": "Orijinal metnin ünvanlarını, rakamlarını, özel isimleri değiştirmeden; hedef kelimeleri doğal biçimde metne yedirerek SEO optimize edilmiş 250-400 kelime Türk haber ajansı dili"
+  "optimize_icerik_kwh": "SEO optimize 150-250 kelime, hedef kelimeler doğal yedirilerek"
 }`
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -72,7 +72,7 @@ SADECE şu JSON formatını döndür:
       headers: { 'Content-Type':'application/json', 'x-api-key':env.ANTHROPIC_API_KEY, 'anthropic-version':'2023-06-01' },
       body: JSON.stringify({
         model:      'claude-haiku-4-5-20251001',
-        max_tokens: 3000,
+        max_tokens: 1500,
         messages:   [{ role:'user', content: prompt }],
       }),
     })
