@@ -331,6 +331,7 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({ basarili:true, sonuclar })
   } catch(e) {
-    return Response.json({ hata:e.message }, { status:500 })
+    console.error('[meta-paylas] HATA:', e.message, e.stack?.split('\n')[1])
+    return Response.json({ hata: e.message, stack: e.stack?.split('\n')[0] }, { status:500 })
   }
 }
