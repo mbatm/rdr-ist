@@ -680,10 +680,11 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
                         gorselUrls?.instagram || gorselUrls?.facebook ||
                         selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
       // kvVideo.dikey obje olabilir — URL'yi çıkar
-      const videoUrl = (typeof kvVideo?.dikey === 'string' ? kvVideo?.dikey : kvVideo?.dikey?.url) ||
-                      videoRenders?.dikey?.url ||
-                      selectedHaber?.video_dikey ||
-                      selectedHaber?.video || ''
+      // video_url her zaman string olmalı — obje gelirse URL'sini çıkar
+      const _rawVideo = kvVideo?.dikey || videoRenders?.dikey?.url ||
+                        selectedHaber?.video_dikey || selectedHaber?.video || ''
+      const videoUrl = typeof _rawVideo === 'string' ? _rawVideo :
+                       typeof _rawVideo === 'object' ? (_rawVideo?.url || '') : ''
       console.log('Paylaş debug:', { kvVideo, videoRenders_dikey: videoRenders?.dikey?.url, video_dikey: selectedHaber?.video_dikey, kullanilan: videoUrl })
 
       const token = localStorage.getItem('cms_token') || ''
