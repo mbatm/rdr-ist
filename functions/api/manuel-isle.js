@@ -49,16 +49,16 @@ SEO kelimeleri: ${katKw}
 - Sosyal medya: Mevcut içerikten üret, uydurma
 
 {
-  "site_basligi": "",
+  "site_basligi": "55-65 karakter SEO başlık",
   "h1_basligi": "",
-  "sosyal_baslik": "",
-  "meta_description": "",
-  "url_slug": "",
-  "ozet": "",
+  "sosyal_baslik": "max 7 kelime",
+  "meta_description": "max 155 karakter",
+  "url_slug": "kayseri-ile-baslayan",
+  "ozet": "1 cümle",
   "optimize_icerik": "",
-  "instagram": "",
-  "facebook": "",
-  "x_twitter": "",
+  "instagram": "max 500 karakter + hashtag",
+  "facebook": "max 200 karakter",
+  "x_twitter": "max 230 karakter",
   "youtube_baslik": "",
   "youtube_aciklama": "",
   "hedef_kelimeler": [],
@@ -186,9 +186,9 @@ SEO kelimeleri: ${katKw}
 
     await env.HABERLER.put(`haber:${source_id}`, JSON.stringify(kayit))
 
-    const liste = await env.HABERLER.get('HABERLER', 'json') || []
+    const liste = await env.HABERLER.get('liste', 'json') || []
     liste.unshift(kayit)
-    await env.HABERLER.put('HABERLER', JSON.stringify(liste.slice(0,500)))
+    await env.HABERLER.put('liste', JSON.stringify(liste.slice(0,500)))
 
     return Response.json({ ok:true, source_id, kayit })
   } catch(e) {
