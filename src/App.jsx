@@ -1533,15 +1533,24 @@ const Divider = ({label,ic}) => (
   </div>
 )
 
-const EField = ({label,field,ec,set,multi=false,rows=3}) => (
-  <div style={{marginBottom:'0.75rem'}}>
-    <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
-    {multi
-      ? <textarea value={ec[field]||''} onChange={e=>set(field,e.target.value)} rows={rows}
-          style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box',lineHeight:1.6}}/>
-      : <input value={ec[field]||''} onChange={e=>set(field,e.target.value)} style={{width:'100%',fontSize:13}}/>}
-  </div>
-)
+const EField = ({label,field,ec,set,multi=false,rows=3,maxLength=null}) => {
+  const val = ec[field]||''
+  const len = val.length
+  const asim = maxLength && len > maxLength
+  return (
+    <div style={{marginBottom:'0.75rem'}}>
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em',display:'flex',justifyContent:'space-between'}}>
+        <span>{label}</span>
+        {maxLength && <span style={{color: asim ? '#ff6b6b' : len > maxLength*0.85 ? '#FFB700' : 'var(--muted)'}}>{len}/{maxLength}</span>}
+      </div>
+      {multi
+        ? <textarea value={val} onChange={e=>set(field,e.target.value)} rows={rows}
+            style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box',lineHeight:1.6,borderColor:asim?'#ff6b6b':undefined}}/>
+        : <input value={val} onChange={e=>set(field,e.target.value)}
+            style={{width:'100%',fontSize:13,borderColor:asim?'#ff6b6b':undefined}}/>}
+    </div>
+  )
+}
 
 // ── ISLEME ────────────────────────────────────────────────────────────────
 function Isleme({ content, processing, error, selectedHaber }) {
@@ -1730,7 +1739,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
         </div>
       )}
 
-      <EField ec={ec} set={set} label="Meta description" field="meta_description"/>
+      <EField ec={ec} set={set} label="Meta description (spot başlık)" field="meta_description" maxLength={100}/>
       <EField ec={ec} set={set} label="URL slug" field="url_slug"/>
       <EField ec={ec} set={set} label="Özet" field="ozet"/>
 
