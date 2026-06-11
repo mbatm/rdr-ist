@@ -23,20 +23,20 @@ function kadrajHesapla(genislik, yukseklik, format) {
         'video.fit':      'contain',
       }
     }
-    // Yatay içerik yatay şablonda: cover ile doldur
+    // Yatay içerik yatay şablonda: cover, tam doldur, kafa kesilmesin için üst kısma yakın tut
     return {
       'video.width':    '100%',
       'video.height':   '100%',
       'video.x':        '50%',
       'video.y':        '50%',
       'video.x_anchor': '50%',
-      'video.y_anchor': '50%',
+      'video.y_anchor': '35%',  // üst 1/3'e yakın — kafalar korunur
       'video.fit':      'cover',
     }
   }
 
-  // Dikey render: her durumda cover + merkez
-  // Yatay içerik → ortası kadraja alınır, kenarlar dışarıda kalır
+  // Dikey render (9:16): cover + merkez
+  // Yatay içerik → ortası kadraja alınır
   // Dikey içerik → alana tam oturtulur
   return {
     'video.width':    '100%',
@@ -44,7 +44,7 @@ function kadrajHesapla(genislik, yukseklik, format) {
     'video.x':        '50%',
     'video.y':        '50%',
     'video.x_anchor': '50%',
-    'video.y_anchor': '50%',
+    'video.y_anchor': '35%',  // üst 1/3'e yakın — kafalar korunur
     'video.fit':      'cover',
   }
 }
