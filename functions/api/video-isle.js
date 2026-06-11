@@ -5,46 +5,16 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Video kadraj — içerik oranına ve render formatına göre konumlandır
+// Video kadraj — cover + y_anchor:20% her iki format için
+// Üstten %20 sabit → kafalar kesilmez, en boy oranı bozulmaz
 function kadrajHesapla(genislik, yukseklik, format) {
-  const oran = (genislik && yukseklik) ? genislik / yukseklik : 0
-  const icerikYatay = oran === 0 ? null : oran >= 1.0  // null = bilinmiyor
-
-  if (format === 'yatay') {
-    if (icerikYatay === false) {
-      // Dikey içerik yatay şablonda: üstten %10 kes, kalanı sığdır, alt siyah
-      return {
-        'video.width':    '100%',
-        'video.height':   '100%',
-        'video.x':        '50%',
-        'video.y':        '50%',
-        'video.x_anchor': '50%',
-        'video.y_anchor': '10%',
-        'video.fit':      'contain',
-      }
-    }
-    // Yatay içerik yatay şablonda: cover, tam doldur, kafa kesilmesin için üst kısma yakın tut
-    return {
-      'video.width':    '100%',
-      'video.height':   '100%',
-      'video.x':        '50%',
-      'video.y':        '50%',
-      'video.x_anchor': '50%',
-      'video.y_anchor': '35%',  // üst 1/3'e yakın — kafalar korunur
-      'video.fit':      'cover',
-    }
-  }
-
-  // Dikey render (9:16): cover + merkez
-  // Yatay içerik → ortası kadraja alınır
-  // Dikey içerik → alana tam oturtulur
   return {
     'video.width':    '100%',
     'video.height':   '100%',
     'video.x':        '50%',
     'video.y':        '50%',
     'video.x_anchor': '50%',
-    'video.y_anchor': '35%',  // üst 1/3'e yakın — kafalar korunur
+    'video.y_anchor': '20%',
     'video.fit':      'cover',
   }
 }
