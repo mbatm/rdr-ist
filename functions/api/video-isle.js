@@ -5,16 +5,63 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Video kadraj — cover + merkez (varsayılan)
+// Video/görsel kadraj — format ve içerik oranına göre
 function kadrajHesapla(genislik, yukseklik, format) {
-  return {
-    'video.width':    '100%',
-    'video.height':   '100%',
-    'video.x':        '50%',
-    'video.y':        '50%',
-    'video.x_anchor': '50%',
-    'video.y_anchor': '50%',
-    'video.fit':      'cover',
+  const oran = (genislik && yukseklik) ? genislik / yukseklik : 0
+  // oran > 1 → yatay, oran < 1 → dikey, 0 → bilinmiyor (yatay varsay)
+  const icerikYatay = oran === 0 ? true : oran >= 1.0
+
+  if (format === 'yatay') {
+    // Yatay render (16:9 şablon)
+    if (icerikYatay) {
+      // Yatay görsel → üstten max %10 keserek kadrajla, en boy oranı korunur
+      return {
+        'video.width':    '100%',
+        'video.height':   '100%',
+        'video.x':        '50%',
+        'video.y':        '50%',
+        'video.x_anchor': '50%',
+        'video.y_anchor': '10%',  // üstten %10 referans — kafa kesilmez
+        'video.fit':      'cover',
+      }
+    } else {
+      // Dikey görsel → blur/siyah kenar efekti, üstten max %20 kadraj dışı
+      return {
+        'video.width':    '100%',
+        'video.height':   '100%',
+        'video.x':        '50%',
+        'video.y':        '50%',
+        'video.x_anchor': '50%',
+        'video.y_anchor': '20%',  // üstten max %20 dışarıda
+        'video.fit':      'contain',
+        'video.background_color': '#000000',
+      }
+    }
+  }
+
+  // Dikey render (9:16 şablon)
+  if (!icerikYatay) {
+    // Dikey görsel → alana göre hizala (cover + merkez)
+    return {
+      'video.width':    '100%',
+      'video.height':   '100%',
+      'video.x':        '50%',
+      'video.y':        '50%',
+      'video.x_anchor': '50%',
+      'video.y_anchor': '50%',
+      'video.fit':      'cover',
+    }
+  } else {
+    // Yatay görsel → üste göre hizala, kenar taşmaları sorun değil
+    return {
+      'video.width':    '100%',
+      'video.height':   '100%',
+      'video.x':        '50%',
+      'video.y':        '50%',
+      'video.x_anchor': '50%',
+      'video.y_anchor': '0%',   // üste yasla
+      'video.fit':      'cover',
+    }
   }
 }
 
@@ -162,15 +209,15 @@ export async function onRequestPost({ request, env }) {
     const TEMPLATES = {
       dikey_video:  'e9cf7ffa-84f2-41ba-8d79-8d89be0eaa36',
       yatay_video:  '438ee267-ad53-4627-8126-e50ffb30f395',
-      dikey_gorsel: 'd8655c6b-e08d-45e4-8277-64b074164ac6', // kayserim.net görsel şablonu
+      dikey_gorsel: 'd8655c6b-e08d-45e4-8277-64b074164ac6', // dikey görsel
+      yatay_gorsel: 'a5c30525-fd42-4a19-9fe5-2703e9f98753', // yatay görsel (Kapak Foto)
     }
 
     const renders = []
     const formatlar = format === 'her_ikisi' ? ['dikey', 'yatay'] : [format]
 
     for (const fmt of formatlar) {
-      // Görsel ise sadece dikey, yatay şablon yok
-      if (!isVideo && fmt === 'yatay') continue
+      // Görsel için de hem dikey hem yatay render al
 
       // Kadraj — her format için ayrı odak noktası
       const kadrajMods = kadrajHesapla(genislik, yukseklik, fmt)
@@ -197,8 +244,8 @@ export async function onRequestPost({ request, env }) {
       }
 
       const templateId = isVideo
-        ? (fmt === 'dikey' ? TEMPLATES.dikey_video  : TEMPLATES.yatay_video)
-        : TEMPLATES.dikey_gorsel
+        ? (fmt === 'dikey' ? TEMPLATES.dikey_video   : TEMPLATES.yatay_video)
+        : (fmt === 'dikey' ? TEMPLATES.dikey_gorsel  : TEMPLATES.yatay_gorsel)
 
       const outputFormat = isVideo ? 'mp4' : 'jpg'
 
