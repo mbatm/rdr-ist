@@ -219,6 +219,17 @@ export async function onRequestGet({ request, env }) {
     expirationTtl: 60 * 60 * 24 * 10
   })
 
+  // radar_liste'ye de yaz — radar-feed.js RSS buradan okuyor
+  const mevcutListe = await env.HABERLER.get('radar_liste', 'json') || []
+  const mevcutListeIds = new Set(mevcutListe.map(h => h.source_id))
+  const yeniListeHaberler = yeniHaberler.filter(h => !mevcutListeIds.has(h.source_id))
+  if (yeniListeHaberler.length > 0) {
+    const guncelListe = [...yeniListeHaberler, ...mevcutListe].slice(0, 500)
+    await env.HABERLER.put('radar_liste', JSON.stringify(guncelListe), {
+      expirationTtl: 60 * 60 * 24 * 30
+    })
+  }
+
   const reklamSayisi    = atlananlar.filter(a => a.sebep === 'reklam').length
   const kopyaSayisi     = atlananlar.filter(a => a.sebep === 'kopya_icerik').length
 
