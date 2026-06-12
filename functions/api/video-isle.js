@@ -5,8 +5,7 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Video kadraj — cover + y_anchor:20% her iki format için
-// Üstten %20 sabit → kafalar kesilmez, en boy oranı bozulmaz
+// Video kadraj — cover + merkez (varsayılan)
 function kadrajHesapla(genislik, yukseklik, format) {
   return {
     'video.width':    '100%',
@@ -14,7 +13,7 @@ function kadrajHesapla(genislik, yukseklik, format) {
     'video.x':        '50%',
     'video.y':        '50%',
     'video.x_anchor': '50%',
-    'video.y_anchor': '20%',
+    'video.y_anchor': '50%',
     'video.fit':      'cover',
   }
 }
