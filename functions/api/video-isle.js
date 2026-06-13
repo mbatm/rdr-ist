@@ -5,14 +5,10 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Video/görsel kadraj — üste sabitle, yatayda ortala, cover ile doldur
+// Video kadraj — şablonun kendi ayarlarını koru, sadece fit:cover override et
 function kadrajHesapla(genislik, yukseklik, format) {
-  // Tüm formatlar için: üste sabitle, yatay ortala, cover
-  // Sağ/sol taşma sorun değil
   return {
-    'video.fit':      'cover',
-    'video.x_anchor': '50%',
-    'video.y_anchor': '0%',
+    'video.fit': 'cover',
   }
 }
 
