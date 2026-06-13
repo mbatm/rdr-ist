@@ -52,14 +52,14 @@ function kadrajHesapla(genislik, yukseklik, format) {
       'video.fit':      'cover',
     }
   } else {
-    // Yatay görsel → üste göre hizala, kenar taşmaları sorun değil
+    // Yatay video/görsel dikey şablonda → üste göre hizala, kenar taşmaları sorun değil
     return {
       'video.width':    '100%',
       'video.height':   '100%',
       'video.x':        '50%',
       'video.y':        '50%',
       'video.x_anchor': '50%',
-      'video.y_anchor': '50%',  // merkez
+      'video.y_anchor': '10%',  // üste yakın — kafa görünür, kenar taşabilir
       'video.fit':      'cover',
     }
   }
