@@ -5,63 +5,28 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Video/görsel kadraj — format ve içerik oranına göre
+// Video/görsel kadraj — sadece fit ve anchor, width/height şablondan geliyor
 function kadrajHesapla(genislik, yukseklik, format) {
   const oran = (genislik && yukseklik) ? genislik / yukseklik : 0
-  // oran > 1 → yatay, oran < 1 → dikey, 0 → bilinmiyor (yatay varsay)
   const icerikYatay = oran === 0 ? true : oran >= 1.0
 
   if (format === 'yatay') {
-    // Yatay render (16:9 şablon)
     if (icerikYatay) {
-      // Yatay görsel → üstten max %10 keserek kadrajla, en boy oranı korunur
-      return {
-        'video.width':    '100%',
-        'video.height':   '100%',
-        'video.x':        '50%',
-        'video.y':        '50%',
-        'video.x_anchor': '50%',
-        'video.y_anchor': '10%',  // üstten %10 referans — kafa kesilmez
-        'video.fit':      'cover',
-      }
+      // Yatay içerik + yatay şablon → cover, üstten %10 referans
+      return { 'video.fit': 'cover', 'video.x_anchor': '50%', 'video.y_anchor': '10%' }
     } else {
-      // Dikey görsel → blur/siyah kenar efekti, üstten max %20 kadraj dışı
-      return {
-        'video.width':    '100%',
-        'video.height':   '100%',
-        'video.x':        '50%',
-        'video.y':        '50%',
-        'video.x_anchor': '50%',
-        'video.y_anchor': '20%',  // üstten max %20 dışarıda
-        'video.fit':      'contain',
-        'video.background_color': '#000000',
-      }
+      // Dikey içerik + yatay şablon → siyah kenar, üstten %20
+      return { 'video.fit': 'contain', 'video.x_anchor': '50%', 'video.y_anchor': '20%', 'video.background_color': '#000000' }
     }
   }
 
-  // Dikey render (9:16 şablon)
+  // Dikey render (9:16)
   if (!icerikYatay) {
-    // Dikey görsel → alana göre hizala (cover + merkez)
-    return {
-      'video.width':    '100%',
-      'video.height':   '100%',
-      'video.x':        '50%',
-      'video.y':        '50%',
-      'video.x_anchor': '50%',
-      'video.y_anchor': '50%',
-      'video.fit':      'cover',
-    }
+    // Dikey içerik + dikey şablon → cover, merkez
+    return { 'video.fit': 'cover', 'video.x_anchor': '50%', 'video.y_anchor': '50%' }
   } else {
-    // Yatay video/görsel dikey şablonda → üste göre hizala, kenar taşmaları sorun değil
-    return {
-      'video.width':    '100%',
-      'video.height':   '100%',
-      'video.x':        '50%',
-      'video.y':        '50%',
-      'video.x_anchor': '50%',
-      'video.y_anchor': '0%',   // videonun üstü şablonun üstüne — boşluk kalmaz
-      'video.fit':      'cover',
-    }
+    // Yatay içerik + dikey şablon → cover, üste yasla
+    return { 'video.fit': 'cover', 'video.x_anchor': '50%', 'video.y_anchor': '0%' }
   }
 }
 
