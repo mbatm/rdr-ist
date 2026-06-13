@@ -5,28 +5,14 @@
  */
 
 // Kadraj hesaplama — video kaynağı şablona cover ile sığdırılır
-// Video/görsel kadraj — sadece fit ve anchor, width/height şablondan geliyor
+// Video/görsel kadraj — üste sabitle, yatayda ortala, cover ile doldur
 function kadrajHesapla(genislik, yukseklik, format) {
-  const oran = (genislik && yukseklik) ? genislik / yukseklik : 0
-  const icerikYatay = oran === 0 ? true : oran >= 1.0
-
-  if (format === 'yatay') {
-    if (icerikYatay) {
-      // Yatay içerik + yatay şablon → cover, üstten %10 referans
-      return { 'video.fit': 'cover', 'video.x_anchor': '50%', 'video.y_anchor': '10%' }
-    } else {
-      // Dikey içerik + yatay şablon → siyah kenar, üstten %20
-      return { 'video.fit': 'contain', 'video.x_anchor': '50%', 'video.y_anchor': '20%', 'video.background_color': '#000000' }
-    }
-  }
-
-  // Dikey render (9:16)
-  if (!icerikYatay) {
-    // Dikey içerik + dikey şablon → cover, merkez
-    return { 'video.fit': 'cover', 'video.x_anchor': '50%', 'video.y_anchor': '50%' }
-  } else {
-    // Yatay içerik + dikey şablon → cover, üste yasla
-    return { 'video.fit': 'cover', 'video.x_anchor': '50%', 'video.y_anchor': '0%' }
+  // Tüm formatlar için: üste sabitle, yatay ortala, cover
+  // Sağ/sol taşma sorun değil
+  return {
+    'video.fit':      'cover',
+    'video.x_anchor': '50%',
+    'video.y_anchor': '0%',
   }
 }
 
