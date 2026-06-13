@@ -59,7 +59,7 @@ function kadrajHesapla(genislik, yukseklik, format) {
       'video.x':        '50%',
       'video.y':        '50%',
       'video.x_anchor': '50%',
-      'video.y_anchor': '0%',   // üste yasla
+      'video.y_anchor': '50%',  // merkez
       'video.fit':      'cover',
     }
   }
