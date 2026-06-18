@@ -948,7 +948,7 @@ function YoutubeYukle({ content, selectedHaber, videoRenders={}, kayserimLink=''
 
       const res  = await fetch('/api/youtube-yukle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5'), 'X-Kullanici': kullanici },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'de8a5c6b22ee4b60adc0ec449d3c50a6bce94ea899e7cff30b83590ecb316133402db1876b489c7ba3447eccd5a6a379'), 'X-Kullanici': kullanici },
         body: JSON.stringify({
           videoUrl,
           baslik,
@@ -1091,7 +1091,7 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
 
       const res  = await fetch('/api/twitter-paylas', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5'), 'X-Kullanici': kullanici },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': (import.meta.env?.VITE_RSS_API_KEY || 'de8a5c6b22ee4b60adc0ec449d3c50a6bce94ea899e7cff30b83590ecb316133402db1876b489c7ba3447eccd5a6a379'), 'X-Kullanici': kullanici },
         body: JSON.stringify(payload),
       })
       if (!res.ok && res.status === 524) throw new Error("Twitter video yüklemesi zaman aşımına uğradı (524). Video 5MB'dan büyük olabilir — sadece metin atılabilir.")
@@ -3844,7 +3844,7 @@ function ReklamModul({ user, onGeri }) {
     const sonP = gonderi.paylasimlar?.[gonderi.paylasimlar.length-1]
     if (!sonP) { setHata('Silinecek paylaşım bulunamadı'); return }
     setPaylasiyor(true)
-    const API_KEY = (import.meta.env?.VITE_RSS_API_KEY || 'cmp6vldho000210g6tt26pvc5')
+    const API_KEY = (import.meta.env?.VITE_RSS_API_KEY || 'de8a5c6b22ee4b60adc0ec449d3c50a6bce94ea899e7cff30b83590ecb316133402db1876b489c7ba3447eccd5a6a379')
     const sonuclar = []
     try {
       // FB post id'leri — yeni kayıt formatı
