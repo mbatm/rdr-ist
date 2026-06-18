@@ -63,16 +63,18 @@ export async function onRequestPost({ request, env }) {
     const secilenFbIds = fb_page_ids?.length ? fb_page_ids : (fb_page_id ? [fb_page_id] : [hesaplar[0].page_id])
 
     // ig_id username bazlı dedup
-    const tumIgIds = ig_ids?.length ? ig_ids : (reqIgId ? [reqIgId] : hesaplar.filter(h=>h.ig_id).map(h=>String(h.ig_id)))
+    // ÖNEMLİ: ig_ids boş/undefined gelirse "hiç hesap seçilmedi" demektir — tüm hesaplara fallback YAPMA
+    const igIstendi = platform === 'instagram' || platform === 'her_ikisi'
+    const tumIgIds = ig_ids?.length ? ig_ids : (reqIgId ? [reqIgId] : [])
     const gorulmusUsernames = new Set()
-    const secilenIgIds = [...new Set(tumIgIds.map(String))].filter(id => {
+    const secilenIgIds = igIstendi ? [...new Set(tumIgIds.map(String))].filter(id => {
       const h = hesaplar.find(x=>String(x.ig_id)===String(id))
       const uname = h?.ig_username || null
       if (!uname) return true
       if (gorulmusUsernames.has(uname)) return false
       gorulmusUsernames.add(uname)
       return true
-    })
+    }) : []
 
     // Page token kullan — user token DEĞİL (user token kişisel hesabı kilitler)
     // Her sayfa/IG hesabı kendi page_token'ını kullanır
