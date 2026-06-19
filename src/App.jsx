@@ -634,7 +634,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       .then(data => { if (data.dikey || data.yatay) setKvVideo(data) })
       .catch(() => {})
     // Video süresini oku
-    const videoUrl = selectedHaber?.video
+    const videoUrl = typeof selectedHaber?.video === 'string' ? selectedHaber.video : ''
     if (videoUrl) {
       const v = document.createElement('video')
       v.preload = 'metadata'
@@ -1068,7 +1068,8 @@ function TwitterPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', vi
 
   // Kullanılacak URL'ler
   const gorselUrl  = gorselUrls?.twitter || gorselUrls?.facebook || selectedHaber?.gorsel_url || selectedHaber?.gorsel || ''
-  const videoUrl   = videoRenders?.yatay?.url || selectedHaber?.video_yatay || selectedHaber?.video || ''
+  const _rawVideoUrl = videoRenders?.yatay?.url || selectedHaber?.video_yatay || selectedHaber?.video || ''
+  const videoUrl   = typeof _rawVideoUrl === 'string' ? _rawVideoUrl : ''
 
   const paylas = async () => {
     if (!metin.trim() || karKalan < 0) return
