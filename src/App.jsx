@@ -930,8 +930,8 @@ function YoutubeYukle({ content, selectedHaber, videoRenders={}, kayserimLink=''
     const b = content?.site_basligi || selectedHaber?.baslik || ''
     const kat = content?.kategori || selectedHaber?.kategori || ''
     const link = kayserimLink ? `\n\n🔗 ${kayserimLink}` : ''
-    const a = (content?.optimize_icerik || content?.meta_description || '').replace(/<[^>]*>/g,'').slice(0,4000)
-    setBaslik(b.slice(0,100))
+    const a = (typeof content?.optimize_icerik === 'string' ? content.optimize_icerik : typeof content?.meta_description === 'string' ? content.meta_description : '').replace(/<[^>]*>/g,'').slice(0,4000)
+    setBaslik(typeof b === 'string' ? b.slice(0,100) : '')
     setAciklama((a + link).slice(0,5000))
     setEtiketler(['Kayseri', 'KayseriHaber', kat||'Haber', 'kayserimnet'].filter(Boolean).join(', '))
   }, [content?.url_slug, kayserimLink])
@@ -1585,7 +1585,7 @@ function Isleme({ content, processing, error, selectedHaber }) {
     ...selectedHaber,
     sosyal_baslik: ecAyniHaber ? (ec.sosyal_baslik||ec.site_basligi||selectedHaber.sosyal_baslik||selectedHaber.baslik) : (selectedHaber.sosyal_baslik||selectedHaber.baslik),
     site_basligi:  ecAyniHaber ? (ec.site_basligi||selectedHaber.site_basligi||selectedHaber.baslik) : (selectedHaber.site_basligi||selectedHaber.baslik),
-    ozet:          ecAyniHaber ? (ec.ozet||selectedHaber.ozet||selectedHaber.icerik?.slice(0,120)) : (selectedHaber.ozet||selectedHaber.icerik?.slice(0,120)),
+    ozet:          ecAyniHaber ? (ec.ozet||selectedHaber.ozet||(typeof selectedHaber.icerik==='string'?selectedHaber.icerik?.slice(0,120):'')) : (selectedHaber.ozet||(typeof selectedHaber.icerik==='string'?selectedHaber.icerik?.slice(0,120):'')),
     kategori:      ecAyniHaber ? (ec.kategori||selectedHaber.kategori) : selectedHaber.kategori,
     tarih:         selectedHaber.tarih,
     kayserim_link: link || selectedHaber.kayserim_link || '',
