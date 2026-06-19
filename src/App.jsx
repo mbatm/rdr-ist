@@ -862,7 +862,8 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
 
       {/* Kullanılacak video URL'si */}
       {isVideo && (() => {
-        const vUrl = kvVideo?.dikey || videoRenders?.dikey?.url || selectedHaber?.video_dikey || selectedHaber?.video || ''
+        const _vRaw = kvVideo?.dikey || videoRenders?.dikey?.url || selectedHaber?.video_dikey || selectedHaber?.video || ''
+        const vUrl = typeof _vRaw === 'string' ? _vRaw : ''
         const isIslenmis = !!(kvVideo?.dikey || videoRenders?.dikey?.url || selectedHaber?.video_dikey)
         return <div style={{fontSize:10,color:isIslenmis?'#00D4AA':'rgba(255,180,0,.8)',marginBottom:8,wordBreak:'break-all'}}>
           {isIslenmis ? '✓ İşlenmiş video' : '⚠ Ham video'}: {vUrl.slice(0,60)}…
@@ -937,7 +938,8 @@ function YoutubeYukle({ content, selectedHaber, videoRenders={}, kayserimLink=''
     setEtiketler(['Kayseri', 'KayseriHaber', kat||'Haber', 'kayserimnet'].filter(Boolean).join(', '))
   }, [content?.url_slug, kayserimLink])
 
-  const videoUrl = videoRenders?.yatay?.url || selectedHaber?.video_yatay || selectedHaber?.video || ''
+  const _rawVideo = videoRenders?.yatay?.url || selectedHaber?.video_yatay || selectedHaber?.video || ''
+  const videoUrl = typeof _rawVideo === 'string' ? _rawVideo : ''
 
   const yukle = async () => {
     if (!videoUrl) { setHata('Yatay video bulunamadı — Video İşle bölümünden oluşturun'); return }
