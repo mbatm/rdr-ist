@@ -662,7 +662,7 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     setFbMetin(fbHam + linkKisa)
 
     // Instagram: Claude'un ürettiği optimize instagram metni öncelikli
-    const temizle = (t='') => t
+    const temizle = (t='') => (typeof t === 'string' ? t : '')
       .replace(/^[A-ZÇĞİÖŞÜa-zçğışöüı\s]+\s*\([^)]+\)\s*[-–—:]\s*/,'') // KAYSERİ (1HA)- vs kaldır
       .replace(/\n{3,}/g, '\n\n') // 3+ satır boşluğu → tek satır boşluk
       .replace(/[ \t]+\n/g, '\n') // satır sonu boşlukları temizle

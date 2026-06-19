@@ -411,6 +411,19 @@ async function isleHaber(haber, apiKey, strateji, ahrefsKey) {
   return JSON.parse(raw.slice(s, e+1))
 }
 
+// Claude'dan gelen JSON'daki string alanlarını normalize et
+function seoNormalize(seo) {
+  const strAlanlari = ['site_basligi','h1_basligi','sosyal_baslik','meta_description',
+    'url_slug','ozet','optimize_icerik','instagram','facebook','x_twitter',
+    'youtube_baslik','youtube_aciklama','gorsel_prompt','optimize_icerik_kwh']
+  for (const alan of strAlanlari) {
+    if (seo[alan] !== undefined && typeof seo[alan] !== 'string') {
+      seo[alan] = Array.isArray(seo[alan]) ? seo[alan].join(' ') : String(seo[alan] || '')
+    }
+  }
+  return seo
+}
+
 // ── ANA HANDLER ─────────────────────────────────────────────────────────────
 export async function onRequestGet({ env, request }) {
   try {
@@ -559,7 +572,7 @@ export async function onRequestGet({ env, request }) {
         if (haber.video)  haber.video  = await medyaR2Kopyala(haber.video,  env, 'video')
 
         // Claude ile SEO işleme
-        const seo = await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY)
+        const seo = seoNormalize(await isleHaber(haber, env.ANTHROPIC_API_KEY, strateji, env.AHREFS_API_KEY))
         const kayit = {
           ...seo,
           source_id:   haber.source_id,
