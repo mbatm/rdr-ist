@@ -30,6 +30,13 @@ export async function onRequestGet({ request, env }) {
   const longData  = await longRes.json()
   const longToken = longData.access_token || tokenData.access_token
 
+  // Ads modu — sadece token kaydet, sayfaları çekme
+  if (state === 'kayserim_ads') {
+    meta.ads_user_token = longToken
+    await env.HABERLER.put('meta_tokens', JSON.stringify(meta))
+    return new Response('✅ Meta Ads yetkisi alındı. Hesaplar: https://rdr.ist/api/meta-ads?action=accounts', {headers:{'Content-Type':'text/plain'}})
+  }
+
   // 3. Sayfa listesi — limit 100
   const pagesRes  = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,picture&limit=100&access_token=${longToken}`)
   const pagesData = await pagesRes.json()
@@ -55,6 +62,8 @@ export async function onRequestGet({ request, env }) {
   }
 
   // 5. Mevcut hesaplarla birleştir (page_id'ye göre güncelle/ekle)
+  const url   = new URL(request.url)
+  const state = url.searchParams.get('state') || ''
   const meta = await env.HABERLER.get('meta_tokens', 'json') || {}
   const eskiHesaplar = meta.hesaplar || []
   const guncellenmis = [...eskiHesaplar]
