@@ -655,9 +655,10 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
     const link = kayserimLink || ''
     const linkStr = link ? `\n\n🔗 ${link}` : ''
     const linkKisa = link ? `\n\nTamamını oku: ${link}` : ''
+    const s = v => (v && typeof v === 'string') ? v : ''
 
     // Facebook: başlık + spot + link
-    const fbHam = content?.facebook || content?.sosyal_baslik || content?.site_basligi || ''
+    const fbHam = s(content?.facebook) || s(content?.sosyal_baslik) || s(content?.site_basligi)
     setFbMetin(fbHam + linkKisa)
 
     // Instagram: Claude'un ürettiği optimize instagram metni öncelikli
@@ -666,8 +667,9 @@ function MetaPaylas({ content, selectedHaber, gorselUrls, kayserimLink='', video
       .replace(/\n{3,}/g, '\n\n') // 3+ satır boşluğu → tek satır boşluk
       .replace(/[ \t]+\n/g, '\n') // satır sonu boşlukları temizle
       .replace(/^\s+/,'').trim()
-    const igHam = content?.instagram ? temizle(content.instagram)
-                : temizle(content?.optimize_icerik || content?.ozet || content?.site_basligi || '')
+    const toStr = v => (v && typeof v === 'string') ? v : ''
+    const igHam = content?.instagram ? temizle(toStr(content.instagram))
+                : temizle(toStr(content?.optimize_icerik) || toStr(content?.ozet) || toStr(content?.site_basligi))
     const igSon = link ? `\n\n🔗 ${link}` : ''
     setIgMetin(igHam.slice(0, 2200) + igSon)
   }, [content, kayserimLink])
