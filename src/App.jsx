@@ -927,11 +927,12 @@ function YoutubeYukle({ content, selectedHaber, videoRenders={}, kayserimLink=''
 
   useEffect(() => {
     if (!content && !selectedHaber) return
-    const b = content?.site_basligi || selectedHaber?.baslik || ''
-    const kat = content?.kategori || selectedHaber?.kategori || ''
+    const str = v => (v && typeof v === 'string') ? v : ''
+    const b = str(content?.site_basligi) || str(selectedHaber?.baslik)
+    const kat = str(content?.kategori) || str(selectedHaber?.kategori)
     const link = kayserimLink ? `\n\n🔗 ${kayserimLink}` : ''
-    const a = (typeof content?.optimize_icerik === 'string' ? content.optimize_icerik : typeof content?.meta_description === 'string' ? content.meta_description : '').replace(/<[^>]*>/g,'').slice(0,4000)
-    setBaslik(typeof b === 'string' ? b.slice(0,100) : '')
+    const a = (str(content?.optimize_icerik) || str(content?.meta_description)).replace(/<[^>]*>/g,'').slice(0,4000)
+    setBaslik(b.slice(0,100))
     setAciklama((a + link).slice(0,5000))
     setEtiketler(['Kayseri', 'KayseriHaber', kat||'Haber', 'kayserimnet'].filter(Boolean).join(', '))
   }, [content?.url_slug, kayserimLink])
@@ -1565,7 +1566,20 @@ function Isleme({ content, processing, error, selectedHaber }) {
 
   useEffect(() => {
     if (content) {
-      setEc({...content})
+      // String olması gereken alanları normalize et — Claude bazen array/obje döndürebiliyor
+      const normStr = (obj) => {
+        const strAlanlari = ['site_basligi','h1_basligi','sosyal_baslik','meta_description',
+          'url_slug','ozet','optimize_icerik','instagram','facebook','x_twitter',
+          'youtube_baslik','youtube_aciklama','gorsel_prompt','optimize_icerik_kwh','kategori']
+        const kopya = {...obj}
+        for (const alan of strAlanlari) {
+          if (kopya[alan] !== undefined && kopya[alan] !== null && typeof kopya[alan] !== 'string') {
+            kopya[alan] = Array.isArray(kopya[alan]) ? kopya[alan].join(' ') : String(kopya[alan])
+          }
+        }
+        return kopya
+      }
+      setEc(normStr(content))
       setLink(content.kayserim_link || selectedHaber?.kayserim_link || '')
       setMode('edit'); setGUrls({})
       // KV'deki işlenmiş videoları yükle
