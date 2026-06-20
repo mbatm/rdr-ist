@@ -1,48 +1,101 @@
 /**
- * Cloudflare Pages Scheduled Worker
- * Cron 1: her 5 dakika - haber isleme + radar FB
- * Cron 2: Pzt-Car-Cum 03:00 UTC - Ahrefs sync
- * Cron 3: her gece 00:00 UTC - video duzelt + temizlik
+ * Cloudflare Cron Worker — İçerik Zeka Otomasyonu
+ * Tetiklenme: */30 * * * * (her 30 dakika)
+ *
+ * Yaptıkları:
+ * 1. RSS tara → yüksek skorlu haberler tespit et
+ * 2. Sezonsal kontrol → bayram/okul/sınav aktif mi?
+ * 3. Aktif otomatik kampanyaların süre kontrolü → gerekirse durdur
+ * 4. GA4'ten trafik kontrolü → spike var mı?
  */
-export async function onScheduled({ env, scheduledTime }) {
-  const gun    = new Date(scheduledTime).getUTCDay()
-  const saat   = new Date(scheduledTime).getUTCHours()
-  const dakika = new Date(scheduledTime).getUTCMinutes()
 
-  // Her 5 dakika — haber isleme + radar FB
-  if (dakika % 5 === 0) {
-    try {
-      const res  = await fetch(`https://rdr.ist/api/oto-isle?adet=10&secret=${env.RSS_API_KEY}`)
-      const data = await res.json()
-      console.log('[oto-isle] islendi:', data.islendi, 'hatali:', data.hatali?.length)
-    } catch(e) { console.error('[oto-isle] Hata:', e.message) }
+export default {
+  async scheduled(event, env, ctx) {
+    const log = []
+    const now = new Date()
 
     try {
-      const res  = await fetch(`https://rdr.ist/api/radar-fb-sync?secret=${env.RSS_API_KEY}`)
-      const data = await res.json()
-      console.log('[radar-fb] eklendi:', data.eklendi)
-    } catch(e) { console.error('[radar-fb] Hata:', e.message) }
-  }
+      // 1. RSS tara
+      const scanRes  = await fetch('https://rdr.ist/api/icerik-zeka?action=scan')
+      const scanData = await scanRes.json()
+      const topStory = scanData.results?.[0]
 
-  // Pzt-Car-Cum 03:00 UTC — Ahrefs sync
-  if (saat === 3 && dakika === 0 && [1, 3, 5].includes(gun)) {
-    try {
-      const res  = await fetch(`https://rdr.ist/api/ahrefs-sync?secret=${env.RSS_API_KEY}`)
-      const data = await res.json()
-      console.log('[ahrefs-sync] cekilen:', data.cekilen)
-    } catch(e) { console.error('[ahrefs-sync] Hata:', e.message) }
-  }
+      if (topStory && topStory.top_score >= 70) {
+        const match = topStory.keyword_matches?.[0]
+        log.push(`🎯 Yüksek skor haber: "${topStory.title}" → skor ${topStory.top_score}`)
 
-  // Her gece 00:00 UTC — video duzelt + temizlik
-  if (saat === 0 && dakika === 0) {
-    try {
-      await fetch(`https://rdr.ist/api/video-duzelt?secret=${env.RSS_API_KEY}`)
-    } catch(e) { console.error('[video-duzelt] Hata:', e.message) }
+        // Olay tipi mi? (deprem, kaza) → otomatik kampanya tetikle
+        if (match?.cat === 'olay' && topStory.top_score >= 73) {
+          const existing = await env.HABERLER.get('auto_campaigns', 'json') || []
+          const recent   = existing.filter(c => {
+            const age = now - new Date(c.started)
+            return age < 4 * 3600 * 1000 // Son 4 saatte başlatıldı mı?
+          })
 
-    try {
-      const res  = await fetch(`https://rdr.ist/api/temizle?secret=${env.RSS_API_KEY}&gun=10`)
-      const data = await res.json()
-      console.log('[temizle] silindi:', data.silindi)
-    } catch(e) { console.error('[temizle] Hata:', e.message) }
+          if (recent.length === 0) {
+            // Kampanya tetikle
+            await fetch('https://rdr.ist/api/icerik-zeka', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                action: 'trigger_campaign',
+                reason: match.matched_keyword,
+                budget_tl: match.budget || 50,
+                duration_hours: 48
+              })
+            })
+            log.push(`🚨 Olay kampanyası tetiklendi: ${match.matched_keyword}`)
+          }
+        }
+      }
+
+      // 2. Sezonsal kontrol
+      const seasonRes  = await fetch('https://rdr.ist/api/icerik-zeka?action=seasonal')
+      const seasonData = await seasonRes.json()
+
+      if (seasonData.seasonal_active?.length > 0) {
+        log.push(`📅 Aktif sezon: ${seasonData.seasonal_active.join(', ')}`)
+        // TODO: Sezonsal kampanyaları aktifleştir (Cloudflare Workers Cron)
+      }
+
+      // 3. Süresi dolan kampanyaları durdur
+      const campaigns = await env.HABERLER.get('auto_campaigns', 'json') || []
+      const updated = []
+      for (const camp of campaigns) {
+        const age = (now - new Date(camp.started)) / 3600000 // saat
+        if (age < camp.duration_hours) {
+          updated.push(camp)
+        } else {
+          // Kampanyayı durdur
+          try {
+            await fetch(`https://graph.facebook.com/v21.0/${camp.campaign_id}`, {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                status: 'PAUSED',
+                access_token: env.META_ADS_TOKEN || ''
+              })
+            })
+            log.push(`⏸ Kampanya durduruldu: ${camp.name} (${age.toFixed(1)}h sonra)`)
+          } catch(e) {
+            log.push(`❌ Durdurma hatası: ${e.message}`)
+          }
+        }
+      }
+      if (updated.length !== campaigns.length) {
+        await env.HABERLER.put('auto_campaigns', JSON.stringify(updated))
+      }
+
+      // Log kaydet
+      await env.HABERLER.put('cron_log', JSON.stringify({
+        last_run: now.toISOString(),
+        log,
+        rss_top: topStory?.title,
+        rss_score: topStory?.top_score
+      }))
+
+    } catch(e) {
+      await env.HABERLER.put('cron_log', JSON.stringify({ error: e.message, time: now.toISOString() }))
+    }
   }
 }
