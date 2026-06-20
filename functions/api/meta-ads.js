@@ -10,8 +10,8 @@
  */
 
 const GRAPH   = 'https://graph.facebook.com/v21.0'
-const TOKEN   = 'EAAORauw5t7ABRxGn0VWifCDlUlSJVje9z7eKH9ZCy5X913eKXHfRLwOEdfM70cd64eIlXAJmSvldiLwLy93x23UJtHatnVZBZAtTwIcVNVaykf2YUZCakJf6X2wKHhcuVN8Ogv8jH9UorD0HaCjZAZBLdYBjyOIE841VvjQNX6TT8W20GG67EDUDefZANune5JGz4XGajGHZBu36TsllewlgU8BarzV71dc1D2ttwWnjZANQjA65QdmZBoIF8V74DSZCEIx6mUA4LW0Pb71RL6ZB2JqDkWknpAZDZD'
 const ACT     = 'act_708028213253830'
+// TOKEN = env.META_ADS_TOKEN (Cloudflare Pages env variable olarak saklanır)
 
 // Kampanya ID'leri
 const CAMPAIGNS = {
@@ -21,9 +21,9 @@ const CAMPAIGNS = {
   retargeting:     '120245120758360539',
 }
 
-async function graph(path, method='GET', body=null) {
+async function graph(path, method='GET', body=null, token='') {
   const sep = path.includes('?') ? '&' : '?'
-  const r = await fetch(`${GRAPH}/${path}${sep}access_token=${TOKEN}`, {
+  const r = await fetch(`${GRAPH}/${path}${sep}access_token=${token}`, {
     method,
     headers: body ? {'Content-Type':'application/json'} : {},
     body: body ? JSON.stringify(body) : null,
@@ -33,17 +33,18 @@ async function graph(path, method='GET', body=null) {
   return d
 }
 
-export async function onRequestGet({ request }) {
-  const cors = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
-  const url  = new URL(request.url)
+export async function onRequestGet({ request, env }) {
+  const cors  = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
+  const url   = new URL(request.url)
   const action = url.searchParams.get('action') || 'status'
+  const TOKEN = env.META_ADS_TOKEN || ''
+
+  if (!TOKEN) return Response.json({ ok:false, error:'META_ADS_TOKEN env variable eksik — Cloudflare dashboard'dan ekle' }, { status:500, headers:cors })
 
   try {
     if (action === 'status') {
-      // Tüm kampanyaların durumu ve harcaması
-      const ids = Object.values(CAMPAIGNS).join(',')
       const fields = 'id,name,status,daily_budget,insights{spend,clicks,impressions,ctr,cpc}'
-      const data = await graph(`${ACT}/campaigns?fields=${fields}&date_preset=today`)
+      const data = await graph(`${ACT}/campaigns?fields=${fields}&date_preset=today`, 'GET', null, TOKEN)
 
       // Kanal bazlı GA4 özeti de ekle (insights)
       return Response.json({
@@ -56,7 +57,7 @@ export async function onRequestGet({ request }) {
 
     if (action === 'insights') {
       const date = url.searchParams.get('date') || 'last_7d'
-      const data = await graph(`${ACT}/insights?fields=campaign_name,spend,clicks,impressions,ctr,cpc,reach&date_preset=${date}&level=campaign`)
+      const data = await graph(`${ACT}/insights?fields=campaign_name,spend,clicks,impressions,ctr,cpc,reach&date_preset=${date}&level=campaign`, 'GET', null, TOKEN)
       return Response.json({ ok:true, insights: data.data }, { headers: cors })
     }
 
@@ -66,8 +67,11 @@ export async function onRequestGet({ request }) {
   }
 }
 
-export async function onRequestPost({ request }) {
-  const cors = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
+export async function onRequestPost({ request, env }) {
+  const cors  = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
+  const TOKEN = env.META_ADS_TOKEN || ''
+  if (!TOKEN) return Response.json({ ok:false, error:'META_ADS_TOKEN eksik' }, { status:500, headers:cors })
+
   try {
     const body   = await request.json()
     const { action } = body
@@ -105,7 +109,7 @@ export async function onRequestPost({ request }) {
         optimization_goal,
         targeting:         targeting || defaultTargeting,
         status:            'PAUSED',
-      })
+      }, TOKEN)
       return Response.json({ ok:true, adset_id: adset.id }, { headers:cors })
     }
 
@@ -115,7 +119,7 @@ export async function onRequestPost({ request }) {
       const cid = CAMPAIGNS[campaign_key]
       if (!cid) throw new Error('Geçersiz campaign_key')
       const st = action === 'pause' ? 'PAUSED' : 'ACTIVE'
-      await graph(cid, 'POST', { status: st })
+      await graph(cid, 'POST', { status: st }, TOKEN)
       return Response.json({ ok:true, campaign: campaign_key, status: st }, { headers:cors })
     }
 
@@ -125,7 +129,7 @@ export async function onRequestPost({ request }) {
       const cid = CAMPAIGNS[campaign_key]
       if (!cid) throw new Error('Geçersiz campaign_key')
 
-      const ins = await graph(`${cid}/insights?fields=cpc,spend,clicks&date_preset=today`)
+      const ins = await graph(`${cid}/insights?fields=cpc,spend,clicks&date_preset=today`, 'GET', null, TOKEN)
       const row = ins.data?.[0]
       if (!row || !row.cpc) return Response.json({ ok:true, action_taken:'no_data' }, { headers:cors })
 
@@ -133,15 +137,15 @@ export async function onRequestPost({ request }) {
       const ratio = cpc / target_cpc_tl
 
       if (ratio > 1.5) {
-        await graph(cid, 'POST', { status:'PAUSED' })
+        await graph(cid, 'POST', { status:'PAUSED' }, TOKEN)
         return Response.json({ ok:true, action_taken:'PAUSED', cpc, target:target_cpc_tl }, { headers:cors })
       }
 
       if (ratio < 0.7) {
-        const camp = await graph(`${cid}?fields=daily_budget`)
+        const camp = await graph(`${cid}?fields=daily_budget`, 'GET', null, TOKEN)
         const cur  = parseInt(camp.daily_budget)
         const inc  = Math.round(cur * (1 + budget_change_pct / 100))
-        await graph(cid, 'POST', { daily_budget: inc })
+        await graph(cid, 'POST', { daily_budget: inc }, TOKEN)
         return Response.json({ ok:true, action_taken:'budget_up', old_tl: cur/100, new_tl: inc/100, cpc }, { headers:cors })
       }
 
