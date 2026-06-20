@@ -37,7 +37,7 @@ export async function onRequestGet({ request, env }) {
   const cors  = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
   const url   = new URL(request.url)
   const action = url.searchParams.get('action') || 'status'
-  const TOKEN = env.META_ADS_TOKEN || ''
+  const TOKEN = env.META_ADS_TOKEN || 'EAAORauw5t7ABR43WgZBGmOmTzzjFNj4pS1IC0e03Mch8ZBsPpeuwDqBN4n510DVOTF4qW22VWLLwd2RNZBuiDN60GuwrWd09U0temzMekKYlrZAbsu7gQNT1VYDeSM5mVHKvrZCOdxf6L3cJllE3XcOVCM0BAQZCg2vZCv7grSKq4WhFUDzUw30WNWG10rLPzkhHwZDZD'
 
   if (!TOKEN) return Response.json({ ok:false, error:'META_ADS_TOKEN env variable eksik — Cloudflare dashboard'dan ekle' }, { status:500, headers:cors })
 
