@@ -16,7 +16,7 @@ export default {
 
     try {
       // 1. RSS tara
-      const scanRes  = await fetch('https://rdr.ist/api/icerik-zeka?action=scan')
+      const scanRes  = await fetch('https://rdr.ist/api/zeka-motor?action=scan')
       const scanData = await scanRes.json()
       const topStory = scanData.results?.[0]
 
@@ -34,7 +34,7 @@ export default {
 
           if (recent.length === 0) {
             // Kampanya tetikle
-            await fetch('https://rdr.ist/api/icerik-zeka', {
+            await fetch('https://rdr.ist/api/zeka-motor', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
               body: JSON.stringify({
@@ -50,7 +50,7 @@ export default {
       }
 
       // 2. Sezonsal kontrol
-      const seasonRes  = await fetch('https://rdr.ist/api/icerik-zeka?action=seasonal')
+      const seasonRes  = await fetch('https://rdr.ist/api/zeka-motor?action=seasonal')
       const seasonData = await seasonRes.json()
 
       if (seasonData.seasonal_active?.length > 0) {
