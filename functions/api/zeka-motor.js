@@ -10,7 +10,7 @@
 
 const RSS_URL   = 'https://www.kayserim.net/rss'
 const GRAPH     = 'https://graph.facebook.com/v21.0'
-const META_TOK  = 'EAAORauw5t7ABRxGn0VWifCDlUlSJVje9z7eKH9ZCy5X913eKXHfRLwOEdfM70cd64eIlXAJmSvldiLwLy93x23UJtHatnVZBZAtTwIcVNVaykf2YUZCakJf6X2wKHhcuVN8Ogv8jH9UorD0HaCjZAZBLdYBjyOIE841VvjQNX6TT8W20GG67EDUDefZANune5JGz4XGajGHZBu36TsllewlgU8BarzV71dc1D2ttwWnjZANQjA65QdmZBoIF8V74DSZCEIx6mUA4LW0Pb71RL6ZB2JqDkWknpAZDZD'
+// META_TOK = env.META_ADS_TOKEN (Cloudflare env'den okunur)
 const META_ACT  = 'act_708028213253830'
 const META_PAGE = '506931626168922'
 
@@ -172,7 +172,7 @@ async function fetchRSS() {
 }
 
 // Meta kampanyası oluştur (otomasyon)
-async function createMetaCampaign(name, budget_tl, duration_hours = 48) {
+async function createMetaCampaign(name, budget_tl, duration_hours = 48, TOKEN = '') {
   // Kampanya
   const camp = await fetch(`${GRAPH}/${META_ACT}/campaigns`, {
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -181,7 +181,7 @@ async function createMetaCampaign(name, budget_tl, duration_hours = 48) {
       daily_budget: budget_tl * 100,
       status: 'ACTIVE', // Direkt aktif — olay kampanyası
       special_ad_categories: [],
-      access_token: META_TOK
+      access_token: TOKEN
     })
   }).then(r => r.json())
   if (!camp.id) throw new Error('Kampanya oluşturulamadı: ' + JSON.stringify(camp))
@@ -204,7 +204,7 @@ async function createMetaCampaign(name, budget_tl, duration_hours = 48) {
       dsa_beneficiary: 'Kayserim.net',
       dsa_payor: 'Mustafa Bayram',
       status: 'ACTIVE',
-      access_token: META_TOK
+      access_token: TOKEN
     })
   }).then(r => r.json())
 
@@ -261,7 +261,8 @@ export async function onRequestPost({ request, env }) {
 
     if (action === 'trigger_campaign') {
       const name = `KayserimNet - Otomatik - ${reason} - ${new Date().toLocaleDateString('tr-TR')}`
-      const result = await createMetaCampaign(name, budget_tl, duration_hours)
+      const TOKEN = env.META_ADS_TOKEN || ''
+      const result = await createMetaCampaign(name, budget_tl, duration_hours, TOKEN)
 
       // KV'ye kaydet (otomatik durdurma için)
       const saved = await env.HABERLER.get('auto_campaigns', 'json') || []
