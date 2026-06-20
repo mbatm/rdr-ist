@@ -70,7 +70,7 @@ const KEYWORD_DB = [
   // ── POLİTİKA / GÜNDEM ──
   { keywords: ['belediye başkanı','büyükşehir','meclis','karar aldı','ziyaret etti','açılışını yaptı'],
     volume:3000, kd:5, trend:'stable', cat:'surekli', camp:'haber', budget:10, platform:'meta' },
-  { keywords: ['Kayserili','Kayseri'de','Kayseri'nin','Erciyes','Melikgazi','Kocasinan','Talas'],
+  { keywords: ["Kayserili", "kayseri haber", "kayseri gundem", "Erciyes", "Melikgazi", "Kocasinan", "Talas"],
     volume:8000, kd:3, trend:'stable', cat:'yerel', camp:'haber', budget:12, platform:'meta' },
 
   // ── SAĞLIK ──
