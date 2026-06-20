@@ -3325,9 +3325,13 @@ function ManuelHaberModul({ user, onGeri, prefill }) {
   // Zeka modülünden gelen pre-fill
   useEffect(() => {
     if (!prefill) return
-    if (prefill.baslik)   setBaslik(prefill.baslik)
-    if (prefill.metin)    setMetin(prefill.metin)
-    if (prefill.kategori) setKategori(prefill.kategori)
+    if (prefill.baslik)    setBaslik(prefill.baslik)
+    if (prefill.metin)     setMetin(prefill.metin)
+    if (prefill.kategori)  setKategori(prefill.kategori)
+    // Kaynak gorsel varsa medyalar listesine ekle
+    if (prefill.gorsel_url) {
+      setMedyalar([{ url: prefill.gorsel_url, tip: 'gorsel', adi: 'kaynak_gorsel.jpg', kapak: true }])
+    }
   }, [prefill])
   const [medyalar,   setMedyalar] = useState([])
   const [yukleniyorM,setYukM]     = useState(false)
@@ -5394,12 +5398,13 @@ KURALLAR:
       if (!jm) throw new Error('JSON parse hatası')
       const parsed = JSON.parse(jm[0])
 
-      // Manuel modülüne pre-fill ile geç
+      // Manuel modülüne pre-fill ile geç — gorsel URL varsa taşı
       onManuelAc({
-        baslik:       parsed.baslik   || haber.title,
-        metin:        parsed.metin    || desc,
-        kategori:     parsed.kategori || 'Güncel',
-        kaynak_url:   haber.link,
+        baslik:      parsed.baslik   || haber.title,
+        metin:       parsed.metin    || desc,
+        kategori:    parsed.kategori || 'Güncel',
+        kaynak_url:  haber.link,
+        gorsel_url:  haber.gorsel_url || '',
         keyword,
       })
     } catch(e) { setHata('Oluşturma hatası: ' + e.message) }
@@ -5552,6 +5557,15 @@ KURALLAR:
                           <Ic n={isOl?'loader-2':'sparkles'} size={12}/>
                           {isOl?'Oluşturuluyor…':'✨ Oluştur & Yayınla'}
                         </button>
+                        {/* Görsel durumu */}
+                        {haber.gorsel_url
+                          ? <span style={{fontSize:10,color:'#00D4AA',display:'flex',alignItems:'center',gap:3}}>
+                              <Ic n="photo" size={10}/> Görsel var
+                            </span>
+                          : <span style={{fontSize:10,color:'#EF9F27',display:'flex',alignItems:'center',gap:3}}>
+                              <Ic n="photo-ai" size={10}/> AI görsel üretilecek
+                            </span>
+                        }
 
                         {haber.top_score >= 70 && (
                           <button onClick={()=>reklamTetikle(haber)} disabled={!!reklamYapan}
