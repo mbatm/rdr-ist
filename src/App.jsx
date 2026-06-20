@@ -5380,10 +5380,16 @@ KURALLAR:
 
       const res  = await fetch('/api/claude', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ messages:[{role:'user',content:prompt}], max_tokens:1200 })
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1200,
+          messages: [{ role:'user', content: prompt }]
+        })
       })
       const data = await res.json()
-      const raw  = data.content?.[0]?.text || data.text || ''
+      // Hata kontrolü
+      if (data.error) throw new Error(data.error?.message || JSON.stringify(data.error))
+      const raw  = data.content?.[0]?.text || ''
       const jm   = raw.match(/\{[\s\S]*\}/)
       if (!jm) throw new Error('JSON parse hatası')
       const parsed = JSON.parse(jm[0])
