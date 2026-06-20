@@ -5846,7 +5846,112 @@ function MetaAdsModul({ user, onGeri }) {
           </div>
         )}
 
+        {/* Google Ads Bolumu */}
+        <GoogleAdsBolum/>
+
       </div>
+    </div>
+  )
+}
+
+// Google Ads alt bileşeni
+function GoogleAdsBolum() {
+  const [gData,   setGData]   = useState(null)
+  const [gYuk,    setGYuk]    = useState(true)
+  const [gHata,   setGHata]   = useState(null)
+  const [needsAuth, setNeedsAuth] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/google-ads?action=campaigns&date=last_7d")
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) { setGData(d); setGHata(null) }
+        else if (d.needs_auth) { setNeedsAuth(true) }
+        else { setGHata(d.error) }
+        setGYuk(false)
+      })
+      .catch(e => { setGHata(e.message); setGYuk(false) })
+  }, [])
+
+  const statusRenk = (s) => ({
+    ENABLED: { c: "#1D9E75", bg: "rgba(29,158,117,.1)" },
+    PAUSED:  { c: "#EF9F27", bg: "rgba(239,159,39,.1)" },
+    REMOVED: { c: "#E24B4A", bg: "rgba(226,75,74,.1)"  },
+  }[s] || { c: "#8891a5", bg: "rgba(136,145,165,.1)" })
+
+  return (
+    <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 16 }}>
+      <div style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+        <Ic n="brand-google" size={15} style={{ color: "#EA4335" }}/>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Google Ads</span>
+        <span style={{ fontSize: 11, color: "var(--muted)" }}>Musteri: 773-177-8727</span>
+      </div>
+
+      {gYuk && (
+        <div style={{ padding: 20, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+          <Ic n="loader-2" size={18}/> Yukleniyor...
+        </div>
+      )}
+
+      {needsAuth && (
+        <div style={{ padding: 16 }}>
+          <div style={{ padding: "12px 14px", background: "rgba(234,67,53,.06)", border: "0.5px solid rgba(234,67,53,.25)", borderRadius: "var(--radius-md)", fontSize: 13 }}>
+            <div style={{ fontWeight: 500, color: "#EA4335", marginBottom: 6 }}>Google Ads baglantisi gerekli</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+              Supermetrics uzerinden Google Ads hesabini baglayarak kampanya verilerini buradan yonetebilirsin.
+            </div>
+            <a href="https://gcp1-api-default.supermetrics.com/v2/datasource/login/renew/NI1qFPopDC8M01QRBHMLmBrwYSN5h3s5f9m5lbBAUadGlmb_d7"
+              target="_blank" rel="noreferrer">
+              <button style={{ fontSize: 12, background: "rgba(234,67,53,.15)", border: "0.5px solid rgba(234,67,53,.4)", color: "#EA4335" }}>
+                <Ic n="plug" size={12}/> Google Ads Bagla
+              </button>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {gHata && !needsAuth && (
+        <div style={{ padding: "10px 14px", fontSize: 12, color: "#ff7b7b" }}>
+          Hata: {gHata}
+        </div>
+      )}
+
+      {gData?.campaigns && gData.campaigns.length > 0 && (
+        <div>
+          {gData.campaigns.map((row, i) => {
+            const [name, status, id, impressions, clicks, cost, ctr, cpc, budget] = row
+            const st = statusRenk(status)
+            return (
+              <div key={i} style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600, background: st.bg, color: st.c, flexShrink: 0 }}>
+                  {status === "ENABLED" ? "Aktif" : status === "PAUSED" ? "Durduruldu" : status}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                </div>
+                {[
+                  ["Butce", budget ? parseFloat(budget).toFixed(0) + " TL" : "-"],
+                  ["Tiklama", clicks || "0"],
+                  ["Harcama", cost ? parseFloat(cost).toFixed(2) + " TL" : "0 TL"],
+                  ["CTR", ctr ? parseFloat(ctr).toFixed(2) + "%" : "-"],
+                  ["CPC", cpc ? parseFloat(cpc).toFixed(2) + " TL" : "-"],
+                ].map(([l, v]) => (
+                  <div key={l} style={{ textAlign: "center", minWidth: 54 }}>
+                    <div style={{ fontSize: 10, color: "var(--muted)" }}>{l}</div>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!gYuk && !needsAuth && !gHata && gData?.campaigns?.length === 0 && (
+        <div style={{ padding: 20, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+          Aktif Google Ads kampanyasi bulunamadi.
+        </div>
+      )}
     </div>
   )
 }
