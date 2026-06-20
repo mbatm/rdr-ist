@@ -40,7 +40,12 @@ export async function onRequestGet({ request, env }) {
     // ── Tum kampanyalar + bugun harcamasi ──
     if (action === "status") {
       const fields = "id,name,status,daily_budget,lifetime_budget,effective_status,insights{spend,clicks,impressions,ctr,cpc,reach,frequency}"
-      const data   = await graph(ACT + "/campaigns?fields=" + fields + "&date_preset=today&limit=50", "GET", null, TOKEN)
+      // ARCHIVED + silinen eski kampanyalari gizle, sadece KayserimNet kampanyalari
+      const data   = await graph(
+        ACT + "/campaigns?fields=" + fields + "&date_preset=today&limit=50" +
+        "&filtering=[{\"field\":\"status\",\"operator\":\"NOT_IN\",\"value\":[\"ARCHIVED\",\"DELETED\"]}]",
+        "GET", null, TOKEN
+      )
 
       const account = await graph(ACT + "?fields=balance,currency,amount_spent,spend_cap", "GET", null, TOKEN)
 
