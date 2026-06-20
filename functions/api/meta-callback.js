@@ -62,7 +62,6 @@ export async function onRequestGet({ request, env }) {
   }
 
   // 5. Mevcut hesaplarla birleştir (page_id'ye göre güncelle/ekle)
-  const url   = new URL(request.url)
   const state = url.searchParams.get('state') || ''
   const meta = await env.HABERLER.get('meta_tokens', 'json') || {}
   const eskiHesaplar = meta.hesaplar || []
