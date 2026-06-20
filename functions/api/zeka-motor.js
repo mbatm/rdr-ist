@@ -18,81 +18,81 @@ const META_PAGE = '506931626168922'
 const KEYWORD_DB = [
   // ── YKS / SINAV CLUSTER ── tam küme
   { keywords: ['yks','tyt','ayt','lgs','kpss','ales','dgs','sınav','sınavı','üniversite sınavı','lise sınavı'],
-    volume:29000, kd:0, trend:'seasonal', cat:'sezonsal', season:'sinav', camp:'haber', budget:30, platform:'google' },
+    volume:29000, kd:0, trend:'seasonal', cat:'sezonsal', season:'sinav', camp:'haber', budget: 100, platform:'google' },
   { keywords: ['sınav sonuçları','tercih','yks sonuç','tyt sonuç','ayt sonuç','ösym'],
-    volume:18000, kd:0, trend:'seasonal', cat:'sezonsal', season:'sinav', camp:'haber', budget:25, platform:'google' },
+    volume:18000, kd:0, trend:'seasonal', cat:'sezonsal', season:'sinav', camp:'haber', budget: 100, platform:'google' },
 
   // ── OLAY / ACİL ──
   { keywords: ['deprem','sarsıntı','şiddetinde deprem'],
-    volume:32000, kd:0, trend:'event', cat:'olay', camp:'haber', budget:50, platform:'meta' },
+    volume:32000, kd:0, trend:'event', cat:'olay', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ['kaza','trafik kazası','zincirleme','çarpışma','kaza haberi','trafik','kazası'],
-    volume:9000,  kd:0, trend:'event', cat:'olay', camp:'haber', budget:25, platform:'meta' },
+    volume:9000,  kd:0, trend:'event', cat:'olay', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ['yangın','alev','yanmak','itfaiye müdahale'],
-    volume:7000,  kd:0, trend:'event', cat:'olay', camp:'haber', budget:30, platform:'meta' },
+    volume:7000,  kd:0, trend:'event', cat:'olay', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ['bıçaklama','silahlı','kavga','olay çıktı','gözaltı','tutuklama','cinayet'],
-    volume:5000,  kd:1, trend:'event', cat:'olay', camp:'haber', budget:20, platform:'meta' },
+    volume:5000,  kd:1, trend:'event', cat:'olay', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ['sel','su baskını','taşkın','dolu','fırtına','kar yağışı','hava durumu'],
-    volume:8000,  kd:0, trend:'event', cat:'olay', camp:'haber', budget:20, platform:'meta' },
+    volume:8000,  kd:0, trend:'event', cat:'olay', camp:'haber', budget: 100, platform:'meta' },
 
   // ── VEFAT / HABER ──
   { keywords: ['vefat','hayatını kaybetti','öldü','hayatını kaybeden','son yolculuğuna','defnedildi','taziye'],
-    volume:14000, kd:1, trend:'stable', cat:'surekli', camp:'haber', budget:20, platform:'meta' },
+    volume:14000, kd:1, trend:'stable', cat:'surekli', camp:'haber', budget: 100, platform:'meta' },
 
   // ── KAYSERİSPOR ──
   { keywords: ['kayserispor','kayserispor maçı','kayserispor galip','kayserispor berabere',
                 'kayserispor mağlup','kayserispor puanı','sarı kırmızılılar','kayseri spor'],
-    volume:22000, kd:37, trend:'event', cat:'spor', camp:'haber', budget:20, platform:'meta' },
+    volume:22000, kd:37, trend:'event', cat:'spor', camp:'haber', budget: 100, platform:'meta' },
 
   // ── ALTIN / FİNANS ──
   { keywords: ['altın fiyatı','altın fiyatları','gram altın','çeyrek altın','cumhuriyet altını',
                 'kuyumcu','sarraf','altın bugün'],
-    volume:26000, kd:57, trend:'stable', cat:'altin', camp:'altin', budget:10, platform:'google' },
+    volume:26000, kd:57, trend:'stable', cat:'altin', camp:'altin', budget: 100, platform:'google' },
 
   // ── REHBERLİK / LOKALİZASYON ──
   { keywords: ['taksi','taksi durağı','taksici'],
-    volume:12000, kd:0, trend:'stable', cat:'surekli', camp:'haber', budget:15, platform:'meta' },
+    volume:12000, kd:0, trend:'stable', cat:'surekli', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ['itfaiye numarası','itfaiye telefon','yangın ihbar'],
-    volume:16000, kd:0, trend:'stable', cat:'surekli', camp:'haber', budget:15, platform:'meta' },
+    volume:16000, kd:0, trend:'stable', cat:'surekli', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ['eczane nöbet','nöbetçi eczane'],
-    volume:5000,  kd:0, trend:'stable', cat:'surekli', camp:'haber', budget:10, platform:'google' },
+    volume:5000,  kd:0, trend:'stable', cat:'surekli', camp:'haber', budget: 100, platform:'google' },
 
   // ── SEZONSAL: BAYRAM ──
   { keywords: ['bayram namazı','namaz saati','bayram namazı saati','bayram namazı kaçta',
                 'kurban bayramı namazı','ramazan bayramı namazı'],
-    volume:322000, kd:0, trend:'seasonal', cat:'sezonsal', season:'bayram', camp:'haber', budget:100, platform:'both' },
+    volume:322000, kd:0, trend:'seasonal', cat:'sezonsal', season:'bayram', camp:'haber', budget: 100, platform:'both' },
   { keywords: ['kurban','hayvan fiyatı','kurban kesimi','kurbanlık'],
-    volume:45000,  kd:2, trend:'seasonal', cat:'sezonsal', season:'bayram', camp:'haber', budget:40, platform:'meta' },
+    volume:45000,  kd:2, trend:'seasonal', cat:'sezonsal', season:'bayram', camp:'haber', budget: 100, platform:'meta' },
 
   // ── SEZONSAL: OKUL ──
   { keywords: ['okullar tatil','okul kapanış','okul açılış','okullar ne zaman','tatil mi','okul tatil'],
-    volume:1200, kd:0, trend:'seasonal', cat:'sezonsal', season:'okul', camp:'haber', budget:20, platform:'google' },
+    volume:1200, kd:0, trend:'seasonal', cat:'sezonsal', season:'okul', camp:'haber', budget: 100, platform:'google' },
 
   // ── POLİTİKA / GÜNDEM ──
   { keywords: ['belediye başkanı','büyükşehir','meclis','karar aldı','ziyaret etti','açılışını yaptı'],
-    volume:3000, kd:5, trend:'stable', cat:'surekli', camp:'haber', budget:10, platform:'meta' },
+    volume:3000, kd:5, trend:'stable', cat:'surekli', camp:'haber', budget: 100, platform:'meta' },
   { keywords: ["Kayserili", "kayseri haber", "kayseri gundem", "Erciyes", "Melikgazi", "Kocasinan", "Talas"],
-    volume:8000, kd:3, trend:'stable', cat:'yerel', camp:'haber', budget:12, platform:'meta' },
+    volume:8000, kd:3, trend:'stable', cat:'yerel', camp:'haber', budget: 100, platform:'meta' },
 
   // ── SAĞLIK ──
   { keywords: ['hastane','ameliyat','tedavi','sağlık','hasta','doktor','klinik'],
-    volume:4000, kd:10, trend:'stable', cat:'saglik', camp:'haber', budget:10, platform:'meta' },
+    volume:4000, kd:10, trend:'stable', cat:'saglik', camp:'haber', budget: 100, platform:'meta' },
 
   // ── EĞİTİM / BAŞARI ──
   { keywords: ['öğrenci','okul','eğitim','öğretmen','müdür','mezun','diploma'],
-    volume:3500, kd:8, trend:'stable', cat:'egitim', camp:'haber', budget:10, platform:'meta' },
+    volume:3500, kd:8, trend:'stable', cat:'egitim', camp:'haber', budget: 100, platform:'meta' },
 
   // { keywords, volume, kd, trend, category, season, camp_key, daily_budget_tl, platform }
   // SÜREKLI FIRSAT
-  { keywords: ['taksi','taksi durağı','taksici'],        volume:12000, kd:0,  trend:'stable',   cat:'surekli',  camp:'haber',  budget:15, platform:'meta' },
-  { keywords: ['itfaiye','yangın','itfaiyeciler'],       volume:16000, kd:0,  trend:'stable',   cat:'surekli',  camp:'haber',  budget:15, platform:'meta' },
-  { keywords: ['vefat','hayatını kaybetti','öldü'],      volume:14000, kd:1,  trend:'stable',   cat:'surekli',  camp:'haber',  budget:20, platform:'meta' },
-  { keywords: ['kaza','trafik kazası','çarpışma'],       volume:9000,  kd:0,  trend:'event',    cat:'olay',     camp:'haber',  budget:25, platform:'meta' },
-  { keywords: ['deprem','sarsıntı'],                     volume:32000, kd:0,  trend:'event',    cat:'olay',     camp:'haber',  budget:50, platform:'meta' },
-  { keywords: ['altın fiyat','çeyrek altın','gram altın'],volume:26000,kd:57, trend:'stable',   cat:'altin',    camp:'altin',  budget:10, platform:'google'},
+  { keywords: ['taksi','taksi durağı','taksici'],        volume:12000, kd:0,  trend:'stable',   cat:'surekli',  camp:'haber',  budget: 100, platform:'meta' },
+  { keywords: ['itfaiye','yangın','itfaiyeciler'],       volume:16000, kd:0,  trend:'stable',   cat:'surekli',  camp:'haber',  budget: 100, platform:'meta' },
+  { keywords: ['vefat','hayatını kaybetti','öldü'],      volume:14000, kd:1,  trend:'stable',   cat:'surekli',  camp:'haber',  budget: 100, platform:'meta' },
+  { keywords: ['kaza','trafik kazası','çarpışma'],       volume:9000,  kd:0,  trend:'event',    cat:'olay',     camp:'haber',  budget: 100, platform:'meta' },
+  { keywords: ['deprem','sarsıntı'],                     volume:32000, kd:0,  trend:'event',    cat:'olay',     camp:'haber',  budget: 100, platform:'meta' },
+  { keywords: ['altın fiyat','çeyrek altın','gram altın'],volume:26000,kd:57, trend:'stable',   cat:'altin',    camp:'altin',  budget: 100, platform:'google'},
   // SEZONSAL
-  { keywords: ['bayram namazı','namaz saati','bayram'],  volume:322000,kd:0,  trend:'seasonal', cat:'sezonsal', season:'bayram',  budget:100, platform:'both' },
-  { keywords: ['okullar tatil','okul kapanış'],          volume:1200,  kd:0,  trend:'seasonal', cat:'sezonsal', season:'okul',    budget:20,  platform:'google'},
-  { keywords: ['kpss','yks','lgs','sınav'],              volume:29000, kd:0,  trend:'seasonal', cat:'sezonsal', season:'sinav',   budget:30,  platform:'google'},
+  { keywords: ['bayram namazı','namaz saati','bayram'],  volume:322000,kd:0,  trend:'seasonal', cat:'sezonsal', season:'bayram',  budget: 100, platform:'both' },
+  { keywords: ['okullar tatil','okul kapanış'],          volume:1200,  kd:0,  trend:'seasonal', cat:'sezonsal', season:'okul',    budget: 100,  platform:'google'},
+  { keywords: ['kpss','yks','lgs','sınav'],              volume:29000, kd:0,  trend:'seasonal', cat:'sezonsal', season:'sinav',   budget: 100,  platform:'google'},
 ]
 
 // Sezonsal aktif mi?
@@ -178,7 +178,7 @@ async function createMetaCampaign(name, budget_tl, duration_hours = 48, TOKEN = 
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       name, objective: 'OUTCOME_TRAFFIC',
-      daily_budget: budget_tl * 100,
+      daily_budget: Math.max(10000, budget_tl * 100),
       status: 'ACTIVE', // Direkt aktif — olay kampanyası
       special_ad_categories: [],
       access_token: TOKEN
