@@ -47,7 +47,11 @@ export async function onRequestGet({ request, env }) {
         "GET", null, TOKEN
       )
 
-      const account = await graph(ACT + "?fields=balance,currency,amount_spent,spend_cap", "GET", null, TOKEN)
+      const account = await graph(
+        ACT + "?fields=balance,currency,amount_spent,spend_cap,account_status,disable_reason,funding_source_details,min_daily_budget",
+        "GET", null, TOKEN
+      )
+      const statusMap = { 1:"Aktif", 2:"Devre disi", 3:"Onaysiz", 7:"Incelemede", 9:"Odeme sorunu" }
 
       return Response.json({
         ok: true,
@@ -56,6 +60,13 @@ export async function onRequestGet({ request, env }) {
           currency:     account.currency || "TRY",
           amount_spent: parseFloat(account.amount_spent || 0) / 100,
           spend_cap:    account.spend_cap ? parseFloat(account.spend_cap) / 100 : null,
+          status:       account.account_status,
+          status_label: statusMap[account.account_status] || "Aktif",
+          disable_reason: account.disable_reason || 0,
+          kart:         account.funding_source_details?.display_string || null,
+          bakiye_url:   "https://business.facebook.com/billing/add_funds/?act=" + ACT.replace("act_",""),
+          odeme_url:    "https://business.facebook.com/billing/payment_methods/?act=" + ACT.replace("act_",""),
+          min_daily_tl: account.min_daily_budget ? parseFloat(account.min_daily_budget)/100 : 100,
         },
         campaigns: data.data || [],
         campaign_keys: CAMPAIGNS,
@@ -73,11 +84,36 @@ export async function onRequestGet({ request, env }) {
       return Response.json({ ok: true, insights: data.data || [] }, { headers: cors })
     }
 
-    // ── Hesap ozeti ──
+    // ── Hesap ozeti + odeme/limit bilgisi ──
     if (action === "account") {
-      const account = await graph(ACT + "?fields=id,name,balance,currency,amount_spent,spend_cap,daily_spend_limit,account_status", "GET", null, TOKEN)
-      const adsets  = await graph(ACT + "/adsets?fields=id,name,status,daily_budget,campaign_id&limit=50", "GET", null, TOKEN)
-      return Response.json({ ok: true, account, adsets: adsets.data || [] }, { headers: cors })
+      const account = await graph(
+        ACT + "?fields=id,name,balance,currency,amount_spent,spend_cap,daily_spend_limit," +
+        "account_status,disable_reason,funding_source_details,business_city,next_bill_date," +
+        "min_campaign_group_spend_cap,min_daily_budget",
+        "GET", null, TOKEN
+      )
+      const adsets = await graph(ACT + "/adsets?fields=id,name,status,daily_budget,campaign_id&limit=50", "GET", null, TOKEN)
+      // Hesap durumu aciklamasi
+      const statusMap = { 1:"Aktif", 2:"Devre disi", 3:"Onaysiz", 7:"Incelemede", 8:"Kapali", 9:"Odeme onaylanmadi" }
+      const disableMap = { 0:"Sorun yok", 1:"AUP ihlali", 2:"Policy ihlali", 3:"Odeme sorunu", 4:"Kapatildi", 5:"Facebook kararli" }
+      return Response.json({
+        ok: true,
+        account: {
+          ...account,
+          balance_tl:       parseFloat(account.balance || 0) / 100,
+          amount_spent_tl:  parseFloat(account.amount_spent || 0) / 100,
+          spend_cap_tl:     account.spend_cap ? parseFloat(account.spend_cap) / 100 : null,
+          status_label:     statusMap[account.account_status] || "Bilinmiyor",
+          disable_label:    disableMap[account.disable_reason] || "Bilinmiyor",
+          kart:             account.funding_source_details?.display_string || null,
+          kart_tip:         account.funding_source_details?.type === 1 ? "Kredi/Banka Karti" : "Diger",
+          odeme_url:        "https://business.facebook.com/billing/payment_methods/?act=" + ACT.replace("act_",""),
+          bakiye_url:       "https://business.facebook.com/billing/add_funds/?act=" + ACT.replace("act_",""),
+          sinir_url:        "https://business.facebook.com/ads/manage/billing/?act=" + ACT.replace("act_",""),
+          min_daily_tl:     account.min_daily_budget ? parseFloat(account.min_daily_budget) / 100 : 100,
+        },
+        adsets: adsets.data || []
+      }, { headers: cors })
     }
 
     throw new Error("Gecersiz action: " + action)
