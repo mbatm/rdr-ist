@@ -5757,10 +5757,16 @@ function MetaAdsModul({ user, onGeri }) {
                   </div>
                 </div>
               </div>
-              <a href={durum.account.bakiye_url} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 11, padding: "5px 14px", background: "rgba(226,75,74,.15)", border: "0.5px solid rgba(226,75,74,.4)", color: "#ff7b7b", borderRadius: "var(--radius-md)", textDecoration: "none", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
-                <Ic n="credit-card" size={11}/> Meta Bakiye Yukle
-              </a>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => window.open(durum.account.bakiye_url, "_blank")}
+                  style={{ fontSize: 11, padding: "5px 12px", background: "rgba(226,75,74,.15)", border: "0.5px solid rgba(226,75,74,.4)", color: "#ff7b7b", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Ic n="credit-card" size={11}/> Bakiye Yukle
+                </button>
+                <button onClick={() => window.open(durum.account.odeme_url, "_blank")}
+                  style={{ fontSize: 11, padding: "5px 12px", background: "rgba(24,119,242,.08)", border: "0.5px solid rgba(24,119,242,.3)", color: "#4dabf7", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Ic n="credit-card" size={11}/> Kart Yonet
+                </button>
+              </div>
             </div>
           )}
 
@@ -5784,10 +5790,10 @@ function MetaAdsModul({ user, onGeri }) {
                 <div style={{ fontSize: s.link ? 13 : 19, fontWeight: 600, color: s.warn ? "#ff7b7b" : "inherit", wordBreak: "break-word" }}>{s.v}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{s.sub}</div>
                 {s.link && (
-                  <a href={s.link} target="_blank" rel="noopener noreferrer"
-                    style={{ position: "absolute", top: 8, right: 8, fontSize: 10, color: "var(--muted)", textDecoration: "none" }}>
+                  <button onClick={() => window.open(s.link, "_blank")}
+                    style={{ position: "absolute", top: 8, right: 8, fontSize: 10, color: "var(--muted)", background: "transparent", border: "none", cursor: "pointer" }}>
                     <Ic n="external-link" size={11}/>
-                  </a>
+                  </button>
                 )}
               </div>
             ))}
