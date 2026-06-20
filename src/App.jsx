@@ -5618,6 +5618,239 @@ KURALLAR:
   )
 }
 
+
+// ── META ADS YONETIM MODULU ───────────────────────────────────────────────────
+function MetaAdsModul({ user, onGeri }) {
+  const [durum,    setDurum]   = useState(null)   // status API yaniti
+  const [insights, setInsights]= useState([])
+  const [yukleniyor, setYuk]   = useState(true)
+  const [hata,     setHata]    = useState(null)
+  const [islem,    setIslem]   = useState(null)   // hangi kampanya isleniyor
+  const [sonuc,    setSonuc]   = useState(null)
+
+  const yukle = async () => {
+    setYuk(true); setHata(null)
+    try {
+      const [statusRes, insRes] = await Promise.all([
+        fetch("/api/meta-ads?action=status").then(r => r.json()),
+        fetch("/api/meta-ads?action=insights&date=last_7d").then(r => r.json()),
+      ])
+      if (statusRes.ok) setDurum(statusRes)
+      if (insRes.ok)    setInsights(insRes.insights || [])
+    } catch(e) { setHata(e.message) }
+    setYuk(false)
+  }
+
+  useEffect(() => { yukle() }, [])
+
+  const post = async (body) => {
+    setIslem(body.campaign_id || body.campaign_key || body.action)
+    setSonuc(null)
+    try {
+      const r = await fetch("/api/meta-ads", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+      const d = await r.json()
+      if (!d.ok) throw new Error(d.error)
+      setSonuc({ ok: true, msg: body.action === "pause" ? "Durduruldu" : body.action === "resume" ? "Baslatildi" : "Guncellendi" })
+      await yukle()
+    } catch(e) { setSonuc({ ok: false, msg: e.message }) }
+    setIslem(null)
+  }
+
+  const fmt   = (n) => n == null ? "-" : parseFloat(n).toFixed(2)
+  const fmtTL = (n) => n == null ? "-" : (parseFloat(n) / 100).toFixed(0) + " TL"
+
+  const insMap = {}
+  for (const ins of insights) {
+    insMap[ins.campaign_id] = ins
+  }
+
+  const toplamButce = durum?.campaigns
+    ?.filter(c => c.status === "ACTIVE" && c.daily_budget)
+    .reduce((s, c) => s + parseInt(c.daily_budget || 0), 0) || 0
+
+  const toplamHarcama = insights.reduce((s, i) => s + parseFloat(i.spend || 0), 0)
+
+  const CAMP_KEYS = durum?.campaign_keys || {}
+  const keyForId  = (id) => Object.entries(CAMP_KEYS).find(([,v]) => v === id)?.[0]
+
+  const statusRenk = (s) =>
+    s === "ACTIVE"  ? { bg: "rgba(29,158,117,.1)",  c: "#1D9E75", b: "rgba(29,158,117,.3)"  } :
+    s === "PAUSED"  ? { bg: "rgba(239,159,39,.1)",  c: "#EF9F27", b: "rgba(239,159,39,.3)"  } :
+    s === "DELETED" ? { bg: "rgba(226,75,74,.1)",   c: "#E24B4A", b: "rgba(226,75,74,.3)"   } :
+                      { bg: "rgba(136,145,165,.1)", c: "#8891a5", b: "rgba(136,145,165,.3)" }
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+
+      {/* Header */}
+      <div style={{ padding: "0 1rem", height: 48, borderBottom: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", flexShrink: 0 }}>
+        <button onClick={onGeri} style={{ fontSize: 11, color: "var(--muted)", background: "transparent", border: "0.5px solid var(--border)" }}>
+          <Ic n="arrow-left" size={11}/> Menu
+        </button>
+        <div style={{ width: 1, height: 16, background: "var(--border)" }}/>
+        <Ic n="brand-meta" size={15} style={{ color: "#1877F2" }}/>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>Meta Ads Yonetimi</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <button onClick={yukle} disabled={yukleniyor}
+            style={{ fontSize: 11, background: "rgba(24,119,242,.1)", border: "0.5px solid rgba(24,119,242,.3)", color: "#4dabf7" }}>
+            <Ic n={yukleniyor ? "loader-2" : "refresh"} size={12}/> {yukleniyor ? "Yukleniyor..." : "Yenile"}
+          </button>
+          <button onClick={() => post({ action: "pause_all" })}
+            style={{ fontSize: 11, background: "rgba(226,75,74,.1)", border: "0.5px solid rgba(226,75,74,.3)", color: "#ff7b7b" }}>
+            <Ic n="player-pause" size={11}/> Hepsini Durdur
+          </button>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+
+        {/* Hesap ozeti */}
+        {durum?.account && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+            {[
+              { l: "Toplam Gunluk Butce", v: (toplamButce / 100).toFixed(0) + " TL", sub: "aktif kampanyalar" },
+              { l: "Son 7 Gun Harcama",   v: toplamHarcama.toFixed(2) + " TL", sub: "tum kampanyalar" },
+              { l: "Aktif Kampanya",      v: durum.campaigns?.filter(c => c.status === "ACTIVE").length || 0, sub: "kampanya" },
+              { l: "Para Birimi",         v: durum.account.currency || "TRY", sub: "hesap: Kayseri Radar" },
+            ].map(s => (
+              <div key={s.l} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-md)", padding: "0.875rem" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{s.l}</div>
+                <div style={{ fontSize: 22, fontWeight: 600 }}>{s.v}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Hata / Sonuc */}
+        {hata && (
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: "rgba(226,75,74,.08)", border: "0.5px solid rgba(226,75,74,.3)", borderRadius: "var(--radius-md)", fontSize: 12, color: "#ff7b7b" }}>
+            {hata}
+          </div>
+        )}
+        {sonuc && (
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: sonuc.ok ? "rgba(29,158,117,.08)" : "rgba(226,75,74,.08)", border: "0.5px solid " + (sonuc.ok ? "rgba(29,158,117,.3)" : "rgba(226,75,74,.3)"), borderRadius: "var(--radius-md)", fontSize: 12, color: sonuc.ok ? "#1D9E75" : "#ff7b7b", display: "flex", justifyContent: "space-between" }}>
+            {sonuc.ok ? "✓" : "✗"} {sonuc.msg}
+            <span style={{ cursor: "pointer" }} onClick={() => setSonuc(null)}>x</span>
+          </div>
+        )}
+
+        {/* Kampanya Tablosu */}
+        {durum?.campaigns && (
+          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--border)", fontSize: 13, fontWeight: 600 }}>
+              Kampanyalar
+            </div>
+            {durum.campaigns.map(camp => {
+              const ins    = insMap[camp.id] || {}
+              const key    = keyForId(camp.id)
+              const st     = statusRenk(camp.status)
+              const budgetTL = camp.daily_budget ? parseInt(camp.daily_budget) / 100 : 0
+              const isActive = camp.status === "ACTIVE"
+              const isBusy   = islem === camp.id || islem === key
+
+              return (
+                <div key={camp.id} style={{ padding: "12px 14px", borderBottom: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+
+                  {/* Durum badge */}
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600, background: st.bg, color: st.c, border: "0.5px solid " + st.b, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    {camp.status === "ACTIVE" ? "Aktif" : camp.status === "PAUSED" ? "Durduruldu" : camp.status}
+                  </span>
+
+                  {/* Kampanya adi */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{camp.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>ID: {camp.id.slice(-8)}</div>
+                  </div>
+
+                  {/* Butce */}
+                  <div style={{ textAlign: "center", minWidth: 80 }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Gunluk Butce</div>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>{budgetTL > 0 ? budgetTL + " TL" : "-"}</div>
+                    <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 4 }}>
+                      <button onClick={() => post({ action: "set_budget", campaign_id: camp.id, budget_tl: Math.max(5, budgetTL - 10) })}
+                        disabled={isBusy || budgetTL <= 5}
+                        style={{ fontSize: 11, padding: "2px 8px", background: "rgba(226,75,74,.1)", border: "0.5px solid rgba(226,75,74,.3)", color: "#ff7b7b" }}>
+                        -10
+                      </button>
+                      <button onClick={() => post({ action: "set_budget", campaign_id: camp.id, budget_tl: budgetTL + 10 })}
+                        disabled={isBusy}
+                        style={{ fontSize: 11, padding: "2px 8px", background: "rgba(29,158,117,.1)", border: "0.5px solid rgba(29,158,117,.3)", color: "#1D9E75" }}>
+                        +10
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Performans — son 7 gun */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, minWidth: 260 }}>
+                    {[
+                      { l: "Harcama", v: ins.spend ? parseFloat(ins.spend).toFixed(2) + " TL" : "0 TL" },
+                      { l: "Tikl.", v: ins.clicks || "0" },
+                      { l: "CTR", v: ins.ctr ? parseFloat(ins.ctr).toFixed(2) + "%" : "-" },
+                      { l: "CPC", v: ins.cpc ? parseFloat(ins.cpc).toFixed(2) + " TL" : "-" },
+                    ].map(m => (
+                      <div key={m.l} style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: "var(--muted)" }}>{m.l}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{m.v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Durdur / Baslat */}
+                  <button
+                    onClick={() => post({ action: isActive ? "pause" : "resume", campaign_id: camp.id })}
+                    disabled={isBusy}
+                    style={{ fontSize: 11, padding: "5px 12px", flexShrink: 0,
+                      background: isActive ? "rgba(226,75,74,.1)" : "rgba(29,158,117,.1)",
+                      border: "0.5px solid " + (isActive ? "rgba(226,75,74,.3)" : "rgba(29,158,117,.3)"),
+                      color: isActive ? "#ff7b7b" : "#1D9E75" }}>
+                    <Ic n={isBusy ? "loader-2" : isActive ? "player-pause" : "player-play"} size={11}/>
+                    {isBusy ? "..." : isActive ? "Durdur" : "Baslat"}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Son 7 gun insights ozeti */}
+        {insights.length > 0 && (
+          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Son 7 gun — kampanya performansi</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+              {[
+                { l: "Toplam Harcama", v: toplamHarcama.toFixed(2) + " TL" },
+                { l: "Toplam Tikl.", v: insights.reduce((s,i) => s + parseInt(i.clicks || 0), 0).toLocaleString("tr-TR") },
+                { l: "Toplam Imp.", v: insights.reduce((s,i) => s + parseInt(i.impressions || 0), 0).toLocaleString("tr-TR") },
+                { l: "Ort. CPC", v: (() => {
+                    const clicks = insights.reduce((s,i) => s + parseInt(i.clicks || 0), 0)
+                    return clicks > 0 ? (toplamHarcama / clicks).toFixed(2) + " TL" : "-"
+                  })() },
+              ].map(m => (
+                <div key={m.l} style={{ background: "rgba(255,255,255,.04)", borderRadius: "var(--radius-md)", padding: "10px 12px" }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{m.l}</div>
+                  <div style={{ fontSize: 18, fontWeight: 600 }}>{m.v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!yukleniyor && !durum && (
+          <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>
+            <Ic n="brand-meta" size={32} style={{ display: "block", margin: "0 auto 12px", opacity: 0.3 }}/>
+            <div style={{ fontSize: 13 }}>Veri yuklenemedi. Yenile butonuna bas.</div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}
+
 // ── MODÜL SEÇİCİ ANA EKRAN ───────────────────────────────────────────────────
 function ModulSecici({ user, onModul }) {
   const moduller = [
@@ -5680,6 +5913,16 @@ function ModulSecici({ user, onModul }) {
       bg: 'rgba(168,85,247,0.08)',
       border: 'rgba(168,85,247,0.2)',
       yetki: 'modul_kayserim',
+    },
+    {
+      id: 'metaads',
+      baslik: 'Meta Ads Yonetimi',
+      aciklama: 'Kampanya durumu, butce yonetimi, performans ve harcama takibi',
+      ic: 'brand-meta',
+      renk: '#1877F2',
+      bg: 'rgba(24,119,242,0.08)',
+      border: 'rgba(24,119,242,0.2)',
+      yetki: 'admin',
     },
     {
       id: 'yonetim',
@@ -5830,6 +6073,7 @@ export default function App() {
   if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>{setZekaPreFill(null);setAktifModul(null)}} prefill={zekaPreFill}/>
   if (aktifModul === 'galeri')  return <GaleriModul   user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'zeka')   return <ZekaModul user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
+  if (aktifModul === 'metaads') return <MetaAdsModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
   if (aktifModul !== 'kayserim') return (
