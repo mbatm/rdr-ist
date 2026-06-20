@@ -261,7 +261,7 @@ export async function onRequestPost({ request, env }) {
 
     if (action === 'trigger_campaign') {
       const name = `KayserimNet - Otomatik - ${reason} - ${new Date().toLocaleDateString('tr-TR')}`
-      const TOKEN = env.META_ADS_TOKEN || ''
+      const TOKEN = env.META_ADS_TOKEN || 'EAAORauw5t7ABR43WgZBGmOmTzzjFNj4pS1IC0e03Mch8ZBsPpeuwDqBN4n510DVOTF4qW22VWLLwd2RNZBuiDN60GuwrWd09U0temzMekKYlrZAbsu7gQNT1VYDeSM5mVHKvrZCOdxf6L3cJllE3XcOVCM0BAQZCg2vZCv7grSKq4WhFUDzUw30WNWG10rLPzkhHwZDZD'
       const result = await createMetaCampaign(name, budget_tl, duration_hours, TOKEN)
 
       // KV'ye kaydet (otomatik durdurma için)
