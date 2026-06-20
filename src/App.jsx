@@ -5744,17 +5744,51 @@ function MetaAdsModul({ user, onGeri }) {
         {tab === "meta" && (<>
 
           {/* Hesap ozeti kartlari */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+          {/* Bakiye uyarisi */}
+          {durum?.account && durum.account.balance <= 0 && (
+            <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(226,75,74,.08)", border: "0.5px solid rgba(226,75,74,.35)", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Ic n="alert-triangle" size={16} style={{ color: "#ff7b7b", flexShrink: 0 }}/>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#ff7b7b" }}>Hesap bakiyesi 0 TL</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                    Kampanyalar aktif ama harcama yapamıyor.
+                    {durum.account.kart && <span> Kart: {durum.account.kart}</span>}
+                  </div>
+                </div>
+              </div>
+              <a href={durum.account.bakiye_url} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, padding: "5px 14px", background: "rgba(226,75,74,.15)", border: "0.5px solid rgba(226,75,74,.4)", color: "#ff7b7b", borderRadius: "var(--radius-md)", textDecoration: "none", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+                <Ic n="credit-card" size={11}/> Meta Bakiye Yukle
+              </a>
+            </div>
+          )}
+
+          {/* Hesap ozet kartlari */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 16 }}>
             {[
-              { l: "Toplam Gunluk Butce", v: (toplamButce / 100).toFixed(0) + " TL", sub: aktifCamps.filter(c=>c.status==="ACTIVE").length + " aktif kampanya" },
-              { l: "Son 7 Gun Harcama",   v: toplamHarcama.toFixed(2) + " TL", sub: toplamTiklama + " tiklama" },
-              { l: "Ortalama CPC",        v: ortCPC !== "-" ? ortCPC + " TL" : "-", sub: "son 7 gun" },
-              { l: "Para Birimi",         v: durum?.account?.currency || "TRY", sub: "Kayseri Radar hesabi" },
+              { l: "Hesap Bakiyesi", v: durum?.account?.balance != null ? durum.account.balance.toFixed(2)+" TL" : "-",
+                sub: durum?.account?.status_label || "-",
+                warn: durum?.account?.balance <= 0 },
+              { l: "Gunluk Butce (Toplam)", v: (toplamButce / 100).toFixed(0) + " TL",
+                sub: aktifCamps.filter(c=>c.status==="ACTIVE").length + " aktif kampanya" },
+              { l: "Son 7 Gun Harcama", v: toplamHarcama.toFixed(2) + " TL",
+                sub: toplamTiklama + " tiklama" },
+              { l: "Ort. CPC", v: ortCPC !== "-" ? ortCPC + " TL" : "-",
+                sub: "son 7 gun" },
+              { l: "Odeme Yontemi", v: durum?.account?.kart || "Tanimi yok",
+                sub: durum?.account?.kart_tip || "", link: durum?.account?.odeme_url },
             ].map(s => (
-              <div key={s.l} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-md)", padding: "0.875rem" }}>
+              <div key={s.l} style={{ background: "var(--surface)", border: "0.5px solid " + (s.warn ? "rgba(226,75,74,.3)" : "var(--border)"), borderRadius: "var(--radius-md)", padding: "0.875rem", position: "relative" }}>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{s.l}</div>
-                <div style={{ fontSize: 22, fontWeight: 600 }}>{s.v}</div>
+                <div style={{ fontSize: s.link ? 13 : 19, fontWeight: 600, color: s.warn ? "#ff7b7b" : "inherit", wordBreak: "break-word" }}>{s.v}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{s.sub}</div>
+                {s.link && (
+                  <a href={s.link} target="_blank" rel="noopener noreferrer"
+                    style={{ position: "absolute", top: 8, right: 8, fontSize: 10, color: "var(--muted)", textDecoration: "none" }}>
+                    <Ic n="external-link" size={11}/>
+                  </a>
+                )}
               </div>
             ))}
           </div>
