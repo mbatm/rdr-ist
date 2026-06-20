@@ -1,6 +1,5 @@
-/**
- * Cloudflare Cron Worker — İçerik Zeka Otomasyonu
- * Tetiklenme: */30 * * * * (her 30 dakika)
+// Cloudflare Cron Worker — Icerik Zeka Otomasyonu
+// Tetiklenme: Her 30 dakikada bir (0,30 * * * *)
  *
  * Yaptıkları:
  * 1. RSS tara → yüksek skorlu haberler tespit et
