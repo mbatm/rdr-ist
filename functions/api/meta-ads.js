@@ -1,170 +1,161 @@
 /**
- * /api/meta-ads — Meta Marketing API entegrasyonu
+ * /api/meta-ads — Meta Marketing API
+ * Ad Account: act_708028213253830 (Kayseri Radar)
  *
- * GET  ?action=accounts          → Ad hesaplarını listele
- * GET  ?action=campaigns         → Kampanyaları listele
- * GET  ?action=insights          → Performans verisi
- * POST action=create_campaign    → Kampanya oluştur
- * POST action=create_adset       → Ad seti oluştur
- * POST action=pause|resume       → Kampanya durdur/başlat
+ * GET  ?action=status      → kampanya durumları + harcama
+ * POST action=create_adset → ad seti oluştur
+ * POST action=pause        → kampanyayı durdur
+ * POST action=resume       → kampanyayı başlat
+ * POST action=auto_optimize → performansa göre bütçe ayarla
  */
 
-const GRAPH = 'https://graph.facebook.com/v21.0'
+const GRAPH   = 'https://graph.facebook.com/v21.0'
+const TOKEN   = 'EAAORauw5t7ABRxGn0VWifCDlUlSJVje9z7eKH9ZCy5X913eKXHfRLwOEdfM70cd64eIlXAJmSvldiLwLy93x23UJtHatnVZBZAtTwIcVNVaykf2YUZCakJf6X2wKHhcuVN8Ogv8jH9UorD0HaCjZAZBLdYBjyOIE841VvjQNX6TT8W20GG67EDUDefZANune5JGz4XGajGHZBu36TsllewlgU8BarzV71dc1D2ttwWnjZANQjA65QdmZBoIF8V74DSZCEIx6mUA4LW0Pb71RL6ZB2JqDkWknpAZDZD'
+const ACT     = 'act_708028213253830'
 
-// KV'den user token'ı al (meta-callback ads modunda kaydetmiş olmalı)
-async function getUserToken(env) {
-  const meta = await env.HABERLER.get('meta_tokens', 'json') || {}
-  const tok  = meta.ads_user_token || meta.user_token
-  if (!tok) throw new Error('Meta Ads token yok — önce /api/meta-auth?mode=ads ile yetkilendir')
-  return tok
+// Kampanya ID'leri
+const CAMPAIGNS = {
+  haber_trafik:    '120245120742230539',
+  altin_fiyatlari: '120245120758240539',
+  marka:           '120245120758210539',
+  retargeting:     '120245120758360539',
 }
 
-async function graph(path, token, method = 'GET', body = null) {
+async function graph(path, method='GET', body=null) {
   const sep = path.includes('?') ? '&' : '?'
-  const res = await fetch(`${GRAPH}/${path}${sep}access_token=${token}`, {
+  const r = await fetch(`${GRAPH}/${path}${sep}access_token=${TOKEN}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers: body ? {'Content-Type':'application/json'} : {},
     body: body ? JSON.stringify(body) : null,
   })
-  const data = await res.json()
-  if (data.error) throw new Error(`Graph API: ${data.error.message}`)
-  return data
+  const d = await r.json()
+  if (d.error) throw new Error(`Meta: ${d.error.message}`)
+  return d
 }
 
-export async function onRequestGet({ request, env }) {
-  const cors = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
-  const url    = new URL(request.url)
-  const action = url.searchParams.get('action') || 'accounts'
+export async function onRequestGet({ request }) {
+  const cors = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
+  const url  = new URL(request.url)
+  const action = url.searchParams.get('action') || 'status'
 
   try {
-    const token = await getUserToken(env)
+    if (action === 'status') {
+      // Tüm kampanyaların durumu ve harcaması
+      const ids = Object.values(CAMPAIGNS).join(',')
+      const fields = 'id,name,status,daily_budget,insights{spend,clicks,impressions,ctr,cpc}'
+      const data = await graph(`${ACT}/campaigns?fields=${fields}&date_preset=today`)
 
-    // Ad hesaplarını listele
-    if (action === 'accounts') {
-      const data = await graph('me/adaccounts?fields=id,name,account_status,currency,amount_spent,balance', token)
-      return Response.json({ ok: true, accounts: data.data }, { headers: cors })
+      // Kanal bazlı GA4 özeti de ekle (insights)
+      return Response.json({
+        ok: true,
+        account: ACT,
+        campaigns: data.data,
+        campaign_ids: CAMPAIGNS,
+      }, { headers: cors })
     }
 
-    // Kampanyaları listele
-    if (action === 'campaigns') {
-      const actId = url.searchParams.get('account_id')
-      if (!actId) throw new Error('account_id gerekli')
-      const data = await graph(`act_${actId}/campaigns?fields=id,name,status,daily_budget,objective,insights{spend,clicks,impressions,ctr}`, token)
-      return Response.json({ ok: true, campaigns: data.data }, { headers: cors })
-    }
-
-    // Performans verisi
     if (action === 'insights') {
-      const actId     = url.searchParams.get('account_id')
-      const dateRange = url.searchParams.get('date_range') || 'last_7d'
-      if (!actId) throw new Error('account_id gerekli')
-      const data = await graph(
-        `act_${actId}/insights?fields=campaign_name,spend,clicks,impressions,ctr,cpc,reach&date_preset=${dateRange}&level=campaign`,
-        token
-      )
-      return Response.json({ ok: true, insights: data.data }, { headers: cors })
+      const date = url.searchParams.get('date') || 'last_7d'
+      const data = await graph(`${ACT}/insights?fields=campaign_name,spend,clicks,impressions,ctr,cpc,reach&date_preset=${date}&level=campaign`)
+      return Response.json({ ok:true, insights: data.data }, { headers: cors })
     }
 
     throw new Error(`Bilinmeyen action: ${action}`)
-
-  } catch (e) {
-    return Response.json({ ok: false, error: e.message }, { status: 500, headers: cors })
+  } catch(e) {
+    return Response.json({ ok:false, error: e.message }, { status:500, headers:cors })
   }
 }
 
-export async function onRequestPost({ request, env }) {
-  const cors = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
+export async function onRequestPost({ request }) {
+  const cors = {'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}
   try {
-    const token = await getUserToken(env)
-    const body  = await request.json()
-    const { action, account_id } = body
-    if (!account_id) throw new Error('account_id zorunlu')
-    const actId = `act_${account_id.replace('act_', '')}`
-
-    // Kampanya oluştur
-    if (action === 'create_campaign') {
-      const { name, objective, daily_budget_tl, status = 'PAUSED' } = body
-      const data = await graph(`${actId}/campaigns`, token, 'POST', {
-        name,
-        objective:    objective || 'LINK_CLICKS',
-        daily_budget: Math.round(daily_budget_tl * 100), // TL → kuruş
-        status,
-        special_ad_categories: [],
-      })
-      return Response.json({ ok: true, campaign_id: data.id }, { headers: cors })
-    }
+    const body   = await request.json()
+    const { action } = body
 
     // Ad seti oluştur
     if (action === 'create_adset') {
       const {
-        name, campaign_id, daily_budget_tl,
-        targeting, bid_amount_tl,
+        campaign_key,  // 'haber_trafik' | 'altin_fiyatlari' | 'marka' | 'retargeting'
+        name,
+        daily_budget_tl = 50,
         optimization_goal = 'LINK_CLICKS',
         billing_event = 'IMPRESSIONS',
-        status = 'PAUSED'
+        targeting,
       } = body
 
-      const data = await graph(`${actId}/adsets`, token, 'POST', {
+      const cid = CAMPAIGNS[campaign_key]
+      if (!cid) throw new Error(`Geçersiz campaign_key: ${campaign_key}`)
+
+      const defaultTargeting = {
+        geo_locations: {
+          cities: [
+            { key:'789723', name:'Kayseri', country:'TR' },
+          ]
+        },
+        age_min: 18,
+        age_max: 65,
+        locales: [24] // Türkçe
+      }
+
+      const adset = await graph(`${ACT}/adsets`, 'POST', {
         name,
-        campaign_id,
-        daily_budget:      Math.round(daily_budget_tl * 100),
-        bid_amount:        bid_amount_tl ? Math.round(bid_amount_tl * 100) : undefined,
+        campaign_id:       cid,
+        daily_budget:      daily_budget_tl * 100,
         billing_event,
         optimization_goal,
-        targeting: targeting || {
-          geo_locations: { countries: ['TR'], cities: [{ key: '789723', name: 'Kayseri', region: 'Kayseri', country: 'TR' }] },
-          age_min: 18, age_max: 65,
-        },
-        status,
+        targeting:         targeting || defaultTargeting,
+        status:            'PAUSED',
       })
-      return Response.json({ ok: true, adset_id: data.id }, { headers: cors })
+      return Response.json({ ok:true, adset_id: adset.id }, { headers:cors })
     }
 
     // Kampanya durdur / başlat
     if (action === 'pause' || action === 'resume') {
-      const { campaign_id } = body
-      const st   = action === 'pause' ? 'PAUSED' : 'ACTIVE'
-      const data = await graph(campaign_id, token, 'POST', { status: st })
-      return Response.json({ ok: true, result: data }, { headers: cors })
+      const { campaign_key } = body
+      const cid = CAMPAIGNS[campaign_key]
+      if (!cid) throw new Error('Geçersiz campaign_key')
+      const st = action === 'pause' ? 'PAUSED' : 'ACTIVE'
+      await graph(cid, 'POST', { status: st })
+      return Response.json({ ok:true, campaign: campaign_key, status: st }, { headers:cors })
     }
 
-    // Otomatik kural: performansa göre bütçe ayarla
+    // Otomatik optimizasyon: CPC'ye göre bütçe ayarla
     if (action === 'auto_optimize') {
-      const { campaign_id, target_cpc_tl, budget_change_pct = 15 } = body
-      // Bugünkü insight
-      const ins = await graph(`${campaign_id}/insights?fields=cpc,spend,clicks&date_preset=today`, token)
-      const row  = ins.data?.[0]
-      if (!row) return Response.json({ ok: true, action_taken: 'no_data' }, { headers: cors })
+      const { campaign_key, target_cpc_tl, budget_change_pct = 15 } = body
+      const cid = CAMPAIGNS[campaign_key]
+      if (!cid) throw new Error('Geçersiz campaign_key')
 
-      const cpc = parseFloat(row.cpc || 0)
+      const ins = await graph(`${cid}/insights?fields=cpc,spend,clicks&date_preset=today`)
+      const row = ins.data?.[0]
+      if (!row || !row.cpc) return Response.json({ ok:true, action_taken:'no_data' }, { headers:cors })
+
+      const cpc   = parseFloat(row.cpc)
       const ratio = cpc / target_cpc_tl
 
-      let new_status = null
-      if (ratio > 1.5) new_status = 'PAUSED'      // CPC çok yüksek → durdur
-      if (ratio < 0.7) {                            // CPC düşük → bütçe artır
-        // get current budget
-        const camp = await graph(`${campaign_id}?fields=daily_budget`, token)
-        const cur  = parseInt(camp.daily_budget || 0)
+      if (ratio > 1.5) {
+        await graph(cid, 'POST', { status:'PAUSED' })
+        return Response.json({ ok:true, action_taken:'PAUSED', cpc, target:target_cpc_tl }, { headers:cors })
+      }
+
+      if (ratio < 0.7) {
+        const camp = await graph(`${cid}?fields=daily_budget`)
+        const cur  = parseInt(camp.daily_budget)
         const inc  = Math.round(cur * (1 + budget_change_pct / 100))
-        await graph(campaign_id, token, 'POST', { daily_budget: inc })
-        return Response.json({ ok: true, action_taken: 'budget_increased', old: cur, new: inc }, { headers: cors })
+        await graph(cid, 'POST', { daily_budget: inc })
+        return Response.json({ ok:true, action_taken:'budget_up', old_tl: cur/100, new_tl: inc/100, cpc }, { headers:cors })
       }
-      if (new_status) {
-        await graph(campaign_id, token, 'POST', { status: new_status })
-        return Response.json({ ok: true, action_taken: new_status, cpc, target: target_cpc_tl }, { headers: cors })
-      }
-      return Response.json({ ok: true, action_taken: 'no_change', cpc, target: target_cpc_tl }, { headers: cors })
+
+      return Response.json({ ok:true, action_taken:'no_change', cpc, target:target_cpc_tl }, { headers:cors })
     }
 
     throw new Error(`Bilinmeyen action: ${action}`)
-
-  } catch (e) {
-    return Response.json({ ok: false, error: e.message }, { status: 500, headers: cors })
+  } catch(e) {
+    return Response.json({ ok:false, error:e.message }, { status:500, headers:cors })
   }
 }
 
 export async function onRequestOptions() {
   return new Response(null, {
-    headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }
+    headers: {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}
   })
 }
