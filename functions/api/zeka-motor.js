@@ -1,6 +1,6 @@
 /**
  * İçerik Zeka Sistemi — RSS Tarayıcı + Fırsat Skoru Motoru
- * Cloudflare Cron Trigger: */15 * * * * (her 15 dakika)
+ * Cloudflare Cron Trigger: Her 15 dakikada bir (0,15,30,45 * * * *)
  *
  * GET  /api/icerik-zeka?action=scan      → RSS tara, haberleri skora göre sırala
  * GET  /api/icerik-zeka?action=seasonal  → Aktif sezonsal kampanyaları kontrol et
