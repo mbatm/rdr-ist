@@ -161,7 +161,12 @@ async function fetchRSS() {
     const link  = (inner.match(/<link[^>]*>(.*?)<\/link>/)  || [])[1] || ''
     const pubDate = (inner.match(/<pubDate>(.*?)<\/pubDate>/) || [])[1] || ''
     const desc  = (inner.match(/<description[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/description>/) || [])[1] || ''
-    items.push({ title: title.trim(), link: link.trim(), pubDate, description: desc.trim() })
+    // Gorsel URL — enclosure, media:content veya description icindeki img
+    const enclosure = (inner.match(/enclosure[^>]+url="([^"]+)"/) || [])[1] || ''
+    const mediaImg  = (inner.match(/media:content[^>]+url="([^"]+)"/) || [])[1] || ''
+    const descImg   = (desc.match(/<img[^>]+src=\"([^\"]+)\"/) || [])[1] || ''
+    const gorsel_url = enclosure || mediaImg || descImg || ''
+    items.push({ title: title.trim(), link: link.trim(), pubDate, description: desc.trim(), gorsel_url })
   }
   return items.slice(0, 20) // Son 20 haber
 }
