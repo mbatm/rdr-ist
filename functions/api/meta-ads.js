@@ -40,12 +40,13 @@ export async function onRequestGet({ request, env }) {
     // ── Tum kampanyalar + bugun harcamasi ──
     if (action === "status") {
       const fields = "id,name,status,daily_budget,lifetime_budget,effective_status,insights{spend,clicks,impressions,ctr,cpc,reach,frequency}"
-      // ARCHIVED + silinen eski kampanyalari gizle, sadece KayserimNet kampanyalari
-      const data   = await graph(
-        ACT + "/campaigns?fields=" + fields + "&date_preset=today&limit=50" +
-        "&filtering=[{\"field\":\"status\",\"operator\":\"NOT_IN\",\"value\":[\"ARCHIVED\",\"DELETED\"]}]",
+      // Tum kampanyalari cek, JS tarafinda ARCHIVED/DELETED filtrele
+      const data = await graph(
+        ACT + "/campaigns?fields=" + fields + "&date_preset=today&limit=50",
         "GET", null, TOKEN
       )
+      // ARCHIVED ve DELETED kampanyalari gizle
+      const filtered = { ...data, data: (data.data || []).filter(c => c.status !== "ARCHIVED" && c.status !== "DELETED") }
 
       const account = await graph(
         ACT + "?fields=balance,currency,amount_spent,spend_cap,account_status,disable_reason,funding_source_details,min_daily_budget",
@@ -69,7 +70,7 @@ export async function onRequestGet({ request, env }) {
           limit_url:    "https://adsmanager.facebook.com/billing/account_spending_limit?act=708028213253830",
           min_daily_tl: account.min_daily_budget ? parseFloat(account.min_daily_budget)/100 : 100,
         },
-        campaigns: data.data || [],
+        campaigns: filtered.data || [],
         campaign_keys: CAMPAIGNS,
       }, { headers: cors })
     }
@@ -109,7 +110,7 @@ export async function onRequestGet({ request, env }) {
           kart:             account.funding_source_details?.display_string || null,
           kart_tip:         account.funding_source_details?.type === 1 ? "Kredi/Banka Karti" : "Diger",
           odeme_url:        "https://business.facebook.com/billing/payment_methods/?act=" + ACT.replace("act_",""),
-          bakiye_url:       "https://business.facebook.com/billing/add_funds/?act=" + ACT.replace("act_",""),
+          bakiye_url:       "https://adsmanager.facebook.com/billing?act=708028213253830",
           sinir_url:        "https://business.facebook.com/ads/manage/billing/?act=" + ACT.replace("act_",""),
           min_daily_tl:     account.min_daily_budget ? parseFloat(account.min_daily_budget) / 100 : 100,
         },
