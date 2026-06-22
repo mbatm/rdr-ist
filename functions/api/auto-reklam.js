@@ -44,7 +44,7 @@ async function kv_log(env, karar) {
 }
 
 async function performans_karar(env) {
-  const TOKEN = env.META_ADS_TOKEN
+  const TOKEN = env.META_ADS_TOKEN || 'EAAORauw5t7ABR43WgZBGmOmTzzjFNj4pS1IC0e03Mch8ZBsPpeuwDqBN4n510DVOTF4qW22VWLLwd2RNZBuiDN60GuwrWd09U0temzMekKYlrZAbsu7gQNT1VYDeSM5mVHKvrZCOdxf6L3cJllE3XcOVCM0BAQZCg2vZCv7grSKq4WhFUDzUw30WNWG10rLPzkhHwZDZD'
   const kararlar = []
   const alan = "campaign_name,campaign_id,spend,clicks,impressions,ctr,cpc"
 
@@ -96,7 +96,7 @@ async function performans_karar(env) {
 }
 
 async function rss_kesif(env) {
-  const TOKEN = env.META_ADS_TOKEN
+  const TOKEN = env.META_ADS_TOKEN || 'EAAORauw5t7ABR43WgZBGmOmTzzjFNj4pS1IC0e03Mch8ZBsPpeuwDqBN4n510DVOTF4qW22VWLLwd2RNZBuiDN60GuwrWd09U0temzMekKYlrZAbsu7gQNT1VYDeSM5mVHKvrZCOdxf6L3cJllE3XcOVCM0BAQZCg2vZCv7grSKq4WhFUDzUw30WNWG10rLPzkhHwZDZD'
   const kararlar = []
 
   const camp_list = await g(ACT + "/campaigns?fields=id,name,status,daily_budget&limit=30", "GET", null, TOKEN)
