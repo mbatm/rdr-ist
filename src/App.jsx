@@ -5706,6 +5706,14 @@ function MetaAdsModul({ user, onGeri }) {
             <button onClick={() => post({ action: "pause_all" })} style={{ fontSize: 11, background: "rgba(226,75,74,.1)", border: "0.5px solid rgba(226,75,74,.3)", color: "#ff7b7b" }}>
               <Ic n="player-pause" size={11}/> Hepsini Durdur
             </button>
+            <button onClick={async () => {
+              setSonuc(null)
+              const r = await fetch("/api/auto-reklam?action=run").then(x=>x.json())
+              setSonuc({ ok: r.ok, msg: r.ok ? "Motor calisti: " + (r.kararlar?.length||0) + " karar" : r.error })
+              await yukle()
+            }} style={{ fontSize: 11, background: "rgba(168,85,247,.1)", border: "0.5px solid rgba(168,85,247,.3)", color: "#A855F7" }}>
+              <Ic n="robot" size={11}/> Oto Motor
+            </button>
           </div>
         )}
       </div>
