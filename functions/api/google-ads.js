@@ -66,8 +66,16 @@ export async function onRequestGet({ request, env }) {
   const action = url.searchParams.get("action") || "status"
 
   // Env eksikse kurulum yonlendirmesi don
+  // Debug: env var varlık kontrolü
+  const envDurum = {
+    DEV_TOKEN:     !!env.GADS_DEV_TOKEN,
+    CLIENT_ID:     !!env.GADS_CLIENT_ID,
+    CLIENT_SECRET: !!env.GADS_CLIENT_SECRET,
+    REFRESH_TOKEN: !!env.GADS_REFRESH_TOKEN,
+    MANAGER_ID:    !!env.GADS_MANAGER_ID,
+  }
   if (!env.GADS_DEV_TOKEN) {
-    return Response.json({ ok:false, setup:true, eksik:"GADS_DEV_TOKEN", mesaj:"Developer Token eksik - Cloudflare env GADS_DEV_TOKEN ayarlayin" }, { headers: cors })
+    return Response.json({ ok:false, setup:true, eksik:"GADS_DEV_TOKEN", env_durum: envDurum, mesaj:"Developer Token eksik" }, { headers: cors })
   }
 
   try {
