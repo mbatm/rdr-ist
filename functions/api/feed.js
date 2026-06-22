@@ -48,7 +48,7 @@ export async function onRequestGet({ env }) {
     }
 
     const items = tumHaberler.slice(0, 150).map(h => {
-      const haberKodu = esc(h.url_slug || h.id || '')
+      const haberKodu = esc(h.url_slug || h.source_id || h.fb_id || h.id || '')
       const gorselUrl = h.gorsel_url || h.gorsel || ''
       const gorselKodu = haberKodu + '-1'
       const pubDate   = formatDate(h.tarih_iso || h.kaydedildi || new Date().toISOString())
