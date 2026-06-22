@@ -30,8 +30,12 @@ async function query(gaql, env) {
     },
     body: JSON.stringify({ query: gaql })
   })
-  const d = await r.json()
-  if (d.error) throw new Error("Google Ads: " + (d.error.message || JSON.stringify(d.error)))
+  const txt = await r.text()
+  if (!txt.startsWith("{") && !txt.startsWith("[")) {
+    throw new Error("Google Ads HTTP " + r.status + ": " + txt.slice(0, 300))
+  }
+  const d = JSON.parse(txt)
+  if (d.error) throw new Error("Google Ads API: " + (d.error.message || JSON.stringify(d.error).slice(0,200)))
   return d.results || []
 }
 
