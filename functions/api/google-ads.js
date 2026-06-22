@@ -66,19 +66,8 @@ export async function onRequestGet({ request, env }) {
   const action = url.searchParams.get("action") || "status"
 
   // Env eksikse kurulum yonlendirmesi don
-  if (!env.GADS_DEV_TOKEN || !env.GADS_REFRESH_TOKEN) {
-    return Response.json({
-      ok:    false,
-      setup: true,
-      mesaj: "Google Ads API kurulumu gerekli",
-      adimlar: [
-        "1. MCC hesabi ac: ads.google.com/home/tools/manager-accounts",
-        "2. Mevcut hesabi bagla: 773-177-8727",
-        "3. Araclar > API Merkezi > Developer Token kopyala",
-        "4. Google Cloud Console > OAuth 2.0 Client olustur",
-        "5. Refresh token uret ve Cloudflare env'e ekle"
-      ]
-    }, { headers: cors })
+  if (!env.GADS_DEV_TOKEN) {
+    return Response.json({ ok:false, setup:true, eksik:"GADS_DEV_TOKEN", mesaj:"Developer Token eksik - Cloudflare env GADS_DEV_TOKEN ayarlayin" }, { headers: cors })
   }
 
   try {
