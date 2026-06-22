@@ -33,8 +33,8 @@ async function g(path, method, body, token) {
 }
 
 async function kv_log(env, karar) {
-  if (!env.META_KV) return
   try {
+    if (!env.META_KV) { console.log("META_KV yok, log atlanıyor"); return }
     const mevcut = await env.META_KV.get("oto_log")
     let log = mevcut ? JSON.parse(mevcut) : []
     log.unshift({ t: new Date().toISOString(), ...karar })
