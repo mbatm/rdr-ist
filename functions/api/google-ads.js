@@ -1,5 +1,5 @@
 // Google Ads API - kayserimnet
-const API_BASE = "https://googleads.googleapis.com/v18"
+const API_BASE = "https://googleads.googleapis.com/v17"
 const CID      = "7731778727"
 
 async function getAccessToken(env) {
@@ -25,7 +25,7 @@ async function query(gaql, env) {
     headers: {
       "Authorization":     "Bearer " + token,
       "developer-token":   env.GADS_DEV_TOKEN,
-      "login-customer-id": env.GADS_MANAGER_ID || CID,
+      "login-customer-id": env.GADS_MANAGER_ID || env.GADS_CUSTOMER_ID || CID,
       "Content-Type":      "application/json"
     },
     body: JSON.stringify({ query: gaql })
@@ -58,6 +58,25 @@ export async function onRequestGet({ request, env }) {
 
   try {
     if (act === "status") {
+      // Önce accessible_customers test et
+      const token = await getAccessToken(env)
+      const accRes = await fetch(API_BASE + "/customers:listAccessibleCustomers", {
+        method: "GET",
+        headers: {
+          "Authorization":     "Bearer " + token,
+          "developer-token":   env.GADS_DEV_TOKEN,
+          "login-customer-id": env.GADS_MANAGER_ID || CID
+        }
+      })
+      const accTxt = await accRes.text()
+      if (!accTxt.startsWith("{")) {
+        return Response.json({ ok:false, error:"accessible_customers HTTP "+accRes.status, raw: accTxt.slice(0,300) }, { headers:cors })
+      }
+      const accData = JSON.parse(accTxt)
+      if (accData.error) {
+        return Response.json({ ok:false, error:"accessible_customers: "+accData.error.message, details: accData }, { headers:cors })
+      }
+      // Erişilebilir hesaplar bulunduysa kampanyaları çek
       const camps = await query(
         "SELECT campaign.id, campaign.name, campaign.status, " +
         "campaign_budget.amount_micros, metrics.clicks, metrics.impressions, " +
@@ -67,6 +86,7 @@ export async function onRequestGet({ request, env }) {
       )
       return Response.json({
         ok: true,
+        accessible_customers: accData.resourceNames || [],
         campaigns: camps.map(function(r) {
           return {
             id:          r.campaign && r.campaign.id,
