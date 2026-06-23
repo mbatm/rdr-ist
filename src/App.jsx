@@ -5329,14 +5329,41 @@ function YonetimModul({ user, onGeri }) {
 
 // ── ZEKA MODÜLÜ — İçerik Zekası ──────────────────────────────────────────────
 function ZekaModul({ user, onGeri, onManuelAc }) {
+  const [tab,         setTab]       = useState('firsatlar')  // 'firsatlar' | 'gecmis'
   const [tarama,      setTarama]    = useState(null)
   const [sezonsal,    setSezonsal]  = useState([])
   const [yukT,        setYukT]      = useState(true)
-  const [olusturan,   setOlusturan] = useState(null) // link string
-  const [reklamYapan, setReklamY]   = useState(null)
   const [hata,        setHata]      = useState(null)
+  const [olusturan,   setOlusturan] = useState(null)
+  const [reklamYapan, setReklamY]   = useState(null)
+  const [reklamOnay,  setReklamOnay]= useState(null)  // onay bekleyen haber
   const [reklamSonuc, setRS]        = useState(null)
+  const [gecmis,      setGecmis]    = useState([])    // localStorage geçmişi
   const timerRef = useRef(null)
+
+  // Geçmişi localStorage'dan yükle
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('zekaGecmis')
+      if (stored) setGecmis(JSON.parse(stored))
+    } catch(e) {}
+  }, [])
+
+  const gecmisEkle = (item) => {
+    setGecmis(prev => {
+      const yeni = [item, ...prev].slice(0, 50)
+      try { localStorage.setItem('zekaGecmis', JSON.stringify(yeni)) } catch(e) {}
+      return yeni
+    })
+  }
+
+  const gecmisSil = (idx) => {
+    setGecmis(prev => {
+      const yeni = prev.filter((_, i) => i !== idx)
+      try { localStorage.setItem('zekaGecmis', JSON.stringify(yeni)) } catch(e) {}
+      return yeni
+    })
+  }
 
   const tara = async () => {
     setYukT(true); setHata(null)
@@ -5358,29 +5385,30 @@ function ZekaModul({ user, onGeri, onManuelAc }) {
     return () => clearInterval(timerRef.current)
   }, [])
 
-  // Claude ile haber taslağı — baslik+metin üret, Manuel modülüne ilet
+  // İçerik oluştur → Manuel modüle geç + geçmişe kaydet
   const olustur = async (haber) => {
     setOlusturan(haber.link)
+    setHata(null)
     try {
-      const match    = haber.keyword_matches?.[0]
-      const keyword  = match?.matched_keyword || ''
-      const volume   = match?.volume || 0
-      const desc     = haber.description?.replace(/<[^>]*>/g,'').slice(0,500) || ''
+      const match   = haber.keyword_matches?.[0]
+      const keyword = match?.matched_keyword || ''
+      const volume  = match?.volume || 0
+      const desc    = haber.description?.replace(/<[^>]*>/g,'').slice(0,500) || ''
 
-      const prompt = `Sen kayserim.net yerel haber editörüsün. Aşağıdaki haber kaynağını kullanarak SEO uyumlu, Kayseri merkezli bir haber yaz.
+      const prompt = `Sen kayserim.net yerel haber editorusun. Asagidaki haber kaynagini kullanarak SEO uyumlu, Kayseri merkezli bir haber yaz.
 
 KAYNAK: ${haber.title}
-ÖZET: ${desc}
+OZET: ${desc}
 
-HEDEF ANAHTAR KELİME: "${keyword}" (aylık ${volume} arama, KD=${match?.kd || 0})
+HEDEF ANAHTAR KELIME: "${keyword}" (aylik ${volume} arama, KD=${match?.kd || 0})
 
 KURALLAR:
-- Başlıkta anahtar kelime geçmeli
+- Baslikta anahtar kelime gecmeli
 - 250-400 kelime
-- Kayseri bağlantısı kur
-- Sadece JSON döndür, başka hiçbir şey yazma
+- Kayseri baglantisi kur
+- Sadece JSON donur, baska hicbir sey yazma
 
-{"baslik":"...","metin":"...","kategori":"Güncel"}`
+{"baslik":"...","metin":"...","kategori":"Guncel"}`
 
       const res  = await fetch('/api/claude', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -5391,49 +5419,72 @@ KURALLAR:
         })
       })
       const data = await res.json()
-      // Hata kontrolü
       if (data.error) throw new Error(data.error?.message || JSON.stringify(data.error))
       const raw  = data.content?.[0]?.text || ''
       const jm   = raw.match(/\{[\s\S]*\}/)
-      if (!jm) throw new Error('JSON parse hatası')
+      if (!jm) throw new Error('JSON parse hatasi')
       const parsed = JSON.parse(jm[0])
 
-      // Manuel modülüne pre-fill ile geç — gorsel URL varsa taşı
+      // Geçmişe kaydet
+      gecmisEkle({
+        id:      Date.now(),
+        zaman:   new Date().toLocaleString('tr-TR'),
+        baslik:  parsed.baslik || haber.title,
+        keyword: keyword,
+        skor:    haber.top_score,
+        kaynak:  haber.link,
+        durum:   'olusturuldu'
+      })
+
       onManuelAc({
-        baslik:      parsed.baslik   || haber.title,
-        metin:       parsed.metin    || desc,
-        kategori:    parsed.kategori || 'Güncel',
-        kaynak_url:  haber.link,
-        gorsel_url:  haber.gorsel_url || '',
+        baslik:     parsed.baslik   || haber.title,
+        metin:      parsed.metin    || desc,
+        kategori:   parsed.kategori || 'Guncel',
+        kaynak_url: haber.link,
+        gorsel_url: haber.gorsel_url || '',
         keyword,
       })
-    } catch(e) { setHata('Oluşturma hatası: ' + e.message) }
+    } catch(e) { setHata('Olusturma hatasi: ' + e.message) }
     setOlusturan(null)
   }
 
-  // Meta kampanyası tetikle
+  // Reklam tetikle — önce onay iste
+  const reklamOnayla = (haber) => setReklamOnay(haber)
+
   const reklamTetikle = async (haber) => {
+    setReklamOnay(null)
     setReklamY(haber.link)
+    setRS(null)
     try {
       const match = haber.keyword_matches?.[0]
       const res   = await fetch('/api/zeka-motor', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           action:'trigger_campaign',
-          reason: match?.matched_keyword || haber.title.slice(0,30),
-          budget_tl: match?.budget || 50,
-          duration_hours: 48,
+          reason:        match?.matched_keyword || haber.title.slice(0,30),
+          budget_tl:     match?.budget || 50,
+          duration_hours:48,
         })
       })
       const d = await res.json()
-      setRS(d.ok ? '✅ ' + (d.message || '48 saatlik kampanya başlatıldı') : '❌ ' + d.error)
+      const mesaj = d.ok ? '✅ Meta kampanyası açıldı: ' + (match?.matched_keyword||'') + ' · 50 TL · 48 saat' : '❌ ' + d.error
+      setRS(mesaj)
+      // Geçmişe kaydet
+      gecmisEkle({
+        id:      Date.now(),
+        zaman:   new Date().toLocaleString('tr-TR'),
+        baslik:  haber.title,
+        keyword: match?.matched_keyword || '',
+        skor:    haber.top_score,
+        kaynak:  haber.link,
+        durum:   d.ok ? 'reklam-acildi' : 'reklam-hata'
+      })
     } catch(e) { setRS('❌ ' + e.message) }
     setReklamY(null)
   }
 
   const skRenk = (s) => s >= 75 ? '#1D9E75' : s >= 60 ? '#EF9F27' : '#8891a5'
   const skBg   = (s) => s >= 75 ? 'rgba(29,158,117,.12)' : s >= 60 ? 'rgba(239,159,39,.12)' : 'rgba(136,145,165,.06)'
-
   const SEZON_LABEL = { bayram:'🕌 Bayram', okul:'📚 Okul', sinav:'📝 Sınav' }
 
   const firsat = tarama?.results?.filter(r => r.top_score > 0) || []
@@ -5441,6 +5492,7 @@ KURALLAR:
 
   return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+
       {/* Header */}
       <div style={{padding:'0 1rem',height:48,borderBottom:'0.5px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--surface)',flexShrink:0}}>
         <button onClick={onGeri} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
@@ -5449,11 +5501,25 @@ KURALLAR:
         <div style={{width:1,height:16,background:'var(--border)'}}/>
         <Ic n="brain" size={15} style={{color:'#A855F7'}}/>
         <div style={{fontSize:14,fontWeight:600}}>İçerik Zekası</div>
-        {tarama && (
-          <span style={{fontSize:11,color:'var(--muted)',marginLeft:4}}>
-            — {tarama.scanned} haber · {firsat.length} fırsat
-          </span>
-        )}
+
+        {/* Tab geçişi */}
+        <div style={{display:'flex',gap:4,marginLeft:8}}>
+          {[
+            {id:'firsatlar', label:'🎯 Fırsatlar', count: firsat.length},
+            {id:'gecmis',    label:'📋 Geçmiş',    count: gecmis.length},
+          ].map(t => (
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              fontSize:11,padding:'3px 10px',
+              background: tab===t.id ? 'rgba(168,85,247,.15)' : 'transparent',
+              border: '0.5px solid ' + (tab===t.id ? 'rgba(168,85,247,.4)' : 'var(--border)'),
+              color: tab===t.id ? '#A855F7' : 'var(--muted)',
+              borderRadius:'var(--radius-md)'
+            }}>
+              {t.label} {t.count > 0 && <span style={{opacity:.7}}>({t.count})</span>}
+            </button>
+          ))}
+        </div>
+
         <div style={{marginLeft:'auto',display:'flex',gap:6}}>
           <button onClick={tara} disabled={yukT}
             style={{fontSize:11,background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',color:'#A855F7'}}>
@@ -5462,162 +5528,215 @@ KURALLAR:
         </div>
       </div>
 
+      {/* Reklam onay diyalogu */}
+      {reklamOnay && (() => {
+        const match = reklamOnay.keyword_matches?.[0]
+        return (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <div style={{background:'var(--surface)',borderRadius:'var(--radius-lg)',padding:20,maxWidth:360,width:'90%',border:'0.5px solid var(--border)'}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:12}}>📢 Meta Reklam Onayı</div>
+              <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.8,marginBottom:14}}>
+                <div>🔑 Keyword: <strong>{match?.matched_keyword || reklamOnay.title.slice(0,30)}</strong></div>
+                <div>💰 Bütçe: <strong>50 TL</strong></div>
+                <div>⏱ Süre: <strong>48 saat</strong></div>
+                <div>🎯 Hedef: <strong>Kayseri ili + Türkiye</strong></div>
+                <div>📄 Haber: <strong>{reklamOnay.title.slice(0,60)}…</strong></div>
+              </div>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:16,padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:'var(--radius-sm)'}}>
+                Meta Ads hesabından 50 TL bütçeli yeni bir kampanya açılır. Kayserim.net sayfası üzerinden yayına girer.
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>reklamTetikle(reklamOnay)} style={{flex:1,fontSize:12,background:'rgba(29,158,117,.15)',border:'0.5px solid rgba(29,158,117,.4)',color:'#1D9E75',fontWeight:600}}>
+                  ✅ Evet, Kampanya Aç
+                </button>
+                <button onClick={()=>setReklamOnay(null)} style={{fontSize:12,background:'transparent',border:'0.5px solid var(--border)',color:'var(--muted)'}}>
+                  İptal
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div style={{flex:1,overflowY:'auto',padding:'1rem'}}>
 
-        {/* Sezonsal banner */}
-        {sezonsal.length > 0 && (
-          <div style={{marginBottom:12,padding:'8px 14px',background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8}}>
-            <Ic n="calendar-event" size={14} style={{color:'#A855F7'}}/>
-            <span style={{fontSize:13,color:'#A855F7',fontWeight:500}}>
-              Aktif Sezon: {sezonsal.map(s=>SEZON_LABEL[s]||s).join(' · ')}
-            </span>
-            <span style={{fontSize:11,color:'rgba(168,85,247,.6)',marginLeft:'auto'}}>Sezonsal kampanyalar devrede</span>
-          </div>
-        )}
+        {/* ── FIRSATLAR TABI ── */}
+        {tab === 'firsatlar' && (
+          <>
+            {sezonsal.length > 0 && (
+              <div style={{marginBottom:12,padding:'8px 14px',background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8}}>
+                <Ic n="calendar-event" size={14} style={{color:'#A855F7'}}/>
+                <span style={{fontSize:13,color:'#A855F7',fontWeight:500}}>
+                  Aktif Sezon: {sezonsal.map(s=>SEZON_LABEL[s]||s).join(' · ')}
+                </span>
+              </div>
+            )}
 
-        {/* Hata / Reklam sonucu */}
-        {hata && (
-          <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
-            {hata}<span style={{cursor:'pointer'}} onClick={()=>setHata(null)}>×</span>
-          </div>
-        )}
-        {reklamSonuc && (
-          <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(29,158,117,.08)',border:'0.5px solid rgba(29,158,117,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#1D9E75',display:'flex',justifyContent:'space-between'}}>
-            {reklamSonuc}<span style={{cursor:'pointer'}} onClick={()=>setRS(null)}>×</span>
-          </div>
-        )}
+            {hata && (
+              <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
+                {hata}<span style={{cursor:'pointer'}} onClick={()=>setHata(null)}>×</span>
+              </div>
+            )}
+            {reklamSonuc && (
+              <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(29,158,117,.08)',border:'0.5px solid rgba(29,158,117,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#1D9E75',display:'flex',justifyContent:'space-between'}}>
+                {reklamSonuc}<span style={{cursor:'pointer'}} onClick={()=>setRS(null)}>×</span>
+              </div>
+            )}
 
-        {/* Loading */}
-        {yukT && (
-          <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)'}}>
-            <Ic n="loader-2" size={24} style={{display:'block',margin:'0 auto 10px'}}/>
-            <div style={{fontSize:13}}>RSS taranıyor, fırsat skoru hesaplanıyor…</div>
-          </div>
-        )}
-
-        {/* Fırsat haberleri */}
-        {!yukT && firsat.length > 0 && (
-          <div>
-            <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.06em'}}>
-              🎯 Fırsat haberleri
-            </div>
-            {firsat.map((haber, idx) => {
-              const match  = haber.keyword_matches?.[0]
-              const isOl   = olusturan === haber.link
-              const isRek  = reklamYapan === haber.link
-              return (
-                <div key={idx} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'12px 14px',marginBottom:8}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-
-                    {/* Skor kutusu */}
-                    <div style={{textAlign:'center',flexShrink:0}}>
-                      <div style={{fontSize:18,fontWeight:700,color:skRenk(haber.top_score),
-                        background:skBg(haber.top_score),width:46,height:46,borderRadius:'var(--radius-md)',
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        border:`0.5px solid ${skRenk(haber.top_score)}44`}}>
-                        {haber.top_score}
-                      </div>
-                      <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>skor</div>
+            {yukT ? (
+              <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)'}}>
+                <Ic n="loader-2" size={24} style={{display:'block',margin:'0 auto 10px'}}/>
+                <div style={{fontSize:13}}>RSS taranıyor, fırsat skoru hesaplanıyor…</div>
+              </div>
+            ) : (
+              <>
+                {firsat.length > 0 ? (
+                  <div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.06em'}}>
+                      🎯 Fırsat haberleri — {firsat.length} sonuç
                     </div>
+                    {firsat.map((haber, idx) => {
+                      const match  = haber.keyword_matches?.[0]
+                      const isOl   = olusturan === haber.link
+                      const isRek  = reklamYapan === haber.link
+                      return (
+                        <div key={idx} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'12px 14px',marginBottom:8}}>
+                          <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                            <div style={{textAlign:'center',flexShrink:0}}>
+                              <div style={{fontSize:18,fontWeight:700,color:skRenk(haber.top_score),
+                                background:skBg(haber.top_score),width:46,height:46,borderRadius:'var(--radius-md)',
+                                display:'flex',alignItems:'center',justifyContent:'center',
+                                border:`0.5px solid ${skRenk(haber.top_score)}44`}}>
+                                {haber.top_score}
+                              </div>
+                              <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>skor</div>
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:500,lineHeight:1.4,marginBottom:6}}
+                                dangerouslySetInnerHTML={{__html: haber.title}}/>
+                              {match && (
+                                <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
+                                  <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,background:'rgba(168,85,247,.12)',color:'#A855F7',border:'0.5px solid rgba(168,85,247,.3)',fontWeight:500}}>
+                                    🔑 {match.matched_keyword}
+                                  </span>
+                                  <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,background:'rgba(59,130,212,.1)',color:'#3B8BD4',border:'0.5px solid rgba(59,130,212,.3)'}}>
+                                    {(match.volume||0).toLocaleString('tr-TR')} hacim
+                                  </span>
+                                  <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,
+                                    background:match.kd<30?'rgba(29,158,117,.1)':'rgba(239,159,39,.1)',
+                                    color:match.kd<30?'#1D9E75':'#EF9F27',
+                                    border:`0.5px solid ${match.kd<30?'rgba(29,158,117,.3)':'rgba(239,159,39,.3)'}`}}>
+                                    KD: {match.kd}
+                                  </span>
+                                </div>
+                              )}
+                              <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                                <button onClick={()=>olustur(haber)} disabled={!!olusturan}
+                                  style={{fontSize:12,fontWeight:600,background:'rgba(168,85,247,.15)',border:'0.5px solid rgba(168,85,247,.4)',color:'#A855F7'}}>
+                                  <Ic n={isOl?'loader-2':'sparkles'} size={12}/>
+                                  {isOl?'Oluşturuluyor…':'✨ Haber Oluştur'}
+                                </button>
 
-                    {/* İçerik */}
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:500,lineHeight:1.4,marginBottom:6}}
-                        dangerouslySetInnerHTML={{__html: haber.title}}/>
+                                {haber.top_score >= 70 && (
+                                  <button onClick={()=>reklamOnayla(haber)} disabled={!!reklamYapan}
+                                    title="Bu haber için Meta Ads kampanyası aç (50 TL, 48 saat)"
+                                    style={{fontSize:11,background:'rgba(29,158,117,.1)',border:'0.5px solid rgba(29,158,117,.3)',color:'#1D9E75'}}>
+                                    <Ic n={isRek?'loader-2':'speakerphone'} size={11}/>
+                                    {isRek?'Açılıyor…':'📢 Meta Reklam Aç'}
+                                  </button>
+                                )}
 
-                      {/* Badge'ler */}
-                      {match && (
-                        <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
-                          <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,
-                            background:'rgba(168,85,247,.12)',color:'#A855F7',border:'0.5px solid rgba(168,85,247,.3)',fontWeight:500}}>
-                            🔑 {match.matched_keyword}
-                          </span>
-                          <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,
-                            background:'rgba(59,130,212,.1)',color:'#3B8BD4',border:'0.5px solid rgba(59,130,212,.3)'}}>
-                            {(match.volume||0).toLocaleString('tr-TR')} hacim
-                          </span>
-                          <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,
-                            background:match.kd<30?'rgba(29,158,117,.1)':'rgba(239,159,39,.1)',
-                            color:match.kd<30?'#1D9E75':'#EF9F27',
-                            border:`0.5px solid ${match.kd<30?'rgba(29,158,117,.3)':'rgba(239,159,39,.3)'}`}}>
-                            KD: {match.kd}
-                          </span>
-                          <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,
-                            background:'rgba(255,255,255,.04)',color:'var(--muted)',border:'0.5px solid var(--border)'}}>
-                            {match.cat==='sezonsal'?'📅 Sezonsal':match.cat==='olay'?'⚡ Olay':'📌 Sürekli'}
-                          </span>
+                                <a href={haber.link} target="_blank" rel="noreferrer"
+                                  style={{fontSize:11,color:'var(--muted)',textDecoration:'none',border:'0.5px solid var(--border)',padding:'4px 8px',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',gap:3}}>
+                                  <Ic n="external-link" size={10}/> Kaynak
+                                </a>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      )}
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)',fontSize:13}}>
+                    Şu an fırsat bulunamadı. Yenile butonuna bas.
+                  </div>
+                )}
 
-                      {/* Aksiyon butonları */}
-                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                        <button onClick={()=>olustur(haber)} disabled={!!olusturan}
-                          style={{fontSize:12,fontWeight:600,background:'rgba(168,85,247,.15)',
-                            border:'0.5px solid rgba(168,85,247,.4)',color:'#A855F7'}}>
-                          <Ic n={isOl?'loader-2':'sparkles'} size={12}/>
-                          {isOl?'Oluşturuluyor…':'✨ Oluştur & Yayınla'}
-                        </button>
-                        {/* Görsel durumu */}
-                        {haber.gorsel_url
-                          ? <span style={{fontSize:10,color:'#00D4AA',display:'flex',alignItems:'center',gap:3}}>
-                              <Ic n="photo" size={10}/> Görsel var
-                            </span>
-                          : <span style={{fontSize:10,color:'#EF9F27',display:'flex',alignItems:'center',gap:3}}>
-                              <Ic n="photo-ai" size={10}/> AI görsel üretilecek
-                            </span>
-                        }
-
-                        {haber.top_score >= 70 && (
-                          <button onClick={()=>reklamTetikle(haber)} disabled={!!reklamYapan}
-                            style={{fontSize:11,background:'rgba(29,158,117,.1)',
-                              border:'0.5px solid rgba(29,158,117,.3)',color:'#1D9E75'}}>
-                            <Ic n={isRek?'loader-2':'speakerphone'} size={11}/>
-                            {isRek?'Tetikleniyor…':'📢 Reklam Tetikle'}
-                          </button>
-                        )}
-
-                        <a href={haber.link} target="_blank" rel="noreferrer"
-                          style={{fontSize:11,color:'var(--muted)',textDecoration:'none',
-                            border:'0.5px solid var(--border)',padding:'4px 8px',
-                            borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',gap:3}}>
-                          <Ic n="external-link" size={10}/> Kaynak
-                        </a>
-                      </div>
+                {diger.length > 0 && (
+                  <details style={{marginTop:12}}>
+                    <summary style={{fontSize:11,color:'var(--muted)',cursor:'pointer',padding:'6px 0'}}>
+                      Fırsat bulunamayan haberler ({diger.length})
+                    </summary>
+                    <div style={{marginTop:6}}>
+                      {diger.map((h,i)=>(
+                        <div key={i} style={{padding:'7px 10px',background:'rgba(255,255,255,.02)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',marginBottom:4,fontSize:12,color:'var(--muted)'}}
+                          dangerouslySetInnerHTML={{__html:h.title}}/>
+                      ))}
                     </div>
+                  </details>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── GEÇMİŞ TABI ── */}
+        {tab === 'gecmis' && (
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{fontSize:11,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+                📋 Bu cihazda yapılan işlemler ({gecmis.length})
+              </div>
+              {gecmis.length > 0 && (
+                <button onClick={()=>{setGecmis([]);localStorage.removeItem('zekaGecmis')}}
+                  style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                  Temizle
+                </button>
+              )}
+            </div>
+
+            {gecmis.length === 0 ? (
+              <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)',fontSize:13}}>
+                Henüz işlem yapılmadı. Fırsatlar tabından içerik oluştur veya reklam aç.
+              </div>
+            ) : gecmis.map((item, idx) => (
+              <div key={item.id} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-md)',padding:'10px 14px',marginBottom:6,display:'flex',gap:10,alignItems:'flex-start'}}>
+                <div style={{fontSize:18,flexShrink:0}}>
+                  {item.durum==='olusturuldu'?'✨':item.durum==='reklam-acildi'?'📢':'❌'}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:500,lineHeight:1.4,marginBottom:3}}>{item.baslik}</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                    {item.keyword && (
+                      <span style={{fontSize:10,padding:'1px 7px',borderRadius:10,background:'rgba(168,85,247,.1)',color:'#A855F7',border:'0.5px solid rgba(168,85,247,.3)'}}>
+                        {item.keyword}
+                      </span>
+                    )}
+                    <span style={{fontSize:10,color:'var(--muted)'}}>Skor: {item.skor}</span>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>·</span>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>
+                      {item.durum==='olusturuldu'?'Haber oluşturuldu':item.durum==='reklam-acildi'?'Meta reklam açıldı':'Reklam hatası'}
+                    </span>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>·</span>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>{item.zaman}</span>
+                    {item.kaynak && (
+                      <a href={item.kaynak} target="_blank" rel="noreferrer"
+                        style={{fontSize:10,color:'var(--muted)',textDecoration:'none',border:'0.5px solid var(--border)',padding:'1px 7px',borderRadius:8,display:'flex',alignItems:'center',gap:2}}>
+                        <Ic n="external-link" size={9}/> Kaynak
+                      </a>
+                    )}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Fırsatsız haberler — collapsed */}
-        {!yukT && diger.length > 0 && (
-          <details style={{marginTop:12}}>
-            <summary style={{fontSize:11,color:'var(--muted)',cursor:'pointer',padding:'6px 0'}}>
-              Fırsat bulunamayan haberler ({diger.length})
-            </summary>
-            <div style={{marginTop:6}}>
-              {diger.map((h,i)=>(
-                <div key={i} style={{padding:'7px 10px',background:'rgba(255,255,255,.02)',
-                  border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',marginBottom:4,
-                  fontSize:12,color:'var(--muted)'}}
-                  dangerouslySetInnerHTML={{__html:h.title}}/>
-              ))}
-            </div>
-          </details>
-        )}
-
-        {!yukT && !tarama && (
-          <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)',fontSize:13}}>
-            RSS verisi yüklenemedi. Yenile butonuna bas.
+                <button onClick={()=>gecmisSil(idx)} style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'none',cursor:'pointer',flexShrink:0,padding:'2px 4px'}}>×</button>
+              </div>
+            ))}
           </div>
         )}
       </div>
     </div>
   )
 }
-
 
 
 // ── META ADS YONETIM MODULU ───────────────────────────────────────────────────
