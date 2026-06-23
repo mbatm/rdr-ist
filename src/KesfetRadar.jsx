@@ -47,9 +47,14 @@ function kalanSure(yayin_zamani) {
   return `${Math.ceil(dk)} dk sonra (oto modda) yayınlanır`
 }
 
+function kqTemizle(m) { return (m || '').replace(/\n*[-*\s]*\[?\s*DOĞRULANACAKLAR\s*\]?[\s\S]*$/i, '').replace(/\[DOĞRULA:[^\]]*\]/gi, '').replace(/\n{3,}/g, '\n\n').trim() }
+function kqNotlar(m) { const mm = (m || '').match(/\[?\s*DOĞRULANACAKLAR\s*\]?\s*([\s\S]*)$/i); let n = mm ? mm[1].trim() : ''; const inl = [...(m || '').matchAll(/\[DOĞRULA:\s*([^\]]*)\]/gi)].map(x => '- ' + x[1].trim()); if (inl.length) n = (n ? n + '\n' : '') + inl.join('\n'); return n.trim() }
+
 function KuyrukKarti({ k, onManuelAc, onAksiyon }) {
   const d = KQ_DURUM[k.durum] || KQ_DURUM.inceleme
-  const ozet = (k.metin || '').replace(/[#*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
+  const govde = kqTemizle(k.metin)
+  const ozet = govde.replace(/[#*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
+  const notlar = kqNotlar(k.metin)
   return (
     <div style={{ background: 'rgba(255,255,255,.03)', border: `0.5px solid ${d.c}44`, borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -65,11 +70,17 @@ function KuyrukKarti({ k, onManuelAc, onAksiyon }) {
       <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600, lineHeight: 1.3 }}>{k.site_baslik}</div>
       {k.og_baslik && k.og_baslik !== k.site_baslik && <div style={{ fontSize: 11, color: '#9b6bff', marginTop: 2 }}>Discover: {k.og_baslik}</div>}
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>{ozet}…</div>
+      {notlar && (
+        <div style={{ marginTop: 6, padding: '6px 9px', background: 'rgba(230,57,70,.08)', border: '0.5px solid rgba(230,57,70,.3)', borderRadius: 5 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#ff7b7b', marginBottom: 2 }}>⚠ DOĞRULANACAK (yayında gösterilmez)</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{notlar}</div>
+        </div>
+      )}
       {k.hata && <div style={{ fontSize: 11, color: '#ff7b7b', marginTop: 4 }}>Hata: {k.hata}</div>}
 
       {(k.durum === 'inceleme' || k.durum === 'duzenle_bekliyor') && (
         <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => onManuelAc({ baslik: k.site_baslik, metin: k.metin, kategori: k.kategori, gorsel_url: k.kaynak_gorsel || '', kaynak_url: k.mevcut_link || k.kaynak_link || '', keyword: k.og_baslik || '' })}
+          <button onClick={() => onManuelAc({ baslik: k.site_baslik, metin: govde, kategori: k.kategori, gorsel_url: k.kaynak_gorsel || '', kaynak_url: k.mevcut_link || k.kaynak_link || '', keyword: k.og_baslik || '' })}
             style={{ fontSize: 11, color: '#fff', background: 'rgba(155,107,255,.85)', border: 'none', borderRadius: 5, padding: '4px 10px' }}>
             {k.durum === 'duzenle_bekliyor' ? '✎ Mevcudu güncelle (editörde aç)' : '✎ Editörde aç (görsel + yayın)'}
           </button>
@@ -237,7 +248,7 @@ KURALLAR (Şubat 2026 Discover core update sonrası):
 - og_baslik: merak uyandıran ama temel bilgiyi saklamayan, dürüst başlık. Tıklama tuzağı (clickbait) yok — vaadini metin karşılamalı. Mümkünse somut sayı/yer/yerellik içersin.
 - site_baslik: SEO uyumlu, max 70 karakter, "Kayseri" doğal geçsin.
 - metin: en az 350 kelime, H2 alt başlıklarıyla (## ile), "ne oldu" + "neden / Kayseri için ne anlama geliyor" bağlamı. İlk paragrafta ana bilgi.
-- Bilgi uydurma. Emin olmadığın detayı genel/temkinli yaz, doğrulanması gerekenleri [DOĞRULA: ...] olarak işaretle.
+- Bilgi uydurma. metin gövdesi tek başına yayınlanabilir olmalı; doğrulanmamış spesifik iddiaları (rakam, isim, tarih, yer) gövdeye yazma, en sonda ayrı "[DOĞRULANACAKLAR]" bloğunda "- ..." maddeleri olarak listele. Gövdede [DOĞRULA] kullanma.
 - Sadece JSON döndür, başka hiçbir şey yazma.`
 
     const kullanici = `KONU SİNYALİ (rakip başlığı, sadece referans): "${f.baslik}"
@@ -346,6 +357,10 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
               İnceleme (dk):
               <input type="number" min="0" value={ayar.inceleme_dk} onChange={e => setAyar({ ...ayar, inceleme_dk: +e.target.value })} style={{ width: 54, fontSize: 12, background: 'var(--bg)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 4, padding: '2px 6px' }} />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }} title="Bir çalıştırma turunda kaç haber üretilsin (yüksek = yavaş)">
+              Tur başına:
+              <input type="number" min="1" max="5" value={ayar.max_yeni} onChange={e => setAyar({ ...ayar, max_yeni: Math.min(5, Math.max(1, +e.target.value || 1)) })} style={{ width: 48, fontSize: 12, background: 'var(--bg)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 4, padding: '2px 6px' }} />
             </label>
             <div style={{ display: 'flex', gap: 10, color: 'var(--muted)' }}>
               {[['yaz', 'Yeni yaz'], ['isle', '1ha işle'], ['guncelle', 'Güncelle']].map(([d, l]) => (

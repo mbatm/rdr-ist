@@ -20,7 +20,7 @@ const VARSAYILAN_AYAR = {
   min_skor: 80,
   durumlar: ['yaz'],   // sadece "sende+1ha'da yok" olanlar (en güvenlisi)
   inceleme_dk: 60,
-  max_yeni: 1,         // bir cron turunda en fazla kaç yeni taslak
+  max_yeni: 3,         // bir cron/çalıştırma turunda en fazla kaç yeni taslak
   max_yayin: 1,        // bir turda en fazla kaç oto-yayın
 }
 
@@ -85,6 +85,14 @@ function teyitEt(baslik, ha1, liste) {
   return { durum_kodu: 'yaz' }
 }
 
+// Yayın metnini temizle — [DOĞRULANACAKLAR] bloğu ve [DOĞRULA: ...] etiketleri canlıya GİTMEZ
+function temizleMetin(m) {
+  let s = m || ''
+  s = s.replace(/\n*[-*\s]*\[?\s*DOĞRULANACAKLAR\s*\]?[\s\S]*$/i, '') // sondaki not bloğu
+  s = s.replace(/\[DOĞRULA:[^\]]*\]/gi, '')                          // gövdedeki kaçak etiket
+  return s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 async function yetkili(secret, env) {
   if (!secret) return false
   if (env.RSS_API_KEY && secret === env.RSS_API_KEY) return true
@@ -118,7 +126,7 @@ KURALLAR (Şubat 2026 Discover update sonrası):
 - site_baslik: SEO uyumlu, max 70 karakter, "Kayseri" doğal geçsin.
 - meta_description: max 155 karakter, bilgi dolu.
 - metin: en az 350 kelime, H2 (##) alt başlıklarıyla, ilk paragrafta ana bilgi, "ne oldu" + "Kayseri için ne anlama geliyor".
-- Bilgi UYDURMA. Emin olmadığın her somut iddiayı [DOĞRULA: ...] olarak işaretle. Doğrulanmamış haberi otomatik yayınlamayacağız.
+- Bilgi UYDURMA. metin GÖVDESİ tek başına yayınlanabilir olmalı; doğrulanmamış spesifik iddiaları (rakam, isim, tarih, yer) gövdeye yazma. Bunları SADECE en sonda ayrı bir blokta listele: yeni satırda "[DOĞRULANACAKLAR]" başlığı, altına "- ..." maddeleri. Gövde içinde [DOĞRULA] kullanma.
 - Sadece JSON döndür, başka hiçbir şey yazma.`
 
   const kullanici = `KONU SİNYALİ (rakip başlığı, sadece referans): "${firsat.baslik}"
@@ -198,6 +206,7 @@ async function uretGorsel(origin, kuyrukItem) {
 // ── Yayınla: mevcut haber-kaydet ucuna gönder (normal yayın akışı) ─────────
 async function yayinla(origin, kuyrukItem) {
   const gorsel = kuyrukItem.gorsel_url || await uretGorsel(origin, kuyrukItem)
+  const temizMetin = temizleMetin(kuyrukItem.metin)
   const haber = {
     source_id: 'kesfet-' + kuyrukItem.id,
     url_slug: kuyrukItem.url_slug,
@@ -206,8 +215,8 @@ async function yayinla(origin, kuyrukItem) {
     h1_basligi: kuyrukItem.site_baslik,
     og_baslik: kuyrukItem.og_baslik,
     meta_description: kuyrukItem.meta_description,
-    icerik: kuyrukItem.metin,
-    optimize_icerik: kuyrukItem.metin,
+    icerik: temizMetin,
+    optimize_icerik: temizMetin,
     kategori: kuyrukItem.kategori,
     gorsel, images: gorsel ? [gorsel] : [],
     durum: 'yayinda',
@@ -238,8 +247,9 @@ async function isle(origin, env, secret) {
 
   const yeni = []
   let denenen = 0, teyitSay = { yaz: 0, isle: 0, guncelle: 0 }
+  const denemeSiniri = Math.max(8, ayar.max_yeni * 3)
   for (const f of adaylar) {
-    if (yeni.length >= ayar.max_yeni || denenen >= 5) break
+    if (yeni.length >= ayar.max_yeni || denenen >= denemeSiniri) break
     denenen++
 
     // 1) TEYİT — doğrudan (1ha + kayserim liste, nested istek yok)
