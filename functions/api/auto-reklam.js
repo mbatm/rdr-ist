@@ -126,7 +126,7 @@ async function rss_kesif(env) {
 
     const adset = await fetch(GRAPH + "/" + ACT + "/adsets", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: adi + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { countries: ["TR"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "ACTIVE", access_token: TOKEN })
+      body: JSON.stringify({ name: adi + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "ACTIVE", access_token: TOKEN })
     }).then(r => r.json())
 
     if (!adset.id) { kararlar.push({ tip: "ADSET_HATA", adi, sebep: adset.error?.message }); continue }
