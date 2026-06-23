@@ -101,6 +101,7 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   const [kuyruk, setKuyruk] = useState([])
   const [calisiyor, setCalisiyor] = useState(false)
   const [kaydet, setKaydet] = useState(false)
+  const [otoMsg, setOtoMsg] = useState(null)
 
   const getir = useCallback(async () => {
     setYukleniyor(true); setHata(null)
@@ -136,6 +137,9 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
       const d = await r.json()
       if (d.hata) throw new Error(d.hata)
       setAyar(d.ayar)
+      setOtoMsg(d.ayar.aktif
+        ? 'Ayarlar kaydedildi. Üretim için "▶ Şimdi çalıştır"a basın (ya da 5 dk\'lık cron\'u bekleyin).'
+        : 'Ayarlar kaydedildi ama "Otomatik üretim" PASİF — kutuyu işaretleyip tekrar Uygula deyin.')
     } catch (e) { setHata('Ayar kaydedilemedi: ' + e.message) }
     setKaydet(false)
   }
@@ -147,6 +151,11 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
       const d = await r.json()
       if (d.hata) throw new Error(d.hata)
       await otoGetir(); await getir()
+      let msg
+      if (d.skip === 'pasif') msg = 'Pasif — "Otomatik üretim AÇIK" kutusunu işaretleyip Uygula deyin.'
+      else if (d.yeni_taslak > 0) { msg = `${d.yeni_taslak} taslak üretildi → Kuyruk sekmesine bak.${d.oto_yayin ? ' ' + d.oto_yayin + ' otomatik yayınlandı.' : ''}`; setGorunum('kuyruk') }
+      else msg = `Üretilecek yeni fırsat yok (skor ≥ ${ayar?.min_skor}, durum: ${(ayar?.durumlar || []).join('/') || '—'}). Eşiği düşür, durum ekle ya da "⟳ Şimdi tara" ile fırsat topla.`
+      setOtoMsg(msg)
     } catch (e) { setHata('Çalıştırma hatası: ' + e.message) }
     setCalisiyor(false)
   }
@@ -340,6 +349,11 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
                 : `Yarı otomatik: skor ≥ ${ayar.min_skor} fırsatlar taslak olarak Kuyruğa düşer; sen "Yayınla" deyince yayınlanır.`)
               : 'Pasif — hiçbir şey üretilmez/yayınlanmaz. Aktif edip "Uygula"ya bas. Otomatik üretim her 5 dk\'lık cron\'da çalışır.'}
           </div>
+          {otoMsg && (
+            <div style={{ fontSize: 11.5, color: '#9b6bff', marginTop: 8, padding: '6px 10px', background: 'rgba(155,107,255,.08)', border: '0.5px solid rgba(155,107,255,.25)', borderRadius: 5 }}>
+              {otoMsg}
+            </div>
+          )}
         </div>
       )}
 
