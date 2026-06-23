@@ -31,7 +31,8 @@ jobs:
         run: |
           SONUC=$(curl -sf --max-time 60 "https://rdr.ist/api/video-duzelt?secret=${{ secrets.RSS_API_KEY }}" 2>&1) || true
           echo "Video container: $SONUC"
-          - name: Kesfet Radar Tara
+
+      - name: Kesfet Radar Tara
         continue-on-error: true
         run: |
           SONUC=$(curl -sf --max-time 60 "https://rdr.ist/api/kesfet-radar?action=scan&secret=${{ secrets.RSS_API_KEY }}" 2>&1) || true
