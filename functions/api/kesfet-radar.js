@@ -302,6 +302,69 @@ async function tara(env) {
   return log
 }
 
+// ── TEYİT: bu konu kayserim.net'te ve/veya 1ha'da var mı? ──────────────────
+async function teyit(env, baslik) {
+  const fp = fingerprint(baslik)
+
+  // 1) kayserim.net yayınlanmış liste (KV)
+  let kayserim = null
+  try {
+    const liste = await env.HABERLER.get('liste', 'json') || []
+    let best = null, bestSkor = 0
+    for (const h of liste) {
+      const s = Math.max(
+        tokenJaccard(fp, fingerprint(h.site_basligi || '')),
+        tokenJaccard(fp, fingerprint(h.baslik || ''))
+      )
+      if (s > bestSkor) { bestSkor = s; best = h }
+    }
+    if (best && bestSkor >= 0.45) {
+      kayserim = {
+        baslik: best.site_basligi || best.baslik,
+        link: best.kayserim_link || '',
+        source_id: best.source_id || '',
+        durum: best.durum || '',
+        benzerlik: Math.round(bestSkor * 100),
+      }
+    }
+  } catch (_) {}
+
+  // 2) 1ha kaynak feed
+  let ha1 = null
+  try {
+    const tok = env.OHA_RSS_TOKEN || env.RSS_API_KEY
+    if (tok) {
+      const res = await fetch(`https://1ha.com.tr/api/rss/${tok}`, { headers: { 'User-Agent': 'KesfetRadar/1.0' } })
+      if (res.ok) {
+        const items = parseItems(await res.text(), '1ha')
+        let best = null, bestSkor = 0
+        for (const it of items) {
+          const s = tokenJaccard(fp, fingerprint(it.title))
+          if (s > bestSkor) { bestSkor = s; best = it }
+        }
+        if (best && bestSkor >= 0.45) {
+          ha1 = { baslik: best.title, link: best.link, benzerlik: Math.round(bestSkor * 100) }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 3) Tavsiye / yönlendirme
+  let durum_kodu, tavsiye
+  if (kayserim) {
+    durum_kodu = 'guncelle'
+    tavsiye = `Bu haber kayserim.net'te zaten var (%${kayserim.benzerlik} eşleşme). Yenisini yazma — mevcudu GÜNCELLE: başlığa "bugün" + tarih ekle, Discover için og:title optimize et, ilk paragrafa güncel gelişmeyi koy ve yeniden yayın zamanını tazele.`
+  } else if (ha1) {
+    durum_kodu = 'isle'
+    tavsiye = `1ha kaynağında var (%${ha1.benzerlik} eşleşme) ama sen henüz yayınlamamışsın. 1ha haberini işleyip özgün+derin haline getirerek hızlıca yayınla — Discover için tazelik avantajın burada.`
+  } else {
+    durum_kodu = 'yaz'
+    tavsiye = `Ne kayserim.net'te ne 1ha'da var. Rakipte olup sende olmayan özgün bir fırsat — sıfırdan özgün, yerel açılı haber yaz ve hızlı yayınla.`
+  }
+
+  return { var_kayserim: !!kayserim, kayserim, var_1ha: !!ha1, ha1, durum_kodu, tavsiye }
+}
+
 // ── Handlers ────────────────────────────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -330,6 +393,19 @@ export async function onRequestGet({ request, env }) {
       const firsatlar = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
       const son       = await env.HABERLER.get('kesfet:son_tarama', 'json') || null
       return Response.json({ ok: true, firsatlar, son_tarama: son }, { headers: CORS })
+    }
+
+    if (action === 'verify') {
+      if (!(await yetkili(secret, env))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
+      let baslik = url.searchParams.get('baslik') || ''
+      const id = url.searchParams.get('id') || ''
+      if (!baslik && id) {
+        const list = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
+        baslik = (list.find(f => f.id === id) || {}).baslik || ''
+      }
+      if (!baslik) return Response.json({ hata: 'baslik veya id gerekli' }, { status: 400, headers: CORS })
+      const sonuc = await teyit(env, baslik)
+      return Response.json({ ok: true, ...sonuc }, { headers: CORS })
     }
 
     return Response.json({ hata: 'Geçersiz action' }, { status: 400, headers: CORS })

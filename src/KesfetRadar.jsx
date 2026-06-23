@@ -36,6 +36,8 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   const [yukleniyor, setYukleniyor] = useState(true)
   const [tariyor, setTariyor] = useState(false)
   const [uretilen, setUretilen] = useState(null) // o an taslak üretilen fırsat id
+  const [teyitler, setTeyitler] = useState({})    // id -> teyit sonucu
+  const [teyitId, setTeyitId] = useState(null)     // o an teyit edilen id
   const [filtre, setFiltre] = useState('aktif')   // aktif | hepsi | acil
   const [hata, setHata] = useState(null)
 
@@ -73,6 +75,18 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
         body: JSON.stringify({ action: 'mark', id, alan, secret: token }),
       })
     } catch (_) {}
+  }
+
+  // "Teyit et" → kayserim.net + 1ha kontrolü → tavsiye
+  const teyitEt = async (f) => {
+    setTeyitId(f.id); setHata(null)
+    try {
+      const r = await fetch(`/api/kesfet-radar?action=verify&id=${encodeURIComponent(f.id)}&secret=${encodeURIComponent(token)}`)
+      const d = await r.json()
+      if (d.hata) throw new Error(d.hata)
+      setTeyitler(t => ({ ...t, [f.id]: d }))
+    } catch (e) { setHata('Teyit hatası: ' + e.message) }
+    setTeyitId(null)
   }
 
   // "Bu konuyu yaz" → Claude'dan ÖZGÜN + Discover taslak → Manuel editöre aktar
@@ -218,7 +232,11 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
                       {f.bizde_var ? 'sende benzeri var' : 'sende yok'} · {f.kaynaklar.join(', ')}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      <button onClick={() => teyitEt(f)} disabled={teyitId === f.id}
+                        style={{ fontSize: 11, fontWeight: 500, color: '#4dabf7', background: 'rgba(77,171,247,0.10)', border: '0.5px solid rgba(77,171,247,0.30)', borderRadius: 5, padding: '4px 10px' }}>
+                        {teyitId === f.id ? 'Teyit ediliyor…' : '🔍 Teyit et'}
+                      </button>
                       <button onClick={() => yaz(f)} disabled={uretilen === f.id || f.yazildi}
                         style={{ fontSize: 11, fontWeight: 500, color: '#fff', background: f.yazildi ? 'rgba(255,255,255,.1)' : 'rgba(155,107,255,0.85)', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: f.yazildi ? 'default' : 'pointer' }}>
                         {uretilen === f.id ? 'Taslak üretiliyor…' : f.yazildi ? '✓ Yazıldı' : '✍ Bu konuyu yaz'}
@@ -231,6 +249,37 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
                         </button>
                       )}
                     </div>
+
+                    {teyitler[f.id] && (() => {
+                      const t = teyitler[f.id]
+                      const renk = t.durum_kodu === 'guncelle' ? '#00D4AA' : t.durum_kodu === 'isle' ? '#FFB700' : '#9b6bff'
+                      return (
+                        <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(255,255,255,.03)', border: `0.5px solid ${renk}55`, borderRadius: 6 }}>
+                          <div style={{ fontSize: 11, color: renk, fontWeight: 600, marginBottom: 4 }}>
+                            {t.durum_kodu === 'guncelle' ? '✓ kayserim.net\'te VAR — güncelle' : t.durum_kodu === 'isle' ? '◐ 1ha\'da var, yayınlanmamış — işle' : '✗ Hiçbirinde yok — özgün yaz'}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4 }}>{t.tavsiye}</div>
+                          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                            {t.var_kayserim && t.kayserim?.link && (
+                              <a href={t.kayserim.link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#00D4AA', textDecoration: 'none', border: '0.5px solid rgba(0,212,170,.3)', borderRadius: 5, padding: '3px 9px' }}>
+                                Mevcut haberi aç ↗
+                              </a>
+                            )}
+                            {t.var_kayserim && (
+                              <button onClick={() => onManuelAc({ baslik: t.kayserim.baslik, metin: '', kategori: 'Güncel', gorsel_url: f.gorsel_url || '', kaynak_url: t.kayserim.link || '', keyword: f.baslik })}
+                                style={{ fontSize: 11, color: '#00D4AA', background: 'rgba(0,212,170,.1)', border: '0.5px solid rgba(0,212,170,.3)', borderRadius: 5, padding: '3px 9px' }}>
+                                ✎ Güncellemek için editöre al
+                              </button>
+                            )}
+                            {!t.var_kayserim && t.var_1ha && t.ha1?.link && (
+                              <a href={t.ha1.link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#FFB700', textDecoration: 'none', border: '0.5px solid rgba(255,183,0,.3)', borderRadius: 5, padding: '3px 9px' }}>
+                                1ha kaynağını aç ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )
