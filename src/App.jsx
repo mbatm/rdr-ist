@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import GorselSablon from './GorselSablon.jsx'
 import GorselEditor from './GorselEditor.jsx'
 import OtoGorselUret from './OtoGorselUret.jsx'
+import KesfetRadar from './KesfetRadar.jsx'
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const MOCK = [
@@ -6204,6 +6205,16 @@ function ModulSecici({ user, onModul }) {
       yetki: 'modul_kayserim',
     },
     {
+      id: 'kesfet',
+      baslik: 'Keşfet Radar',
+      aciklama: 'Rakip yerel haberleri tara, Google Discover fırsatlarını yakala, özgün içerik üret',
+      ic: 'compass',
+      renk: '#9b6bff',
+      bg: 'rgba(155,107,255,0.08)',
+      border: 'rgba(155,107,255,0.2)',
+      yetki: 'modul_kayserim',
+    },
+    {
       id: 'metaads',
       baslik: 'Meta Ads Yonetimi',
       aciklama: 'Kampanya durumu, butce yonetimi, performans ve harcama takibi',
@@ -6362,6 +6373,7 @@ export default function App() {
   if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>{setZekaPreFill(null);setAktifModul(null)}} prefill={zekaPreFill}/>
   if (aktifModul === 'galeri')  return <GaleriModul   user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'zeka')   return <ZekaModul user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
+  if (aktifModul === 'kesfet') return <KesfetRadar user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
   if (aktifModul === 'metaads') return <MetaAdsModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
