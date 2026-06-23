@@ -230,15 +230,18 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 2000,
           system: sistem,
           messages: [{ role: 'user', content: kullanici }],
         }),
       })
       const d = await r.json()
-      const text = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n')
-      const json = JSON.parse(text.replace(/```json|```/g, '').trim())
+      if (!d.content) throw new Error(d.error?.message || d.detail || ('API yanıtı boş: ' + JSON.stringify(d).slice(0, 200)))
+      const text = d.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
+      const m = text.match(/\{[\s\S]*\}/)
+      if (!m) throw new Error('JSON bulunamadı: ' + text.slice(0, 150))
+      const json = JSON.parse(m[0])
 
       // Fırsatı "yazıldı" işaretle (hatırlatma listesinden düşsün)
       isaretle(f.id, 'yazildi')

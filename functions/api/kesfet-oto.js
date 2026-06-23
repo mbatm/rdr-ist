@@ -79,13 +79,16 @@ JSON üret:
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514', max_tokens: 2000,
+      model: 'claude-sonnet-4-6', max_tokens: 2000,
       system: sistem, messages: [{ role: 'user', content: kullanici }],
     }),
   })
   const d = await r.json()
-  const text = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n')
-  const j = JSON.parse(text.replace(/```json|```/g, '').trim())
+  if (!d.content) throw new Error(d.error?.message || d.detail || ('API bos: ' + JSON.stringify(d).slice(0, 200)))
+  const text = d.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
+  const mm = text.match(/\{[\s\S]*\}/)
+  if (!mm) throw new Error('JSON yok: ' + text.slice(0, 150))
+  const j = JSON.parse(mm[0])
   return {
     site_baslik: j.site_baslik || firsat.baslik,
     og_baslik: j.og_baslik || j.site_baslik || firsat.baslik,
