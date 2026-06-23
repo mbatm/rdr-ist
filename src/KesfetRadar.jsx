@@ -156,9 +156,11 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   }
 
   const otoCalistir = async () => {
-    setCalisiyor(true); setHata(null)
+    setCalisiyor(true); setHata(null); setOtoMsg(null)
+    const ctl = new AbortController()
+    const to = setTimeout(() => ctl.abort(), 70000)
     try {
-      const r = await fetch(`/api/kesfet-oto?action=process&secret=${encodeURIComponent(token)}`)
+      const r = await fetch(`/api/kesfet-oto?action=process&secret=${encodeURIComponent(token)}`, { signal: ctl.signal })
       const d = await r.json()
       if (d.hata) throw new Error(d.hata)
       await otoGetir(); await getir()
@@ -170,8 +172,11 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
         msg = `Üretilecek yeni fırsat yok${tb}. Ayarda açık durumlar: ${(ayar?.durumlar || []).join('/') || '—'}. Eşiği düşür, durum ekle ya da "⟳ Şimdi tara".`
       }
       setOtoMsg(msg)
-    } catch (e) { setHata('Çalıştırma hatası: ' + e.message) }
-    setCalisiyor(false)
+    } catch (e) {
+      setHata(e.name === 'AbortError'
+        ? 'Üretim 70 sn\'yi aştı — muhtemelen arkada tamamlandı, "Kuyruk" sekmesini kontrol et.'
+        : 'Çalıştırma hatası: ' + e.message)
+    } finally { clearTimeout(to); setCalisiyor(false) }
   }
 
   const kuyrukAksiyon = async (id, action) => {

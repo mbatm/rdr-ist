@@ -32,6 +32,59 @@ const CORS = {
 
 const TUR_ET = { olay:'Olay', hava:'Hava', vefat:'Vefat', spor:'Spor', ekonomi:'Ekonomi', egitim:'Eğitim', gundem:'Gündem', kisi:'Kişi', diger:'Diğer' }
 
+// ── Teyit yardımcıları (nested HTTP yok — doğrudan KV + tek 1ha fetch) ──────
+function normalize(s) {
+  return (s || '').toLocaleLowerCase('tr').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+}
+function fingerprint(title) {
+  const stop = new Set(['ve','ile','bir','bu','da','de','için','olan','son','dakika','haber','haberi'])
+  return normalize(title).split(' ').filter(w => w.length > 2 && !stop.has(w)).slice(0, 8).sort().join(' ')
+}
+function tokenJaccard(a, b) {
+  const sa = new Set(a.split(' ').filter(Boolean)), sb = new Set(b.split(' ').filter(Boolean))
+  if (!sa.size || !sb.size) return 0
+  let k = 0; for (const t of sa) if (sb.has(t)) k++
+  return k / (sa.size + sb.size - k)
+}
+function parseHa1(xml) {
+  const out = []; const re = /<item[\s>]([\s\S]*?)<\/item>/g; let m
+  while ((m = re.exec(xml)) !== null) {
+    const inner = m[1]
+    const title = (inner.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) || [])[1] || ''
+    const link = (inner.match(/<link[^>]*>([\s\S]*?)<\/link>/) || [])[1] || ''
+    const t = title.replace(/<!\[CDATA\[|\]\]>/g, '').trim()
+    if (t) out.push({ title: t, link: link.trim() })
+  }
+  return out.slice(0, 40)
+}
+async function kaynaklariYukle(env) {
+  let liste = [], ha1 = []
+  try { liste = await env.HABERLER.get('liste', 'json') || [] } catch (_) {}
+  try {
+    const tok = env.OHA_RSS_TOKEN || env.RSS_API_KEY
+    if (tok) {
+      const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 8000)
+      const r = await fetch(`https://1ha.com.tr/api/rss/${tok}`, { headers: { 'User-Agent': 'KesfetRadar/1.0' }, signal: ctl.signal })
+      clearTimeout(to)
+      if (r.ok) ha1 = parseHa1(await r.text())
+    }
+  } catch (_) {}
+  return { liste, ha1 }
+}
+function teyitEt(baslik, ha1, liste) {
+  const fp = fingerprint(baslik)
+  let kRec = null, kBest = 0
+  for (const h of liste) {
+    const s = Math.max(tokenJaccard(fp, fingerprint(h.site_basligi || '')), tokenJaccard(fp, fingerprint(h.baslik || '')))
+    if (s > kBest) { kBest = s; kRec = h }
+  }
+  let hRec = null, hBest = 0
+  for (const it of ha1) { const s = tokenJaccard(fp, fingerprint(it.title)); if (s > hBest) { hBest = s; hRec = it } }
+  if (kRec && kBest >= 0.45) return { durum_kodu: 'guncelle', kayserim: kRec }
+  if (hRec && hBest >= 0.45) return { durum_kodu: 'isle', ha1: hRec }
+  return { durum_kodu: 'yaz' }
+}
+
 async function yetkili(secret, env) {
   if (!secret) return false
   if (env.RSS_API_KEY && secret === env.RSS_API_KEY) return true
@@ -56,7 +109,7 @@ async function getAyar(env) {
 }
 
 // ── Claude ile ÖZGÜN + Discover taslağı üret ──────────────────────────────
-async function uretDraft(origin, firsat) {
+async function uretDraft(env, firsat) {
   const sistem = `Sen kayserim.net için çalışan kıdemli bir yerel haber editörüsün. Bir KONU sinyalinden Google Discover'a düşecek ÖZGÜN bir haber taslağı yazarsın.
 
 KURALLAR (Şubat 2026 Discover update sonrası):
@@ -75,15 +128,18 @@ Tür: ${TUR_ET[firsat.tur] || firsat.tur} · Yerel: ${firsat.yerel ? 'evet' : 'b
 JSON üret:
 { "og_baslik":"...", "site_baslik":"...", "meta_description":"...", "kategori":"Güncel|Asayiş|Spor|Ekonomi|Eğitim|Yaşam", "metin":"## ...\\n\\n..." }`
 
-  const r = await fetch(`${origin}/api/claude`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6', max_tokens: 2000,
-      system: sistem, messages: [{ role: 'user', content: kullanici }],
-    }),
-  })
-  const d = await r.json()
+  const ctl = new AbortController()
+  const to = setTimeout(() => ctl.abort(), 45000)
+  let d
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, system: sistem, messages: [{ role: 'user', content: kullanici }] }),
+      signal: ctl.signal,
+    })
+    d = await r.json()
+  } finally { clearTimeout(to) }
   if (!d.content) throw new Error(d.error?.message || d.detail || ('API bos: ' + JSON.stringify(d).slice(0, 200)))
   const text = d.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
   const mm = text.match(/\{[\s\S]*\}/)
@@ -174,6 +230,7 @@ async function isle(origin, env, secret) {
   const firsatlar = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
   let kuyruk = await env.HABERLER.get('kesfet:kuyruk', 'json') || []
   const queued = new Set(kuyruk.map(k => k.firsat_id))
+  const { liste, ha1 } = await kaynaklariYukle(env)   // tek sefer: 1ha feed + liste
 
   const adaylar = firsatlar
     .filter(f => !f.gizli && !f.yazildi && f.skor >= ayar.min_skor && !queued.has(f.id))
@@ -185,13 +242,8 @@ async function isle(origin, env, secret) {
     if (yeni.length >= ayar.max_yeni || denenen >= 5) break
     denenen++
 
-    // 1) TEYİT — 1ha + kayserim.net (RSS/liste)
-    let t = { durum_kodu: 'yaz' }
-    try {
-      const vr = await fetch(`${origin}/api/kesfet-radar?action=verify&id=${encodeURIComponent(f.id)}&secret=${encodeURIComponent(secret)}`)
-      const vd = await vr.json()
-      if (vd && vd.durum_kodu) t = vd
-    } catch (_) {}
+    // 1) TEYİT — doğrudan (1ha + kayserim liste, nested istek yok)
+    const t = teyitEt(f.baslik, ha1, liste)
     const kod = t.durum_kodu
     teyitSay[kod] = (teyitSay[kod] || 0) + 1
     if (!ayar.durumlar.includes(kod)) continue   // bu durum ayarda kapalı
@@ -205,26 +257,22 @@ async function isle(origin, env, secret) {
 
     try {
       if (kod === 'guncelle') {
-        // Mevcut haberi liste'den (RSS kaynağı) bul → DÜZENLEMEYE hazırla, üretme
-        const liste = await env.HABERLER.get('liste', 'json') || []
-        const mev = liste.find(h =>
-          (t.kayserim?.link && h.kayserim_link === t.kayserim.link) ||
-          (t.kayserim?.source_id && h.source_id === t.kayserim.source_id)
-        ) || {}
+        // Mevcut haber zaten elde (teyitEt liste kaydını döndürdü) → DÜZENLEMEYE hazırla, üretme
+        const mev = t.kayserim || {}
         kuyruk.unshift({
           ...ortak,
           durum: 'duzenle_bekliyor',
-          site_baslik: t.kayserim?.baslik || mev.site_basligi || mev.baslik || f.baslik,
+          site_baslik: mev.site_basligi || mev.baslik || f.baslik,
           og_baslik: '', meta_description: mev.meta_description || '',
           kategori: mev.kategori || 'Güncel',
           metin: mev.icerik || mev.optimize_icerik || '',
           url_slug: mev.url_slug || '',
-          mevcut_link: t.kayserim?.link || mev.kayserim_link || '',
+          mevcut_link: mev.kayserim_link || '',
           kaynak_link: f.link || '', dogrula: false,
         })
       } else {
         // yaz / isle → ÖZGÜN taslak üret
-        const draft = await uretDraft(origin, f)
+        const draft = await uretDraft(env, f)
         kuyruk.unshift({
           ...ortak, ...draft,
           durum: 'inceleme',
