@@ -167,49 +167,81 @@ async function yayinla(origin, kuyrukItem) {
 }
 
 // ── Motor (cron + manuel "Uygula çalıştır") ───────────────────────────────
-async function isle(origin, env) {
+async function isle(origin, env, secret) {
   const ayar = await getAyar(env)
   if (!ayar.aktif) return { skip: 'pasif', ayar }
 
   const firsatlar = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
   let kuyruk = await env.HABERLER.get('kesfet:kuyruk', 'json') || []
-  const kuyruktakiler = new Set(kuyruk.map(k => k.firsat_id))
+  const queued = new Set(kuyruk.map(k => k.firsat_id))
 
-  // 1) Yeni taslaklar üret
-  const uygun = firsatlar.filter(f =>
-    !f.gizli && !f.yazildi &&
-    f.skor >= ayar.min_skor &&
-    ayar.durumlar.includes(f.durum) &&
-    !kuyruktakiler.has(f.id)
-  ).slice(0, ayar.max_yeni)
+  const adaylar = firsatlar
+    .filter(f => !f.gizli && !f.yazildi && f.skor >= ayar.min_skor && !queued.has(f.id))
+    .sort((a, b) => b.skor - a.skor)
 
   const yeni = []
-  for (const f of uygun) {
+  let denenen = 0, teyitSay = { yaz: 0, isle: 0, guncelle: 0 }
+  for (const f of adaylar) {
+    if (yeni.length >= ayar.max_yeni || denenen >= 5) break
+    denenen++
+
+    // 1) TEYİT — 1ha + kayserim.net (RSS/liste)
+    let t = { durum_kodu: 'yaz' }
     try {
-      const draft = await uretDraft(origin, f)
-      const item = {
-        id: Math.random().toString(36).slice(2, 10),
-        firsat_id: f.id,
-        ...draft,
-        kaynak_gorsel: f.gorsel_url || '',
-        gorsel_url: '',
-        kaynak_link: f.link || '',
-        skor: f.skor, tur: f.tur,
-        dogrula: /\[DOĞRULA/i.test(draft.metin),
-        durum: 'inceleme',
-        olusturuldu: new Date().toISOString(),
-        yayin_zamani: new Date(Date.now() + ayar.inceleme_dk * 60000).toISOString(),
+      const vr = await fetch(`${origin}/api/kesfet-radar?action=verify&id=${encodeURIComponent(f.id)}&secret=${encodeURIComponent(secret)}`)
+      const vd = await vr.json()
+      if (vd && vd.durum_kodu) t = vd
+    } catch (_) {}
+    const kod = t.durum_kodu
+    teyitSay[kod] = (teyitSay[kod] || 0) + 1
+    if (!ayar.durumlar.includes(kod)) continue   // bu durum ayarda kapalı
+
+    const ortak = {
+      id: Math.random().toString(36).slice(2, 10),
+      firsat_id: f.id, tip: kod, skor: f.skor, tur: f.tur,
+      kaynak_gorsel: f.gorsel_url || '', gorsel_url: '',
+      olusturuldu: new Date().toISOString(),
+    }
+
+    try {
+      if (kod === 'guncelle') {
+        // Mevcut haberi liste'den (RSS kaynağı) bul → DÜZENLEMEYE hazırla, üretme
+        const liste = await env.HABERLER.get('liste', 'json') || []
+        const mev = liste.find(h =>
+          (t.kayserim?.link && h.kayserim_link === t.kayserim.link) ||
+          (t.kayserim?.source_id && h.source_id === t.kayserim.source_id)
+        ) || {}
+        kuyruk.unshift({
+          ...ortak,
+          durum: 'duzenle_bekliyor',
+          site_baslik: t.kayserim?.baslik || mev.site_basligi || mev.baslik || f.baslik,
+          og_baslik: '', meta_description: mev.meta_description || '',
+          kategori: mev.kategori || 'Güncel',
+          metin: mev.icerik || mev.optimize_icerik || '',
+          url_slug: mev.url_slug || '',
+          mevcut_link: t.kayserim?.link || mev.kayserim_link || '',
+          kaynak_link: f.link || '', dogrula: false,
+        })
+      } else {
+        // yaz / isle → ÖZGÜN taslak üret
+        const draft = await uretDraft(origin, f)
+        kuyruk.unshift({
+          ...ortak, ...draft,
+          durum: 'inceleme',
+          kaynak_link: kod === 'isle' ? (t.ha1?.link || f.link || '') : (f.link || ''),
+          dogrula: /\[DOĞRULA/i.test(draft.metin),
+          yayin_zamani: new Date(Date.now() + ayar.inceleme_dk * 60000).toISOString(),
+        })
       }
-      kuyruk.unshift(item)
-      yeni.push(item.id)
+      yeni.push(ortak.id)
       const ff = firsatlar.find(x => x.id === f.id); if (ff) ff.yazildi = true
     } catch (e) { /* sıradakine geç */ }
   }
 
-  // 2) OTO mod: penceresi dolmuş, [DOĞRULA] içermeyenleri yayınla
+  // OTO mod: süresi dolan yaz/isle taslaklarını yayınla (guncelle ve [DOĞRULA] hariç)
   const yayinlananlar = []
   if (ayar.mod === 'oto') {
-    const due = kuyruk.filter(k => k.durum === 'inceleme' && !k.dogrula && Date.now() >= Date.parse(k.yayin_zamani)).slice(0, ayar.max_yayin)
+    const due = kuyruk.filter(k => k.durum === 'inceleme' && k.tip !== 'guncelle' && !k.dogrula && Date.now() >= Date.parse(k.yayin_zamani)).slice(0, ayar.max_yayin)
     for (const k of due) {
       try {
         const res = await yayinla(origin, k)
@@ -223,7 +255,7 @@ async function isle(origin, env) {
   await env.HABERLER.put('kesfet:kuyruk', JSON.stringify(kuyruk))
   await env.HABERLER.put('kesfet:firsatlar', JSON.stringify(firsatlar))
 
-  return { ok: true, mod: ayar.mod, yeni_taslak: yeni.length, oto_yayin: yayinlananlar.length, kuyruk_boyu: kuyruk.length }
+  return { ok: true, mod: ayar.mod, denenen, teyit: teyitSay, yeni_taslak: yeni.length, oto_yayin: yayinlananlar.length, kuyruk_boyu: kuyruk.length }
 }
 
 // ── Handlers ───────────────────────────────────────────────────────────────
@@ -243,7 +275,7 @@ export async function onRequestGet({ request, env }) {
     }
     if (action === 'process') {
       if (!(await yetkili(secret, env))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
-      const r = await isle(url.origin, env)
+      const r = await isle(url.origin, env, secret)
       return Response.json(r, { headers: CORS })
     }
     return Response.json({ hata: 'Geçersiz action' }, { status: 400, headers: CORS })

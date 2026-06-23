@@ -30,12 +30,14 @@ function yas(pubDate) {
 }
 
 const KQ_DURUM = {
-  inceleme:       { c: '#FFB700', et: 'İNCELEMEDE' },
-  yayinlandi:     { c: '#00D4AA', et: 'YAYINLANDI' },
-  reddedildi:     { c: 'var(--muted)', et: 'REDDEDİLDİ' },
-  hata:           { c: '#E63946', et: 'HATA' },
-  gorsel_bekliyor:{ c: '#FFB700', et: 'GÖRSEL BEKLİYOR' },
+  inceleme:        { c: '#FFB700', et: 'İNCELEMEDE', yanar: true },
+  duzenle_bekliyor:{ c: '#4dabf7', et: 'GÜNCELLENECEK', yanar: true },
+  yayinlandi:      { c: '#00D4AA', et: 'RSS\'DE YAYINDA', yanar: false },
+  reddedildi:      { c: 'var(--muted)', et: 'REDDEDİLDİ', yanar: false },
+  hata:            { c: '#E63946', et: 'HATA', yanar: false },
+  gorsel_bekliyor: { c: '#FFB700', et: 'GÖRSEL BEKLİYOR', yanar: true },
 }
+const KQ_TIP = { yaz: 'Yeni üretildi', isle: '1ha işlendi', guncelle: 'Mevcudu güncelle' }
 
 function kalanSure(yayin_zamani) {
   const t = Date.parse(yayin_zamani)
@@ -51,7 +53,11 @@ function KuyrukKarti({ k, onManuelAc, onAksiyon }) {
   return (
     <div style={{ background: 'rgba(255,255,255,.03)', border: `0.5px solid ${d.c}44`, borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: d.c, border: `0.5px solid ${d.c}55`, padding: '1px 6px', borderRadius: 4 }}>{d.et}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, color: d.c, border: `0.5px solid ${d.c}55`, padding: '1px 7px', borderRadius: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: d.c, animation: d.yanar ? 'kpulse 1.2s ease-in-out infinite' : 'none' }} />
+          {d.et}
+        </span>
+        {k.tip && <span style={{ fontSize: 10, color: 'var(--muted)' }}>{KQ_TIP[k.tip] || k.tip}</span>}
         {typeof k.skor === 'number' && <span style={{ fontSize: 10, fontWeight: 700, color: '#9b6bff' }}>{k.skor}</span>}
         {k.dogrula && <span style={{ fontSize: 10, color: '#E63946' }}>⚠ [DOĞRULA] — oto yayınlanmaz</span>}
         {k.durum === 'inceleme' && <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>{kalanSure(k.yayin_zamani)}</span>}
@@ -61,16 +67,21 @@ function KuyrukKarti({ k, onManuelAc, onAksiyon }) {
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>{ozet}…</div>
       {k.hata && <div style={{ fontSize: 11, color: '#ff7b7b', marginTop: 4 }}>Hata: {k.hata}</div>}
 
-      {k.durum === 'inceleme' && (
+      {(k.durum === 'inceleme' || k.durum === 'duzenle_bekliyor') && (
         <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => onManuelAc({ baslik: k.site_baslik, metin: k.metin, kategori: k.kategori, gorsel_url: k.kaynak_gorsel || '', kaynak_url: k.kaynak_link || '', keyword: k.og_baslik || '' })}
+          <button onClick={() => onManuelAc({ baslik: k.site_baslik, metin: k.metin, kategori: k.kategori, gorsel_url: k.kaynak_gorsel || '', kaynak_url: k.mevcut_link || k.kaynak_link || '', keyword: k.og_baslik || '' })}
             style={{ fontSize: 11, color: '#fff', background: 'rgba(155,107,255,.85)', border: 'none', borderRadius: 5, padding: '4px 10px' }}>
-            ✎ Editörde aç (görsel + yayın)
+            {k.durum === 'duzenle_bekliyor' ? '✎ Mevcudu güncelle (editörde aç)' : '✎ Editörde aç (görsel + yayın)'}
           </button>
-          <button onClick={() => onAksiyon(k.id, 'onayla')}
-            style={{ fontSize: 11, color: '#00D4AA', background: 'rgba(0,212,170,.1)', border: '0.5px solid rgba(0,212,170,.3)', borderRadius: 5, padding: '4px 10px' }}>
-            ⚡ Direkt yayınla
-          </button>
+          {k.durum === 'inceleme' && (
+            <button onClick={() => onAksiyon(k.id, 'onayla')}
+              style={{ fontSize: 11, color: '#00D4AA', background: 'rgba(0,212,170,.1)', border: '0.5px solid rgba(0,212,170,.3)', borderRadius: 5, padding: '4px 10px' }}>
+              ⚡ RSS'ye ekle
+            </button>
+          )}
+          {k.durum === 'duzenle_bekliyor' && k.mevcut_link && (
+            <a href={k.mevcut_link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#4dabf7', textDecoration: 'none', border: '0.5px solid rgba(77,171,247,.3)', borderRadius: 5, padding: '4px 10px' }}>Mevcut haber ↗</a>
+          )}
           <button onClick={() => onAksiyon(k.id, 'reddet')}
             style={{ fontSize: 11, color: 'var(--muted)', background: 'transparent', border: '0.5px solid var(--border)', borderRadius: 5, padding: '4px 10px' }}>
             Reddet
@@ -78,7 +89,7 @@ function KuyrukKarti({ k, onManuelAc, onAksiyon }) {
         </div>
       )}
       {k.durum === 'yayinlandi' && k.url_slug && (
-        <div style={{ fontSize: 11, color: '#00D4AA', marginTop: 6 }}>✓ /{k.url_slug}</div>
+        <div style={{ fontSize: 11, color: '#00D4AA', marginTop: 6 }}>✓ RSS'de: /{k.url_slug}</div>
       )}
     </div>
   )
@@ -154,7 +165,10 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
       let msg
       if (d.skip === 'pasif') msg = 'Pasif — "Otomatik üretim AÇIK" kutusunu işaretleyip Uygula deyin.'
       else if (d.yeni_taslak > 0) { msg = `${d.yeni_taslak} taslak üretildi → Kuyruk sekmesine bak.${d.oto_yayin ? ' ' + d.oto_yayin + ' otomatik yayınlandı.' : ''}`; setGorunum('kuyruk') }
-      else msg = `Üretilecek yeni fırsat yok (skor ≥ ${ayar?.min_skor}, durum: ${(ayar?.durumlar || []).join('/') || '—'}). Eşiği düşür, durum ekle ya da "⟳ Şimdi tara" ile fırsat topla.`
+      else {
+        const tb = d.teyit ? ` — teyit: ${d.teyit.yaz || 0} yeni, ${d.teyit.isle || 0} 1ha'da, ${d.teyit.guncelle || 0} kayserim'de` : ''
+        msg = `Üretilecek yeni fırsat yok${tb}. Ayarda açık durumlar: ${(ayar?.durumlar || []).join('/') || '—'}. Eşiği düşür, durum ekle ya da "⟳ Şimdi tara".`
+      }
       setOtoMsg(msg)
     } catch (e) { setHata('Çalıştırma hatası: ' + e.message) }
     setCalisiyor(false)
@@ -280,6 +294,7 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font)' }}>
+      <style>{`@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.2}}`}</style>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 1rem', height: 48, borderBottom: '0.5px solid var(--border)', flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 16, color: '#9b6bff' }}>Keşfet Radar</div>
