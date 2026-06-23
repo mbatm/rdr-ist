@@ -385,7 +385,13 @@ export async function onRequestGet({ request, env }) {
     if (action === 'scan') {
       if (!(await yetkili(secret, env))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
       const log = await tara(env)
-      return Response.json({ ok: true, ...log }, { headers: CORS })
+      // Tarama sonrası oto motoru tetikle (pasifse anında döner)
+      let oto = null
+      try {
+        const r = await fetch(`${url.origin}/api/kesfet-oto?action=process&secret=${encodeURIComponent(secret)}`)
+        oto = await r.json()
+      } catch (_) {}
+      return Response.json({ ok: true, ...log, oto }, { headers: CORS })
     }
 
     if (action === 'list') {

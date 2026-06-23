@@ -29,6 +29,61 @@ function yas(pubDate) {
   return `${Math.round(s / 24)} gün önce`
 }
 
+const KQ_DURUM = {
+  inceleme:       { c: '#FFB700', et: 'İNCELEMEDE' },
+  yayinlandi:     { c: '#00D4AA', et: 'YAYINLANDI' },
+  reddedildi:     { c: 'var(--muted)', et: 'REDDEDİLDİ' },
+  hata:           { c: '#E63946', et: 'HATA' },
+  gorsel_bekliyor:{ c: '#FFB700', et: 'GÖRSEL BEKLİYOR' },
+}
+
+function kalanSure(yayin_zamani) {
+  const t = Date.parse(yayin_zamani)
+  if (!t || isNaN(t)) return ''
+  const dk = (t - Date.now()) / 6e4
+  if (dk <= 0) return 'inceleme süresi doldu'
+  return `${Math.ceil(dk)} dk sonra (oto modda) yayınlanır`
+}
+
+function KuyrukKarti({ k, onManuelAc, onAksiyon }) {
+  const d = KQ_DURUM[k.durum] || KQ_DURUM.inceleme
+  const ozet = (k.metin || '').replace(/[#*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
+  return (
+    <div style={{ background: 'rgba(255,255,255,.03)', border: `0.5px solid ${d.c}44`, borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: d.c, border: `0.5px solid ${d.c}55`, padding: '1px 6px', borderRadius: 4 }}>{d.et}</span>
+        {typeof k.skor === 'number' && <span style={{ fontSize: 10, fontWeight: 700, color: '#9b6bff' }}>{k.skor}</span>}
+        {k.dogrula && <span style={{ fontSize: 10, color: '#E63946' }}>⚠ [DOĞRULA] — oto yayınlanmaz</span>}
+        {k.durum === 'inceleme' && <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>{kalanSure(k.yayin_zamani)}</span>}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600, lineHeight: 1.3 }}>{k.site_baslik}</div>
+      {k.og_baslik && k.og_baslik !== k.site_baslik && <div style={{ fontSize: 11, color: '#9b6bff', marginTop: 2 }}>Discover: {k.og_baslik}</div>}
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>{ozet}…</div>
+      {k.hata && <div style={{ fontSize: 11, color: '#ff7b7b', marginTop: 4 }}>Hata: {k.hata}</div>}
+
+      {k.durum === 'inceleme' && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => onManuelAc({ baslik: k.site_baslik, metin: k.metin, kategori: k.kategori, gorsel_url: k.kaynak_gorsel || '', kaynak_url: k.kaynak_link || '', keyword: k.og_baslik || '' })}
+            style={{ fontSize: 11, color: '#fff', background: 'rgba(155,107,255,.85)', border: 'none', borderRadius: 5, padding: '4px 10px' }}>
+            ✎ Editörde aç (görsel + yayın)
+          </button>
+          <button onClick={() => onAksiyon(k.id, 'onayla')}
+            style={{ fontSize: 11, color: '#00D4AA', background: 'rgba(0,212,170,.1)', border: '0.5px solid rgba(0,212,170,.3)', borderRadius: 5, padding: '4px 10px' }}>
+            ⚡ Direkt yayınla
+          </button>
+          <button onClick={() => onAksiyon(k.id, 'reddet')}
+            style={{ fontSize: 11, color: 'var(--muted)', background: 'transparent', border: '0.5px solid var(--border)', borderRadius: 5, padding: '4px 10px' }}>
+            Reddet
+          </button>
+        </div>
+      )}
+      {k.durum === 'yayinlandi' && k.url_slug && (
+        <div style={{ fontSize: 11, color: '#00D4AA', marginTop: 6 }}>✓ /{k.url_slug}</div>
+      )}
+    </div>
+  )
+}
+
 export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   const token = localStorage.getItem('cms_token') || ''
   const [firsatlar, setFirsatlar] = useState([])
@@ -40,6 +95,12 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   const [teyitId, setTeyitId] = useState(null)     // o an teyit edilen id
   const [filtre, setFiltre] = useState('aktif')   // aktif | hepsi | acil
   const [hata, setHata] = useState(null)
+  const [ayar, setAyar] = useState(null)
+  const [ayarAcik, setAyarAcik] = useState(false)
+  const [gorunum, setGorunum] = useState('firsatlar') // firsatlar | kuyruk
+  const [kuyruk, setKuyruk] = useState([])
+  const [calisiyor, setCalisiyor] = useState(false)
+  const [kaydet, setKaydet] = useState(false)
 
   const getir = useCallback(async () => {
     setYukleniyor(true); setHata(null)
@@ -54,6 +115,55 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   }, [token])
 
   useEffect(() => { getir() }, [getir])
+
+  // ── Oto pipeline: ayar + kuyruk ──
+  const otoGetir = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/kesfet-oto?action=kuyruk&secret=${encodeURIComponent(token)}`)
+      const d = await r.json()
+      if (!d.hata) { setKuyruk(d.kuyruk || []); setAyar(d.ayar || null) }
+    } catch (_) {}
+  }, [token])
+  useEffect(() => { otoGetir() }, [otoGetir])
+
+  const ayarKaydet = async () => {
+    setKaydet(true); setHata(null)
+    try {
+      const r = await fetch(`/api/kesfet-oto?action=ayarlar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ayarlar', secret: token, ayar }),
+      })
+      const d = await r.json()
+      if (d.hata) throw new Error(d.hata)
+      setAyar(d.ayar)
+    } catch (e) { setHata('Ayar kaydedilemedi: ' + e.message) }
+    setKaydet(false)
+  }
+
+  const otoCalistir = async () => {
+    setCalisiyor(true); setHata(null)
+    try {
+      const r = await fetch(`/api/kesfet-oto?action=process&secret=${encodeURIComponent(token)}`)
+      const d = await r.json()
+      if (d.hata) throw new Error(d.hata)
+      await otoGetir(); await getir()
+    } catch (e) { setHata('Çalıştırma hatası: ' + e.message) }
+    setCalisiyor(false)
+  }
+
+  const kuyrukAksiyon = async (id, action) => {
+    try {
+      const r = await fetch(`/api/kesfet-oto?action=${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, id, secret: token }),
+      })
+      const d = await r.json()
+      if (d.hata) throw new Error(d.hata)
+      await otoGetir()
+    } catch (e) { setHata((action === 'onayla' ? 'Yayın' : 'İşlem') + ' hatası: ' + e.message) }
+  }
+
+  const bekleyenKuyruk = kuyruk.filter(k => k.durum === 'inceleme').length
 
   const tara = async () => {
     setTariyor(true); setHata(null)
@@ -162,8 +272,20 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 1rem', height: 48, borderBottom: '0.5px solid var(--border)', flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 16, color: '#9b6bff' }}>Keşfet Radar</div>
         <button onClick={onGeri} style={{ fontSize: 11, color: 'var(--muted)', background: 'transparent', border: '0.5px solid var(--border)' }}>← Menü</button>
+        <div style={{ display: 'flex', gap: 2, marginLeft: 6 }}>
+          {[['firsatlar', 'Fırsatlar'], ['kuyruk', `Kuyruk${bekleyenKuyruk ? ' (' + bekleyenKuyruk + ')' : ''}`]].map(([id, l]) => (
+            <button key={id} onClick={() => setGorunum(id)}
+              style={{ fontSize: 12, fontWeight: gorunum === id ? 600 : 400, background: gorunum === id ? 'rgba(155,107,255,.12)' : 'transparent', border: gorunum === id ? '0.5px solid rgba(155,107,255,.3)' : '0.5px solid transparent', color: gorunum === id ? '#9b6bff' : 'var(--muted)', borderRadius: 5, padding: '3px 10px' }}>
+              {l}
+            </button>
+          ))}
+        </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {sonTarama?.zaman && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Son tarama: {yas(sonTarama.zaman)}</span>}
+          <button onClick={() => setAyarAcik(a => !a)} title="Oto ayarlar"
+            style={{ fontSize: 12, color: ayar?.aktif ? '#00D4AA' : 'var(--muted)', background: ayar?.aktif ? 'rgba(0,212,170,.1)' : 'transparent', border: '0.5px solid var(--border)' }}>
+            ⚙ Oto {ayar ? (ayar.aktif ? `· ${ayar.mod === 'oto' ? 'TAM' : 'YARI'}` : '· pasif') : ''}
+          </button>
+          {sonTarama?.zaman && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Tarama: {yas(sonTarama.zaman)}</span>}
           <button onClick={tara} disabled={tariyor}
             style={{ fontSize: 12, color: '#9b6bff', background: 'rgba(155,107,255,0.10)', border: '0.5px solid rgba(155,107,255,0.30)' }}>
             {tariyor ? 'Taranıyor…' : '⟳ Şimdi tara'}
@@ -171,7 +293,55 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
         </div>
       </div>
 
+      {ayarAcik && ayar && (
+        <div style={{ padding: '10px 1rem', borderBottom: '0.5px solid var(--border)', background: 'rgba(155,107,255,.04)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', fontSize: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text)', fontWeight: 600 }}>
+              <input type="checkbox" checked={ayar.aktif} onChange={e => setAyar({ ...ayar, aktif: e.target.checked })} />
+              Otomatik üretim {ayar.aktif ? 'AÇIK' : 'PASİF'}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+              Mod:
+              <select value={ayar.mod} onChange={e => setAyar({ ...ayar, mod: e.target.value })} style={{ fontSize: 12, background: 'var(--bg)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 4, padding: '2px 6px' }}>
+                <option value="yari">Yarı (onayla yayınla)</option>
+                <option value="oto">Tam (süre dolunca yayınla)</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+              Min skor:
+              <input type="number" min="0" max="100" value={ayar.min_skor} onChange={e => setAyar({ ...ayar, min_skor: +e.target.value })} style={{ width: 54, fontSize: 12, background: 'var(--bg)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 4, padding: '2px 6px' }} />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+              İnceleme (dk):
+              <input type="number" min="0" value={ayar.inceleme_dk} onChange={e => setAyar({ ...ayar, inceleme_dk: +e.target.value })} style={{ width: 54, fontSize: 12, background: 'var(--bg)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 4, padding: '2px 6px' }} />
+            </label>
+            <div style={{ display: 'flex', gap: 10, color: 'var(--muted)' }}>
+              {[['yaz', 'Yeni yaz'], ['isle', '1ha işle'], ['guncelle', 'Güncelle']].map(([d, l]) => (
+                <label key={d} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <input type="checkbox" checked={ayar.durumlar?.includes(d)} onChange={e => { const s = new Set(ayar.durumlar || []); e.target.checked ? s.add(d) : s.delete(d); setAyar({ ...ayar, durumlar: [...s] }) }} />
+                  {l}
+                </label>
+              ))}
+            </div>
+            <button onClick={ayarKaydet} disabled={kaydet} style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: 'rgba(155,107,255,.85)', border: 'none', borderRadius: 5, padding: '5px 14px' }}>
+              {kaydet ? 'Kaydediliyor…' : 'Uygula'}
+            </button>
+            <button onClick={otoCalistir} disabled={calisiyor || !ayar.aktif} title={ayar.aktif ? '' : 'Önce aktif et + Uygula'} style={{ fontSize: 12, color: '#00D4AA', background: 'rgba(0,212,170,.1)', border: '0.5px solid rgba(0,212,170,.3)', borderRadius: 5, padding: '5px 12px' }}>
+              {calisiyor ? 'Çalışıyor…' : '▶ Şimdi çalıştır'}
+            </button>
+          </div>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 6 }}>
+            {ayar.aktif
+              ? (ayar.mod === 'oto'
+                ? `Tam otomatik: skor ≥ ${ayar.min_skor} fırsatlar taslak+görselle üretilir, ${ayar.inceleme_dk} dk sonra [DOĞRULA] yoksa otomatik yayınlanır.`
+                : `Yarı otomatik: skor ≥ ${ayar.min_skor} fırsatlar taslak olarak Kuyruğa düşer; sen "Yayınla" deyince yayınlanır.`)
+              : 'Pasif — hiçbir şey üretilmez/yayınlanmaz. Aktif edip "Uygula"ya bas. Otomatik üretim her 5 dk\'lık cron\'da çalışır.'}
+          </div>
+        </div>
+      )}
+
       {/* Özet / hatırlatma şeridi */}
+      {gorunum === 'firsatlar' && (
       <div style={{ display: 'flex', gap: 10, padding: '10px 1rem', borderBottom: '0.5px solid var(--border)', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: acilSayisi ? '#ff7b7b' : 'var(--muted)' }}>
           {acilSayisi > 0 ? `🔴 ${acilSayisi} konu acil — rakipte var, sende yok` : 'Acil fırsat yok'}
@@ -186,9 +356,10 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
           ))}
         </div>
       </div>
+      )}
 
       {/* Kaynak durumu */}
-      {sonTarama?.kaynak_durum && (
+      {gorunum === 'firsatlar' && sonTarama?.kaynak_durum && (
         <div style={{ display: 'flex', gap: 8, padding: '6px 1rem', borderBottom: '0.5px solid var(--border)', flexWrap: 'wrap' }}>
           {sonTarama.kaynak_durum.map(k => (
             <span key={k.domain} style={{ fontSize: 10, color: k.ok ? '#00D4AA' : '#E63946', background: 'rgba(255,255,255,.03)', border: '0.5px solid var(--border)', padding: '2px 7px', borderRadius: 10 }}>
@@ -200,9 +371,19 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
 
       {hata && <div style={{ padding: '8px 1rem', color: '#ff7b7b', fontSize: 12 }}>{hata}</div>}
 
-      {/* Liste */}
+      {/* Liste / Kuyruk */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem' }}>
-        {yukleniyor ? (
+        {gorunum === 'kuyruk' ? (
+          kuyruk.length === 0 ? (
+            <div style={{ color: 'var(--muted)', fontSize: 13, padding: 20, textAlign: 'center' }}>
+              Kuyruk boş. Oto üretim aktifse skor eşiğini geçen fırsatlar buraya taslak olarak düşer.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {kuyruk.map(k => <KuyrukKarti key={k.id} k={k} onManuelAc={onManuelAc} onAksiyon={kuyrukAksiyon} />)}
+            </div>
+          )
+        ) : yukleniyor ? (
           <div style={{ color: 'var(--muted)', fontSize: 13, padding: 20 }}>Yükleniyor…</div>
         ) : gorunen.length === 0 ? (
           <div style={{ color: 'var(--muted)', fontSize: 13, padding: 20, textAlign: 'center' }}>
