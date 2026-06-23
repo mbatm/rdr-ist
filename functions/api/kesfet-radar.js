@@ -22,6 +22,10 @@ const KENDI_RSS = 'https://www.kayserim.net/rss'
 const KAYNAKLAR = [
   { domain: 'kayseriolay.com',            oncelik: 1, tip: 'yerel' },
   { domain: 'kayserianadoluhaber.com.tr', oncelik: 1, tip: 'yerel' },
+  { domain: 'kayserihaber.com.tr',        oncelik: 1, tip: 'yerel' },
+  { domain: 'denizpostasi.com',           oncelik: 1, tip: 'yerel' },
+  { domain: 'gazetekayseri.com.tr',       oncelik: 2, tip: 'yerel' },
+  { domain: 'kayserigazetesi.com',        oncelik: 2, tip: 'yerel' },
   { domain: 'kayserigundem.com.tr',       oncelik: 2, tip: 'yerel' },
   { domain: 'kayseriyerelhaber.com',      oncelik: 2, tip: 'yerel' },
 ]

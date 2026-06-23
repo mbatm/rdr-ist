@@ -169,7 +169,7 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   const otoCalistir = async () => {
     setCalisiyor(true); setHata(null); setOtoMsg(null)
     const ctl = new AbortController()
-    const to = setTimeout(() => ctl.abort(), 70000)
+    const to = setTimeout(() => ctl.abort(), 90000)
     try {
       const r = await fetch(`/api/kesfet-oto?action=process&secret=${encodeURIComponent(token)}`, { signal: ctl.signal })
       const d = await r.json()
@@ -185,7 +185,7 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
       setOtoMsg(msg)
     } catch (e) {
       setHata(e.name === 'AbortError'
-        ? 'Üretim 70 sn\'yi aştı — muhtemelen arkada tamamlandı, "Kuyruk" sekmesini kontrol et.'
+        ? 'Üretim 90 sn\'yi aştı — muhtemelen arkada tamamlandı, "Kuyruk" sekmesini kontrol et.'
         : 'Çalıştırma hatası: ' + e.message)
     } finally { clearTimeout(to); setCalisiyor(false) }
   }

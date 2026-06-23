@@ -245,55 +245,59 @@ async function isle(origin, env, secret) {
     .filter(f => !f.gizli && !f.yazildi && f.skor >= ayar.min_skor && !queued.has(f.id))
     .sort((a, b) => b.skor - a.skor)
 
-  const yeni = []
   let denenen = 0, teyitSay = { yaz: 0, isle: 0, guncelle: 0 }
-  const denemeSiniri = Math.max(8, ayar.max_yeni * 3)
-  for (const f of adaylar) {
-    if (yeni.length >= ayar.max_yeni || denenen >= denemeSiniri) break
-    denenen++
+  const denemeSiniri = Math.max(10, ayar.max_yeni * 3)
 
-    // 1) TEYİT — doğrudan (1ha + kayserim liste, nested istek yok)
+  // FAZ 1 — teyit (hızlı, ağ yok) ile üretilecekleri seç
+  const secilenler = []
+  for (const f of adaylar) {
+    if (secilenler.length >= ayar.max_yeni || denenen >= denemeSiniri) break
+    denenen++
     const t = teyitEt(f.baslik, ha1, liste)
     const kod = t.durum_kodu
     teyitSay[kod] = (teyitSay[kod] || 0) + 1
-    if (!ayar.durumlar.includes(kod)) continue   // bu durum ayarda kapalı
+    if (!ayar.durumlar.includes(kod)) continue
+    secilenler.push({ f, kod, t })
+  }
 
+  // FAZ 2 — yaz/isle taslaklarını PARALEL üret (tek tek değil → süre 1/N'e iner)
+  const uretilecek = secilenler.filter(s => s.kod !== 'guncelle')
+  const sonuc = await Promise.allSettled(uretilecek.map(s => uretDraft(env, s.f)))
+  const draftMap = new Map()
+  uretilecek.forEach((s, i) => { if (sonuc[i].status === 'fulfilled') draftMap.set(s.f.id, sonuc[i].value) })
+
+  // FAZ 3 — kuyruğa ekle
+  const yeni = []
+  for (const { f, kod, t } of secilenler) {
     const ortak = {
       id: Math.random().toString(36).slice(2, 10),
       firsat_id: f.id, tip: kod, skor: f.skor, tur: f.tur,
       kaynak_gorsel: f.gorsel_url || '', gorsel_url: '',
       olusturuldu: new Date().toISOString(),
     }
-
-    try {
-      if (kod === 'guncelle') {
-        // Mevcut haber zaten elde (teyitEt liste kaydını döndürdü) → DÜZENLEMEYE hazırla, üretme
-        const mev = t.kayserim || {}
-        kuyruk.unshift({
-          ...ortak,
-          durum: 'duzenle_bekliyor',
-          site_baslik: mev.site_basligi || mev.baslik || f.baslik,
-          og_baslik: '', meta_description: mev.meta_description || '',
-          kategori: mev.kategori || 'Güncel',
-          metin: mev.icerik || mev.optimize_icerik || '',
-          url_slug: mev.url_slug || '',
-          mevcut_link: mev.kayserim_link || '',
-          kaynak_link: f.link || '', dogrula: false,
-        })
-      } else {
-        // yaz / isle → ÖZGÜN taslak üret
-        const draft = await uretDraft(env, f)
-        kuyruk.unshift({
-          ...ortak, ...draft,
-          durum: 'inceleme',
-          kaynak_link: kod === 'isle' ? (t.ha1?.link || f.link || '') : (f.link || ''),
-          dogrula: /\[DOĞRULA/i.test(draft.metin),
-          yayin_zamani: new Date(Date.now() + ayar.inceleme_dk * 60000).toISOString(),
-        })
-      }
-      yeni.push(ortak.id)
-      const ff = firsatlar.find(x => x.id === f.id); if (ff) ff.yazildi = true
-    } catch (e) { /* sıradakine geç */ }
+    if (kod === 'guncelle') {
+      const mev = t.kayserim || {}
+      kuyruk.unshift({
+        ...ortak, durum: 'duzenle_bekliyor',
+        site_baslik: mev.site_basligi || mev.baslik || f.baslik,
+        og_baslik: '', meta_description: mev.meta_description || '',
+        kategori: mev.kategori || 'Güncel',
+        metin: mev.icerik || mev.optimize_icerik || '',
+        url_slug: mev.url_slug || '',
+        mevcut_link: mev.kayserim_link || '', kaynak_link: f.link || '', dogrula: false,
+      })
+    } else {
+      const draft = draftMap.get(f.id)
+      if (!draft) continue  // üretilemedi → atla
+      kuyruk.unshift({
+        ...ortak, ...draft, durum: 'inceleme',
+        kaynak_link: kod === 'isle' ? (t.ha1?.link || f.link || '') : (f.link || ''),
+        dogrula: /\[DOĞRULA/i.test(draft.metin),
+        yayin_zamani: new Date(Date.now() + ayar.inceleme_dk * 60000).toISOString(),
+      })
+    }
+    yeni.push(ortak.id)
+    const ff = firsatlar.find(x => x.id === f.id); if (ff) ff.yazildi = true
   }
 
   // OTO mod: süresi dolan yaz/isle taslaklarını yayınla (guncelle ve [DOĞRULA] hariç)
