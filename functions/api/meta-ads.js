@@ -170,12 +170,15 @@ export async function onRequestGet({ request, env }) {
     // ── NEDEN teslimat yok? adset bid/optimizasyon ayarlarını karşılaştır ──
     if (action === "neden") {
       const camps = await graph(ACT + "/campaigns?fields=id,name,bid_strategy,status,daily_budget&limit=50", "GET", null, TOKEN)
-      const adsets = await graph(ACT + "/adsets?fields=id,name,campaign_id,status,effective_status,bid_strategy,bid_amount,daily_budget,optimization_goal,billing_event,issues_info,start_time,end_time&limit=100", "GET", null, TOKEN)
+      const adsets = await graph(ACT + "/adsets?fields=id,name,campaign_id,status,effective_status,bid_strategy,bid_amount,daily_budget,optimization_goal,billing_event,issues_info,start_time,end_time,targeting,promoted_object&limit=100", "GET", null, TOKEN)
       const rapor = (camps.data || []).filter(c => c.status !== "ARCHIVED" && c.status !== "DELETED").map(c => ({
         k: (c.name || "").replace("KayserimNet - ", ""), camp_bid: c.bid_strategy, camp_butce: c.daily_budget, status: c.status,
         adsetler: (adsets.data || []).filter(a => a.campaign_id === c.id).map(a => ({
-          eff: a.effective_status, bid_strategy: a.bid_strategy, bid_amount: a.bid_amount, adset_butce: a.daily_budget,
-          opt: a.optimization_goal, bill: a.billing_event, baslangic: a.start_time,
+          eff: a.effective_status, bid_amount: a.bid_amount, opt: a.optimization_goal, bill: a.billing_event,
+          promoted: a.promoted_object || null,
+          geo: a.targeting?.geo_locations || null,
+          yas: (a.targeting?.age_min || "") + "-" + (a.targeting?.age_max || ""),
+          adv: a.targeting?.targeting_automation || null,
           sorun: (a.issues_info || []).map(i => i.error_summary || i.error_message)
         }))
       }))
