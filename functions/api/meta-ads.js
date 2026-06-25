@@ -129,6 +129,20 @@ export async function onRequestGet({ request, env }) {
       return Response.json({ ok: true, adimlar }, { headers: cors })
     }
 
+    // ── TEMİZLİK: reklamı olmayan AKTİF kampanyaları PAUSED yap (silmez, geri alınabilir) ──
+    if (action === "temizle_bos") {
+      const ads = await graph(ACT + "/ads?fields=campaign_id&limit=200", "GET", null, TOKEN)
+      const reklamli = new Set((ads.data || []).map(a => a.campaign_id))
+      const camps = await graph(ACT + "/campaigns?fields=id,name,status&limit=50", "GET", null, TOKEN)
+      const bos = (camps.data || []).filter(c => c.status === "ACTIVE" && !reklamli.has(c.id))
+      const sonuc = []
+      for (const c of bos) {
+        try { await graph(c.id, "POST", { status: "PAUSED" }, TOKEN); sonuc.push({ kampanya: c.name, islem: "PAUSED (reklamsız)" }) }
+        catch (e) { sonuc.push({ kampanya: c.name, hata: e.message }) }
+      }
+      return Response.json({ ok: true, duraklatilan_sayisi: sonuc.length, duraklatilanlar: sonuc }, { headers: cors })
+    }
+
     // ── Performans gecmisi ──
     if (action === "insights") {
       const date  = url.searchParams.get("date") || "last_7d"

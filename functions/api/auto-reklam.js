@@ -117,19 +117,20 @@ async function rss_kesif(env) {
     if (aktif_isimler.some(n => n.includes(kw))) continue
 
     const adi  = "KayserimNet - Oto - " + kw + " - " + new Date().toISOString().slice(0, 10)
+    // Hepsini PAUSED oluştur; ad doğrulanınca AKTİF et → öksüz (reklamsız ACTIVE) kampanya olmaz
     const camp = await fetch(GRAPH + "/" + ACT + "/campaigns", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: adi, objective: "OUTCOME_TRAFFIC", daily_budget: KURAL.yeni_kamp_butce, status: "ACTIVE", special_ad_categories: [], access_token: TOKEN })
+      body: JSON.stringify({ name: adi, objective: "OUTCOME_TRAFFIC", daily_budget: KURAL.yeni_kamp_butce, status: "PAUSED", special_ad_categories: [], access_token: TOKEN })
     }).then(r => r.json())
 
     if (!camp.id) { kararlar.push({ tip: "HATA", adi, sebep: camp.error?.message }); continue }
 
     const adset = await fetch(GRAPH + "/" + ACT + "/adsets", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: adi + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "ACTIVE", access_token: TOKEN })
+      body: JSON.stringify({ name: adi + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "PAUSED", access_token: TOKEN })
     }).then(r => r.json())
 
-    if (!adset.id) { kararlar.push({ tip: "ADSET_HATA", adi, sebep: adset.error?.message }); continue }
+    if (!adset.id) { kararlar.push({ tip: "ADSET_HATA", adi, sebep: adset.error?.message }); continue }  // camp PAUSED kalır
 
     const mesaj = f.title ? "Kayseri " + kw + " haberleri! " + f.title.slice(0, 80) : "Kayseri " + kw + " - Anlık haberler kayserim.net'te"
     const cr = await fetch(GRAPH + "/" + ACT + "/adcreatives", {
@@ -137,16 +138,25 @@ async function rss_kesif(env) {
       body: JSON.stringify({ name: adi + " Creative", object_story_spec: { page_id: PAGE, link_data: { link: f.link || "https://www.kayserim.net", message: mesaj, name: "Kayseri " + kw + " - Son Dakika", call_to_action: { type: "LEARN_MORE", value: { link: f.link || "https://www.kayserim.net" } } } }, access_token: TOKEN })
     }).then(r => r.json())
 
-    if (!cr.id) { kararlar.push({ tip: "CREATIVE_HATA", adi, sebep: cr.error?.message }); continue }
+    if (!cr.id) { kararlar.push({ tip: "CREATIVE_HATA", adi, sebep: cr.error?.message }); continue }  // camp PAUSED kalır
 
     const ad = await fetch(GRAPH + "/" + ACT + "/ads", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: adi, adset_id: adset.id, creative: { creative_id: cr.id }, status: "ACTIVE", access_token: TOKEN })
+      body: JSON.stringify({ name: adi, adset_id: adset.id, creative: { creative_id: cr.id }, status: "PAUSED", access_token: TOKEN })
     }).then(r => r.json())
 
-    if (!ad.id) { kararlar.push({ tip: "AD_HATA", adi, sebep: ad.error?.message }); continue }
+    if (!ad.id) { kararlar.push({ tip: "AD_HATA", adi, sebep: ad.error?.message }); continue }  // camp PAUSED kalır
 
-    // Reklamın gerçek teslimat durumunu doğrula (neden yayına girmediğini logla)
+    // Ad oluştu → tüm zinciri AKTİF et (sıra: ad → adset → campaign)
+    try {
+      await g(ad.id, "POST", { status: "ACTIVE" }, TOKEN)
+      await g(adset.id, "POST", { status: "ACTIVE" }, TOKEN)
+      await g(camp.id, "POST", { status: "ACTIVE" }, TOKEN)
+    } catch (e) {
+      kararlar.push({ tip: "AKTIF_HATA", adi, ad_id: ad.id, camp_id: camp.id, sebep: e.message }); continue
+    }
+
+    // Yayın durumunu doğrula
     let ad_durum = null, sorunlar = []
     try {
       const dd = await g(ad.id + "?fields=effective_status,issues_info", "GET", null, TOKEN)
