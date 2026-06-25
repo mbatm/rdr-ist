@@ -144,7 +144,17 @@ async function rss_kesif(env) {
       body: JSON.stringify({ name: adi, adset_id: adset.id, creative: { creative_id: cr.id }, status: "ACTIVE", access_token: TOKEN })
     }).then(r => r.json())
 
-    kararlar.push({ tip: "YENI_KAMPANYA", adi, keyword: kw, skor: f.score, ad_id: ad.id, camp_id: camp.id })
+    if (!ad.id) { kararlar.push({ tip: "AD_HATA", adi, sebep: ad.error?.message }); continue }
+
+    // Reklamın gerçek teslimat durumunu doğrula (neden yayına girmediğini logla)
+    let ad_durum = null, sorunlar = []
+    try {
+      const dd = await g(ad.id + "?fields=effective_status,issues_info", "GET", null, TOKEN)
+      ad_durum = dd.effective_status
+      sorunlar = (dd.issues_info || []).map(i => i.error_summary || i.error_message || i.error_code)
+    } catch (_) {}
+
+    kararlar.push({ tip: "YENI_KAMPANYA", adi, keyword: kw, skor: f.score, ad_id: ad.id, camp_id: camp.id, ad_durum, sorunlar })
   }
 
   return kararlar

@@ -75,6 +75,25 @@ export async function onRequestGet({ request, env }) {
       }, { headers: cors })
     }
 
+    // ── TANI: neden yayına girmiyor? ad-seviyesi durum + red sebepleri ──
+    if (action === "tani") {
+      const camps = await graph(ACT + "/campaigns?fields=id,name,status,effective_status&limit=50", "GET", null, TOKEN)
+      const adsets = await graph(ACT + "/adsets?fields=id,name,status,effective_status,campaign_id&limit=100", "GET", null, TOKEN)
+      const ads = await graph(ACT + "/ads?fields=id,name,status,effective_status,adset_id,campaign_id,issues_info,ad_review_feedback&limit=100", "GET", null, TOKEN)
+      const aktifCamps = (camps.data || []).filter(c => c.status !== "ARCHIVED" && c.status !== "DELETED")
+      const rapor = aktifCamps.map(c => ({
+        kampanya: c.name, id: c.id, status: c.status, eff: c.effective_status,
+        adsetler: (adsets.data || []).filter(a => a.campaign_id === c.id).map(a => ({ ad: a.name, status: a.status, eff: a.effective_status })),
+        reklamlar: (ads.data || []).filter(a => a.campaign_id === c.id).map(a => ({
+          ad: a.name, status: a.status, eff: a.effective_status,
+          sorunlar: (a.issues_info || []).map(i => i.error_summary || i.error_message || i.error_code),
+          red: a.ad_review_feedback || null,
+        })),
+        reklam_yok: !(ads.data || []).some(a => a.campaign_id === c.id),
+      }))
+      return Response.json({ ok: true, rapor }, { headers: cors })
+    }
+
     // ── Performans gecmisi ──
     if (action === "insights") {
       const date  = url.searchParams.get("date") || "last_7d"
