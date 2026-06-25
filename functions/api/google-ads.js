@@ -114,8 +114,7 @@ async function kampanyaAc(env, opts) {
       advertisingChannelType: "SEARCH",
       manualCpc: {},
       campaignBudget: budgetRN,
-      networkSettings: { targetGoogleSearch: true, targetSearchNetwork: true, targetContentNetwork: false, targetPartnerSearchNetwork: false },
-      startDate: bugun
+      networkSettings: { targetGoogleSearch: true, targetSearchNetwork: true, targetContentNetwork: false, targetPartnerSearchNetwork: false }
     } }]
   })
   const campRN = campRes.results[0].resourceName
