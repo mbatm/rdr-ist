@@ -122,6 +122,20 @@ export async function onRequestGet({ request, env }) {
           if (cr.id) {
             const ad = await fetch(GRAPH + "/" + ACT + "/ads?access_token=" + TOKEN, J({ name: "TANI Ad", adset_id: adset.id, creative: { creative_id: cr.id }, status: "PAUSED" })).then(r => r.json())
             adimlar.ad = ad.id || ad.error
+            if (ad.id) {
+              // Motorun yeni akışı: ad doğrulandı → AKTİF et (ad → adset → campaign)
+              try {
+                await graph(ad.id, "POST", { status: "ACTIVE" }, TOKEN)
+                await graph(adset.id, "POST", { status: "ACTIVE" }, TOKEN)
+                await graph(camp.id, "POST", { status: "ACTIVE" }, TOKEN)
+                adimlar.aktiflestirme = "OK"
+              } catch (e) { adimlar.aktiflestirme = "HATA: " + e.message }
+              try {
+                const dd = await graph(ad.id + "?fields=effective_status,issues_info", "GET", null, TOKEN)
+                adimlar.ad_effective_status = dd.effective_status
+                adimlar.ad_sorunlar = (dd.issues_info || []).map(i => i.error_summary || i.error_message)
+              } catch (_) {}
+            }
           }
         }
         try { await fetch(GRAPH + "/" + camp.id + "?access_token=" + TOKEN, { method: "DELETE" }); adimlar.temizlik = "kampanya silindi" } catch (_) {}
