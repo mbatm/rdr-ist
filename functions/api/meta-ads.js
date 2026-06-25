@@ -271,6 +271,33 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, adset_id: adset.id }, { headers: cors })
     }
 
+    // ── Tam kampanya oluştur (PAUSED→ad doğrula→AKTİF) — düzeltilmiş akış ──
+    if (action === "kampanya_ac") {
+      const PAGE = "139690272760213"
+      const ad    = body.ad || "KayserimNet - Manuel - " + Date.now()
+      const link  = body.link || "https://www.kayserim.net"
+      const mesaj = body.mesaj || "Kayseri son dakika haberleri kayserim.net'te"
+      const baslik= body.baslik || "Kayseri - Son Dakika"
+      const butce = body.butce || 10000
+      const J = (o) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) })
+      const camp = await fetch(GRAPH + "/" + ACT + "/campaigns?access_token=" + TOKEN, J({ name: ad, objective: "OUTCOME_TRAFFIC", daily_budget: butce, status: "PAUSED", special_ad_categories: [] })).then(r => r.json())
+      if (!camp.id) return Response.json({ ok: false, adim: "campaign", error: camp.error }, { headers: cors })
+      const adset = await fetch(GRAPH + "/" + ACT + "/adsets?access_token=" + TOKEN, J({ name: ad + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "PAUSED" })).then(r => r.json())
+      if (!adset.id) return Response.json({ ok: false, adim: "adset", error: adset.error }, { headers: cors })
+      const cr = await fetch(GRAPH + "/" + ACT + "/adcreatives?access_token=" + TOKEN, J({ name: ad + " Creative", object_story_spec: { page_id: PAGE, link_data: { link, message: mesaj, name: baslik, call_to_action: { type: "LEARN_MORE", value: { link } } } } })).then(r => r.json())
+      if (!cr.id) return Response.json({ ok: false, adim: "creative", error: cr.error }, { headers: cors })
+      const adObj = await fetch(GRAPH + "/" + ACT + "/ads?access_token=" + TOKEN, J({ name: ad, adset_id: adset.id, creative: { creative_id: cr.id }, status: "PAUSED" })).then(r => r.json())
+      if (!adObj.id) return Response.json({ ok: false, adim: "ad", error: adObj.error }, { headers: cors })
+      try {
+        await graph(adObj.id, "POST", { status: "ACTIVE" }, TOKEN)
+        await graph(adset.id, "POST", { status: "ACTIVE" }, TOKEN)
+        await graph(camp.id, "POST", { status: "ACTIVE" }, TOKEN)
+      } catch (e) { return Response.json({ ok: false, adim: "aktif", error: e.message, camp_id: camp.id }, { headers: cors }) }
+      let eff = null, sorunlar = []
+      try { const dd = await graph(adObj.id + "?fields=effective_status,issues_info", "GET", null, TOKEN); eff = dd.effective_status; sorunlar = (dd.issues_info || []).map(i => i.error_summary || i.error_message) } catch (_) {}
+      return Response.json({ ok: true, kampanya: ad, camp_id: camp.id, ad_id: adObj.id, effective_status: eff, sorunlar }, { headers: cors })
+    }
+
     throw new Error("Gecersiz action: " + action)
 
   } catch(e) {
