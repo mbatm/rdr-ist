@@ -5340,6 +5340,11 @@ function ZekaModul({ user, onGeri, onManuelAc }) {
   const [reklamOnay,  setReklamOnay]= useState(null)  // onay bekleyen haber
   const [reklamSonuc, setRS]        = useState(null)
   const [gecmis,      setGecmis]    = useState([])    // localStorage geçmişi
+  const [ozGunler,    setOzGunler]  = useState([])    // özel günler listesi
+  const [ozYuk,       setOzYuk]     = useState(false)
+  const [ozUreten,    setOzUreten]  = useState(null)  // "gunId:altId" üretiliyor
+  const [ozHata,      setOzHata]    = useState(null)
+  const [ozUfuk,      setOzUfuk]    = useState(120)
   const timerRef = useRef(null)
 
   // Geçmişi localStorage'dan yükle
@@ -5484,6 +5489,55 @@ KURALLAR:
     setReklamY(null)
   }
 
+  // ── Özel Günler ──
+  const ozelGunleriYukle = async (ufuk = ozUfuk) => {
+    setOzYuk(true); setOzHata(null)
+    try {
+      const r = await fetch('/api/ozel-gunler?action=liste&ufuk=' + ufuk)
+      const d = await r.json()
+      if (!d.ok) throw new Error(d.error || 'Liste alınamadı')
+      setOzGunler(d.gunler || [])
+    } catch(e) { setOzHata(e.message) }
+    setOzYuk(false)
+  }
+
+  useEffect(() => { ozelGunleriYukle() }, [])
+
+  // Bir açıyı onayla → taslak üret → editörde aç
+  const ozelGunUret = async (gun, alt) => {
+    const key = gun.id + ':' + alt.alt_id
+    setOzUreten(key); setOzHata(null)
+    try {
+      const r = await fetch('/api/ozel-gunler', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'uret', gun_id: gun.id, alt_id: alt.alt_id })
+      })
+      const d = await r.json()
+      if (!d.ok) throw new Error(d.error || 'Üretim hatası')
+      gecmisEkle({
+        id: Date.now(), zaman: new Date().toLocaleString('tr-TR'),
+        baslik: d.baslik, keyword: gun.ad, skor: gun.onem,
+        kaynak: '', durum: 'olusturuldu'
+      })
+      onManuelAc({
+        baslik: d.baslik, metin: d.metin, kategori: d.kategori || 'Güncel',
+        kaynak_url: '', gorsel_url: '', keyword: gun.ad,
+      })
+      ozelGunleriYukle()
+    } catch(e) { setOzHata('Üretim hatası: ' + e.message) }
+    setOzUreten(null)
+  }
+
+  const ozelGunReddet = async (gun) => {
+    try {
+      await fetch('/api/ozel-gunler', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'reddet', gun_id: gun.id })
+      })
+      setOzGunler(prev => prev.filter(g => g.id !== gun.id))
+    } catch(e) {}
+  }
+
   const skRenk = (s) => s >= 75 ? '#1D9E75' : s >= 60 ? '#EF9F27' : '#8891a5'
   const skBg   = (s) => s >= 75 ? 'rgba(29,158,117,.12)' : s >= 60 ? 'rgba(239,159,39,.12)' : 'rgba(136,145,165,.06)'
   const SEZON_LABEL = { bayram:'🕌 Bayram', okul:'📚 Okul', sinav:'📝 Sınav' }
@@ -5507,6 +5561,7 @@ KURALLAR:
         <div style={{display:'flex',gap:4,marginLeft:8}}>
           {[
             {id:'firsatlar', label:'🎯 Fırsatlar', count: firsat.length},
+            {id:'ozelgunler', label:'🗓️ Özel Günler', count: ozGunler.filter(g=>g.yaklasiyor).length},
             {id:'gecmis',    label:'📋 Geçmiş',    count: gecmis.length},
           ].map(t => (
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
@@ -5564,14 +5619,19 @@ KURALLAR:
         {/* ── FIRSATLAR TABI ── */}
         {tab === 'firsatlar' && (
           <>
-            {sezonsal.length > 0 && (
-              <div style={{marginBottom:12,padding:'8px 14px',background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8}}>
-                <Ic n="calendar-event" size={14} style={{color:'#A855F7'}}/>
-                <span style={{fontSize:13,color:'#A855F7',fontWeight:500}}>
-                  Aktif Sezon: {sezonsal.map(s=>SEZON_LABEL[s]||s).join(' · ')}
-                </span>
-              </div>
-            )}
+            {(() => {
+              const yak = ozGunler.filter(g => g.aktif || g.gun_kala <= 7).slice(0, 4)
+              if (yak.length === 0) return null
+              return (
+                <div onClick={()=>setTab('ozelgunler')} style={{marginBottom:12,padding:'8px 14px',background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',borderRadius:'var(--radius-md)',display:'flex',alignItems:'center',gap:8,cursor:'pointer',flexWrap:'wrap'}}>
+                  <Ic n="calendar-event" size={14} style={{color:'#A855F7'}}/>
+                  <span style={{fontSize:13,color:'#A855F7',fontWeight:500}}>
+                    {yak.map(g => `${g.kat_emoji} ${g.ad}${g.aktif?'':' ('+g.gun_kala+'g)'}`).join('  ·  ')}
+                  </span>
+                  <span style={{marginLeft:'auto',fontSize:10,color:'#A855F7',opacity:.7}}>Özel Günler →</span>
+                </div>
+              )
+            })()}
 
             {hata && (
               <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
@@ -5732,6 +5792,106 @@ KURALLAR:
                 <button onClick={()=>gecmisSil(idx)} style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'none',cursor:'pointer',flexShrink:0,padding:'2px 4px'}}>×</button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── ÖZEL GÜNLER TABI ── */}
+        {tab === 'ozelgunler' && (
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8,flexWrap:'wrap'}}>
+              <div style={{fontSize:11,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+                🗓️ Yaklaşan özel günler — {ozGunler.length} kayıt
+              </div>
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <select value={ozUfuk} onChange={e=>{const v=parseInt(e.target.value);setOzUfuk(v);ozelGunleriYukle(v)}}
+                  style={{fontSize:11,background:'var(--surface)',border:'0.5px solid var(--border)',color:'var(--fg)',borderRadius:'var(--radius-sm)',padding:'3px 6px'}}>
+                  <option value={30}>30 gün</option>
+                  <option value={60}>60 gün</option>
+                  <option value={120}>120 gün</option>
+                  <option value={365}>1 yıl</option>
+                </select>
+                <button onClick={()=>ozelGunleriYukle()} disabled={ozYuk}
+                  style={{fontSize:11,background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',color:'#A855F7'}}>
+                  <Ic n={ozYuk?'loader-2':'refresh'} size={12}/> {ozYuk?'…':'Yenile'}
+                </button>
+              </div>
+            </div>
+
+            {ozHata && (
+              <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
+                {ozHata}<span style={{cursor:'pointer'}} onClick={()=>setOzHata(null)}>×</span>
+              </div>
+            )}
+
+            {ozYuk && ozGunler.length===0 ? (
+              <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)'}}>
+                <Ic n="loader-2" size={24} style={{display:'block',margin:'0 auto 10px'}}/>
+                <div style={{fontSize:13}}>Özel gün takvimi hesaplanıyor…</div>
+              </div>
+            ) : ozGunler.length===0 ? (
+              <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)',fontSize:13}}>
+                Bu ufukta özel gün yok. Ufku genişletin.
+              </div>
+            ) : ozGunler.map((g) => {
+              const kalaEt = g.aktif ? 'AKTİF' : g.gun_kala===0 ? 'BUGÜN' : g.gun_kala+' gün'
+              const kalaRenk = g.aktif ? '#0EA5E9' : g.gun_kala<=g.lead ? '#E63946' : g.kat_renk
+              const tarihStr = (()=>{ try { return new Date(g.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'}) } catch { return g.tarih } })()
+              return (
+                <div key={g.id} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderLeft:`3px solid ${g.kat_renk}`,borderRadius:'var(--radius-md)',padding:'12px 14px',marginBottom:8}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                    <div style={{textAlign:'center',flexShrink:0,width:54}}>
+                      <div style={{fontSize:22}}>{g.kat_emoji}</div>
+                      <div style={{fontSize:13,fontWeight:700,color:kalaRenk,marginTop:2}}>{kalaEt}</div>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:3}}>
+                        <span style={{fontSize:13,fontWeight:600}}>{g.ad}</span>
+                        {g.yaklasiyor && <span style={{fontSize:9,padding:'1px 6px',borderRadius:8,background:'rgba(230,57,70,.12)',color:'#E63946',border:'0.5px solid rgba(230,57,70,.3)',fontWeight:600}}>⏰ İÇERİK ZAMANI</span>}
+                        {g.teyit && <span style={{fontSize:9,padding:'1px 6px',borderRadius:8,background:'rgba(239,159,39,.12)',color:'#EF9F27',border:'0.5px solid rgba(239,159,39,.3)'}} title="Tarih tahmini — Diyanet/resmi takvimle teyit edin">⚠ tarih teyidi</span>}
+                      </div>
+                      <div style={{fontSize:11,color:'var(--muted)',marginBottom:5}}>
+                        📅 {tarihStr}{g.aktif && g.sezon_son ? ' → ' + (()=>{try{return new Date(g.sezon_son).toLocaleDateString('tr-TR',{day:'numeric',month:'long'})}catch{return g.sezon_son}})() : ''}
+                        <span style={{margin:'0 6px',opacity:.4}}>·</span>
+                        <span style={{color:g.kat_renk}}>{g.kat_ad}</span>
+                      </div>
+                      {g.aciklama && <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.5,marginBottom:8,opacity:.85}}>{g.aciklama}</div>}
+
+                      {/* Haber alternatifleri */}
+                      <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                        {g.alternatifler.map(alt => {
+                          const key = g.id+':'+alt.alt_id
+                          const isUreten = ozUreten === key
+                          const uretildi = alt.durum === 'uretildi'
+                          return (
+                            <div key={alt.alt_id} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'7px 9px',background:'rgba(255,255,255,.02)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:12,fontWeight:500,lineHeight:1.35}}>{alt.baslik}</div>
+                                {alt.aci && <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{alt.aci}</div>}
+                              </div>
+                              <button onClick={()=>ozelGunUret(g, alt)} disabled={!!ozUreten}
+                                style={{flexShrink:0,fontSize:11,fontWeight:600,
+                                  background: uretildi?'rgba(29,158,117,.12)':'rgba(168,85,247,.15)',
+                                  border:'0.5px solid '+(uretildi?'rgba(29,158,117,.4)':'rgba(168,85,247,.4)'),
+                                  color: uretildi?'#1D9E75':'#A855F7'}}>
+                                <Ic n={isUreten?'loader-2':uretildi?'check':'sparkles'} size={11}/>
+                                {isUreten?'…':uretildi?'Tekrar':'✨ Oluştur'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div style={{marginTop:8,display:'flex',gap:8}}>
+                        <button onClick={()=>ozelGunReddet(g)}
+                          style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
+                          <Ic n="eye-off" size={10}/> Gizle
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
