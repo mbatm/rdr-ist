@@ -106,6 +106,29 @@ export async function onRequestGet({ request, env }) {
       return Response.json({ ok: !!cr.id, creative_id: cr.id || null, error: cr.error || null, temizlik }, { headers: cors })
     }
 
+    // ── TEST: tam zincir (kampanya PAUSED) → ad adımının ham hatasını yakala, sonra sil ──
+    if (action === "test_ad") {
+      const PAGE = "139690272760213"
+      const J = (o) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) })
+      const adimlar = {}
+      const camp = await fetch(GRAPH + "/" + ACT + "/campaigns?access_token=" + TOKEN, J({ name: "TANI " + Date.now(), objective: "OUTCOME_TRAFFIC", daily_budget: 10000, status: "PAUSED", special_ad_categories: [] })).then(r => r.json())
+      adimlar.campaign = camp.id || camp.error
+      if (camp.id) {
+        const adset = await fetch(GRAPH + "/" + ACT + "/adsets?access_token=" + TOKEN, J({ name: "TANI AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "PAUSED" })).then(r => r.json())
+        adimlar.adset = adset.id || adset.error
+        if (adset.id) {
+          const cr = await fetch(GRAPH + "/" + ACT + "/adcreatives?access_token=" + TOKEN, J({ name: "TANI Creative", object_story_spec: { page_id: PAGE, link_data: { link: "https://www.kayserim.net", message: "Kayseri son dakika", name: "Kayseri - Son Dakika", call_to_action: { type: "LEARN_MORE", value: { link: "https://www.kayserim.net" } } } } })).then(r => r.json())
+          adimlar.creative = cr.id || cr.error
+          if (cr.id) {
+            const ad = await fetch(GRAPH + "/" + ACT + "/ads?access_token=" + TOKEN, J({ name: "TANI Ad", adset_id: adset.id, creative: { creative_id: cr.id }, status: "PAUSED" })).then(r => r.json())
+            adimlar.ad = ad.id || ad.error
+          }
+        }
+        try { await fetch(GRAPH + "/" + camp.id + "?access_token=" + TOKEN, { method: "DELETE" }); adimlar.temizlik = "kampanya silindi" } catch (_) {}
+      }
+      return Response.json({ ok: true, adimlar }, { headers: cors })
+    }
+
     // ── Performans gecmisi ──
     if (action === "insights") {
       const date  = url.searchParams.get("date") || "last_7d"
