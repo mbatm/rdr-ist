@@ -94,6 +94,18 @@ export async function onRequestGet({ request, env }) {
       return Response.json({ ok: true, rapor }, { headers: cors })
     }
 
+    // ── TEST: oto-motorun creative+ad adımını birebir dene, ham Meta yanıtını dön ──
+    if (action === "test_creative") {
+      const PAGE = "139690272760213"
+      const cr = await fetch(GRAPH + "/" + ACT + "/adcreatives?access_token=" + TOKEN, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "TANI Creative " + Date.now(), object_story_spec: { page_id: PAGE, link_data: { link: "https://www.kayserim.net", message: "Kayseri son dakika haberleri", name: "Kayseri - Son Dakika", call_to_action: { type: "LEARN_MORE", value: { link: "https://www.kayserim.net" } } } } })
+      }).then(r => r.json())
+      let temizlik = null
+      if (cr.id) { try { await fetch(GRAPH + "/" + cr.id + "?access_token=" + TOKEN, { method: "DELETE" }); temizlik = "silindi" } catch (_) {} }
+      return Response.json({ ok: !!cr.id, creative_id: cr.id || null, error: cr.error || null, temizlik }, { headers: cors })
+    }
+
     // ── Performans gecmisi ──
     if (action === "insights") {
       const date  = url.searchParams.get("date") || "last_7d"
