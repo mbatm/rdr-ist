@@ -39,6 +39,140 @@ async function query(gaql, env) {
   return d.results || []
 }
 
+// ── Google Ads REST mutate yardımcısı ──
+async function gadsPost(env, token, path, body) {
+  const r = await fetch(API_BASE + path, {
+    method: "POST",
+    headers: {
+      "Authorization":     "Bearer " + token,
+      "developer-token":   env.GADS_DEV_TOKEN,
+      "login-customer-id": CID,
+      "Content-Type":      "application/json"
+    },
+    body: JSON.stringify(body)
+  })
+  const txt = await r.text()
+  let d
+  try { d = JSON.parse(txt) } catch { throw new Error("HTTP " + r.status + ": " + txt.slice(0, 300)) }
+  if (d.error) throw new Error((d.error.message || JSON.stringify(d.error)).slice(0, 400))
+  return d
+}
+
+// Kayseri gibi bir konum adını Google geo target sabitine çevirir
+async function resolveGeo(env, token, name) {
+  try {
+    const d = await gadsPost(env, token, "/geoTargetConstants:suggest", {
+      locale: "tr", countryCode: "TR", locationNames: { names: [name] }
+    })
+    const sugg = d.geoTargetConstantSuggestions || []
+    const pick = sugg.find(s => s.geoTargetConstant && new RegExp(name, "i").test(s.geoTargetConstant.name || "")) || sugg[0]
+    return pick && pick.geoTargetConstant ? pick.geoTargetConstant.resourceName : null
+  } catch { return null }
+}
+
+// Hazır kampanya şablonları
+const PRESETLER = {
+  altin: {
+    ad:   "Search - Altın Fiyatları",
+    link: "https://www.kayserim.net/haber/21594322/kayseri-altin-fiyatlari",
+    kelimeler: ["kayseri altın fiyatları", "altın fiyatları kayseri", "kayseri gram altın", "kayseri çeyrek altın", "bugün altın fiyatları kayseri"],
+    basliklar: ["Kayseri Altın Fiyatları", "Gram Altın Bugün", "Canlı Altın Fiyatları", "Çeyrek Altın Ne Kadar?", "Anlık Altın Kuru", "Kayseri'de Altın", "Güncel Gram Altın"],
+    aciklamalar: [
+      "Kayseri altın fiyatları anlık güncel. Gram, çeyrek, yarım altın kuru burada.",
+      "Bugün altın ne kadar? Canlı altın fiyatlarını kayserim.net'ten takip edin.",
+      "Gram, çeyrek, ata altın güncel fiyatları. Anlık takip kayserim.net'te."
+    ]
+  }
+}
+
+// Search kampanyası oluşturur: budget → campaign(PAUSED) → geo/dil → adgroup → keyword → RSA
+async function kampanyaAc(env, opts) {
+  const token  = await getAccessToken(env)
+  const preset = PRESETLER[opts.preset || "altin"] || PRESETLER.altin
+  const ad     = opts.ad   || preset.ad
+  const link   = opts.link || preset.link
+  const butceTl   = parseFloat(opts.butce || 50)
+  const cpcTl     = parseFloat(opts.max_cpc || 3)
+  const kelimeler   = opts.kelimeler   || preset.kelimeler
+  const basliklar   = opts.basliklar   || preset.basliklar
+  const aciklamalar = opts.aciklamalar || preset.aciklamalar
+  const stamp = Date.now().toString().slice(-6)
+  const base  = "/customers/" + CID
+
+  // 1) Bütçe
+  const budgetRes = await gadsPost(env, token, base + "/campaignBudgets:mutate", {
+    operations: [{ create: { name: ad + " Bütçe " + stamp, amountMicros: String(Math.round(butceTl * 1e6)), deliveryMethod: "STANDARD", explicitlyShared: false } }]
+  })
+  const budgetRN = budgetRes.results[0].resourceName
+
+  // 2) Kampanya (PAUSED, Manuel TBM)
+  const bugun = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+  const campRes = await gadsPost(env, token, base + "/campaigns:mutate", {
+    operations: [{ create: {
+      name: ad + " " + stamp,
+      status: "PAUSED",
+      advertisingChannelType: "SEARCH",
+      manualCpc: {},
+      campaignBudget: budgetRN,
+      networkSettings: { targetGoogleSearch: true, targetSearchNetwork: true, targetContentNetwork: false, targetPartnerSearchNetwork: false },
+      startDate: bugun
+    } }]
+  })
+  const campRN = campRes.results[0].resourceName
+  const campId = campRN.split("/").pop()
+
+  // 3) Coğrafi (Kayseri) + dil (Türkçe) hedefleme
+  const geoRN = await resolveGeo(env, token, "Kayseri")
+  const critOps = []
+  if (geoRN) critOps.push({ create: { campaign: campRN, location: { geoTargetConstant: geoRN } } })
+  critOps.push({ create: { campaign: campRN, language: { languageConstant: "languageConstants/1037" } } })
+  await gadsPost(env, token, base + "/campaignCriteria:mutate", { operations: critOps })
+
+  // 4) Reklam grubu
+  const agRes = await gadsPost(env, token, base + "/adGroups:mutate", {
+    operations: [{ create: { name: ad + " Grup " + stamp, campaign: campRN, status: "ENABLED", type: "SEARCH_STANDARD", cpcBidMicros: String(Math.round(cpcTl * 1e6)) } }]
+  })
+  const agRN = agRes.results[0].resourceName
+
+  // 5) Anahtar kelimeler (sıralı eşleme)
+  await gadsPost(env, token, base + "/adGroupCriteria:mutate", {
+    operations: kelimeler.map(k => ({ create: { adGroup: agRN, status: "ENABLED", keyword: { text: k, matchType: "PHRASE" } } }))
+  })
+
+  // 6) Responsive Search Ad
+  const adRes = await gadsPost(env, token, base + "/adGroupAds:mutate", {
+    operations: [{ create: {
+      adGroup: agRN, status: "ENABLED",
+      ad: { finalUrls: [link], responsiveSearchAd: {
+        headlines:    basliklar.slice(0, 15).map(t => ({ text: t })),
+        descriptions: aciklamalar.slice(0, 4).map(t => ({ text: t }))
+      } }
+    } }]
+  })
+  const adRN = adRes.results[0].resourceName
+
+  // 7) ad.id doğrulandı → istenirse kampanyayı yayına al
+  let durum = "PAUSED"
+  if ((opts.aktif === true || opts.aktif === "true") && adRN) {
+    await gadsPost(env, token, base + "/campaigns:mutate", {
+      operations: [{ update: { resourceName: campRN, status: "ENABLED" }, updateMask: "status" }]
+    })
+    durum = "ENABLED"
+  }
+
+  return { ok: true, kampanya_id: campId, kampanya: ad + " " + stamp, reklam: adRN, geo: geoRN, durum, butce_tl: butceTl, max_cpc_tl: cpcTl, link, kelime_sayisi: kelimeler.length }
+}
+
+// Para harcayan işlemler için yetki kontrolü (RSS_API_KEY ya da geçerli cms_token)
+async function yetkili(request, env, body) {
+  const url = new URL(request.url)
+  const sec = url.searchParams.get("secret") || request.headers.get("x-api-key") || (body && body.secret) || ""
+  if (!sec) return false
+  if (env.RSS_API_KEY && sec === env.RSS_API_KEY) return true
+  try { if (await env.HABERLER.get("token:" + sec)) return true } catch {}
+  return false
+}
+
 export async function onRequestGet({ request, env }) {
   const cors = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" }
   const url  = new URL(request.url)
@@ -132,15 +266,19 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   const cors = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" }
   if (!env.GADS_DEV_TOKEN) return Response.json({ ok: false, error: "GADS_DEV_TOKEN eksik" }, { status: 500, headers: cors })
+  let body = {}
+  try { body = await request.json() } catch {}
   try {
-    const body  = await request.json()
+    if (body.action === "kampanya_ac") {
+      if (!(await yetkili(request, env, body))) return Response.json({ ok: false, error: "yetkisiz" }, { status: 401, headers: cors })
+      return Response.json(await kampanyaAc(env, body), { headers: cors })
+    }
+    // duraklat / yayına al
     const token = await getAccessToken(env)
     const st    = body.action === "pause" ? "PAUSED" : "ENABLED"
-    const r     = await fetch(API_BASE + "/customers/" + CID + "/campaigns:mutate", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + token, "developer-token": env.GADS_DEV_TOKEN, "login-customer-id": CID, "Content-Type": "application/json" },
-      body: JSON.stringify({ operations: [{ update: { resourceName: "customers/" + CID + "/campaigns/" + body.campaign_id, status: st }, updateMask: "status" }] })
-    }).then(function(r) { return r.json() })
+    const r     = await gadsPost(env, token, "/customers/" + CID + "/campaigns:mutate", {
+      operations: [{ update: { resourceName: "customers/" + CID + "/campaigns/" + body.campaign_id, status: st }, updateMask: "status" }]
+    })
     return Response.json({ ok: true, result: r }, { headers: cors })
   } catch(e) {
     return Response.json({ ok: false, error: e.message }, { status: 500, headers: cors })

@@ -5345,6 +5345,8 @@ function ZekaModul({ user, onGeri, onManuelAc }) {
   const [ozUreten,    setOzUreten]  = useState(null)  // "gunId:altId" üretiliyor
   const [ozHata,      setOzHata]    = useState(null)
   const [ozUfuk,      setOzUfuk]    = useState(120)
+  const [gAdsYuk,     setGAdsYuk]   = useState(false)
+  const [gAdsMsg,     setGAdsMsg]   = useState(null)
   const timerRef = useRef(null)
 
   // Geçmişi localStorage'dan yükle
@@ -5538,6 +5540,25 @@ KURALLAR:
     } catch(e) {}
   }
 
+  // ── Google Ads: Altın kampanyası aç (PAUSED) ──
+  const googleReklamAc = async () => {
+    if (gAdsYuk) return
+    const _tok = (typeof localStorage!=='undefined' && localStorage.getItem('cms_token')) || ''
+    setGAdsYuk(true); setGAdsMsg(null)
+    try {
+      const r = await fetch('/api/google-ads', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'kampanya_ac', preset:'altin', butce:50, secret:_tok })
+      })
+      const d = await r.json()
+      if (!d.ok) throw new Error(d.error || 'Hata')
+      setGAdsMsg({ ok:true, text:`✅ Kampanya açıldı (DURAKLATILMIŞ): #${d.kampanya_id} · ${d.butce_tl}₺/gün · ${d.kelime_sayisi} kelime. Google Ads'te kontrol edip "Yayına al" diyebilirsin.` })
+    } catch(e) {
+      setGAdsMsg({ ok:false, text:'❌ ' + e.message })
+    }
+    setGAdsYuk(false)
+  }
+
   const skRenk = (s) => s >= 75 ? '#1D9E75' : s >= 60 ? '#EF9F27' : '#8891a5'
   const skBg   = (s) => s >= 75 ? 'rgba(29,158,117,.12)' : s >= 60 ? 'rgba(239,159,39,.12)' : 'rgba(136,145,165,.06)'
   const SEZON_LABEL = { bayram:'🕌 Bayram', okul:'📚 Okul', sinav:'📝 Sınav' }
@@ -5577,12 +5598,27 @@ KURALLAR:
         </div>
 
         <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+          <button onClick={googleReklamAc} disabled={gAdsYuk} title="Altın Fiyatları Search kampanyası (50₺/gün, duraklatılmış başlar)"
+            style={{fontSize:11,background:'rgba(66,133,244,.12)',border:'0.5px solid rgba(66,133,244,.4)',color:'#4285F4'}}>
+            <Ic n={gAdsYuk?'loader-2':'brand-google'} size={12}/> {gAdsYuk?'Açılıyor…':'Google: Altın'}
+          </button>
           <button onClick={tara} disabled={yukT}
             style={{fontSize:11,background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',color:'#A855F7'}}>
             <Ic n={yukT?'loader-2':'refresh'} size={12}/> {yukT?'Taranıyor…':'Yenile'}
           </button>
         </div>
       </div>
+
+      {/* Google reklam sonucu */}
+      {gAdsMsg && (
+        <div style={{padding:'8px 14px',fontSize:12,lineHeight:1.5,
+          background: gAdsMsg.ok ? 'rgba(29,158,117,.1)' : 'rgba(230,57,70,.1)',
+          borderBottom:'0.5px solid var(--border)',
+          color: gAdsMsg.ok ? '#1D9E75' : '#ff7b7b', display:'flex', justifyContent:'space-between', gap:8}}>
+          <span>{gAdsMsg.text}</span>
+          <span style={{cursor:'pointer',opacity:.6}} onClick={()=>setGAdsMsg(null)}>×</span>
+        </div>
+      )}
 
       {/* Reklam onay diyalogu */}
       {reklamOnay && (() => {
