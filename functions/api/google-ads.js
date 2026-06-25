@@ -1,5 +1,5 @@
 // Google Ads API - kayserimnet
-const API_BASE = "https://googleads.googleapis.com/v17"
+const API_BASE = "https://googleads.googleapis.com/v23"
 const CID      = "7731778727"
 
 async function getAccessToken(env) {
