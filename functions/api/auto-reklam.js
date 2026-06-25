@@ -184,7 +184,13 @@ export async function onScheduled(event, env, ctx) {
 
 export async function onRequestGet({ request, env }) {
   const cors = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" }
-  const act  = new URL(request.url).searchParams.get("action") || "run"
+  const url  = new URL(request.url)
+  const act  = url.searchParams.get("action") || "run"
+  // Erişim: RSS_API_KEY veya geçerli cms_token (cron onScheduled bu kontrolden geçmez)
+  const key  = url.searchParams.get("secret") || request.headers.get("x-api-key") || ""
+  let izin = env.RSS_API_KEY && key === env.RSS_API_KEY
+  if (!izin && key) { try { izin = !!(await env.HABERLER.get("token:" + key, "json")) } catch (_) {} }
+  if (!izin) return Response.json({ ok: false, error: "Yetkisiz" }, { status: 401, headers: cors })
   try {
     if (act === "log") {
       const log = env.META_KV ? await env.META_KV.get("oto_log") : null

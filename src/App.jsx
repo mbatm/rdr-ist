@@ -5749,12 +5749,14 @@ function MetaAdsModul({ user, onGeri }) {
   const [islem,    setIslem]   = useState(null)
   const [sonuc,    setSonuc]   = useState(null)
 
+  const _tok = (typeof localStorage !== "undefined" && localStorage.getItem("cms_token")) || ""
+
   const yukle = async () => {
     setYuk(true)
     try {
       const [s, ins] = await Promise.all([
-        fetch("/api/meta-ads?action=status").then(r => r.json()),
-        fetch("/api/meta-ads?action=insights&date=last_7d").then(r => r.json()),
+        fetch("/api/meta-ads?action=status&secret=" + encodeURIComponent(_tok)).then(r => r.json()),
+        fetch("/api/meta-ads?action=insights&date=last_7d&secret=" + encodeURIComponent(_tok)).then(r => r.json()),
       ])
       if (s.ok)   setDurum(s)
       if (ins.ok) setInsights(ins.insights || [])
@@ -5770,7 +5772,7 @@ function MetaAdsModul({ user, onGeri }) {
     try {
       const r = await fetch("/api/meta-ads", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ ...body, secret: _tok })
       })
       const d = await r.json()
       if (!d.ok) throw new Error(d.error)
@@ -5828,7 +5830,7 @@ function MetaAdsModul({ user, onGeri }) {
             </button>
             <button onClick={async () => {
               setSonuc(null)
-              const r = await fetch("/api/auto-reklam?action=run").then(x=>x.json())
+              const r = await fetch("/api/auto-reklam?action=run&secret=" + encodeURIComponent(_tok)).then(x=>x.json())
               setSonuc({ ok: r.ok, msg: r.ok ? "Motor calisti: " + (r.kararlar?.length||0) + " karar" : r.error })
               await yukle()
             }} style={{ fontSize: 11, background: "rgba(168,85,247,.1)", border: "0.5px solid rgba(168,85,247,.3)", color: "#A855F7" }}>

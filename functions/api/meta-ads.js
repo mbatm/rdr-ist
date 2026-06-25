@@ -30,6 +30,15 @@ async function graph(path, method, body, token) {
   return d
 }
 
+// Erişim: RSS_API_KEY (sunucu) veya geçerli cms_token (giriş yapmış kullanıcı)
+async function yetkili(request, env, bodyKey) {
+  const url = new URL(request.url)
+  const key = url.searchParams.get("secret") || bodyKey || request.headers.get("x-api-key") || request.headers.get("x-token") || ""
+  if (!key) return false
+  if (env.RSS_API_KEY && key === env.RSS_API_KEY) return true
+  try { return !!(await env.HABERLER.get("token:" + key, "json")) } catch (_) { return false }
+}
+
 export async function onRequestGet({ request, env }) {
   const cors   = {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"}
   const url    = new URL(request.url)
@@ -37,6 +46,7 @@ export async function onRequestGet({ request, env }) {
   const TOKEN  = env.META_ADS_TOKEN || "EAAORauw5t7ABR43WgZBGmOmTzzjFNj4pS1IC0e03Mch8ZBsPpeuwDqBN4n510DVOTF4qW22VWLLwd2RNZBuiDN60GuwrWd09U0temzMekKYlrZAbsu7gQNT1VYDeSM5mVHKvrZCOdxf6L3cJllE3XcOVCM0BAQZCg2vZCv7grSKq4WhFUDzUw30WNWG10rLPzkhHwZDZD"
 
   try {
+    if (!(await yetkili(request, env))) return Response.json({ ok: false, error: "Yetkisiz" }, { status: 401, headers: cors })
     // ── Tum kampanyalar + bugun harcamasi ──
     if (action === "status") {
       const fields = "id,name,status,daily_budget,lifetime_budget,effective_status,insights{spend,clicks,impressions,ctr,cpc,reach,frequency}"
@@ -214,6 +224,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const body   = await request.json()
     const action = body.action
+    if (!(await yetkili(request, env, body.secret))) return Response.json({ ok: false, error: "Yetkisiz" }, { status: 401, headers: cors })
 
     // ── Kampanyayi durdur / baslat ──
     if (action === "pause" || action === "resume") {
