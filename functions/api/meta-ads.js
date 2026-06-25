@@ -311,7 +311,7 @@ export async function onRequestPost({ request, env }) {
       const J = (o) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) })
       const camp = await fetch(GRAPH + "/" + ACT + "/campaigns?access_token=" + TOKEN, J({ name: ad, objective: "OUTCOME_TRAFFIC", daily_budget: butce, status: "PAUSED", special_ad_categories: [] })).then(r => r.json())
       if (!camp.id) return Response.json({ ok: false, adim: "campaign", error: camp.error }, { headers: cors })
-      const adset = await fetch(GRAPH + "/" + ACT + "/adsets?access_token=" + TOKEN, J({ name: ad + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 200, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "PAUSED" })).then(r => r.json())
+      const adset = await fetch(GRAPH + "/" + ACT + "/adsets?access_token=" + TOKEN, J({ name: ad + " AdSet", campaign_id: camp.id, billing_event: "IMPRESSIONS", optimization_goal: "LINK_CLICKS", destination_type: "WEBSITE", bid_amount: 500, promoted_object: { page_id: PAGE }, targeting: { geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] }, age_min: 18, targeting_automation: { advantage_audience: 0 } }, dsa_beneficiary: "Kayserim.net", dsa_payor: "Mustafa Bayram", status: "PAUSED" })).then(r => r.json())
       if (!adset.id) return Response.json({ ok: false, adim: "adset", error: adset.error }, { headers: cors })
       const cr = await fetch(GRAPH + "/" + ACT + "/adcreatives?access_token=" + TOKEN, J({ name: ad + " Creative", object_story_spec: { page_id: PAGE, link_data: { link, message: mesaj, name: baslik, call_to_action: { type: "LEARN_MORE", value: { link } } } } })).then(r => r.json())
       if (!cr.id) return Response.json({ ok: false, adim: "creative", error: cr.error }, { headers: cors })
@@ -325,6 +325,21 @@ export async function onRequestPost({ request, env }) {
       let eff = null, sorunlar = []
       try { const dd = await graph(adObj.id + "?fields=effective_status,issues_info", "GET", null, TOKEN); eff = dd.effective_status; sorunlar = (dd.issues_info || []).map(i => i.error_summary || i.error_message) } catch (_) {}
       return Response.json({ ok: true, kampanya: ad, camp_id: camp.id, ad_id: adObj.id, effective_status: eff, sorunlar }, { headers: cors })
+    }
+
+    // ── Kampanyanın adset bid_amount'unu güncelle (teslimat için tavanı yükselt) ──
+    if (action === "bid_guncelle") {
+      const cid = body.campaign_id
+      const yeniBid = body.bid_amount || 500
+      if (!cid) throw new Error("campaign_id gerekli")
+      const adsets = await graph(ACT + "/adsets?fields=id,campaign_id&limit=100", "GET", null, TOKEN)
+      const hedef = (adsets.data || []).filter(a => a.campaign_id === cid)
+      const sonuc = []
+      for (const a of hedef) {
+        try { await graph(a.id, "POST", { bid_amount: yeniBid }, TOKEN); sonuc.push({ adset: a.id, bid: yeniBid }) }
+        catch (e) { sonuc.push({ adset: a.id, hata: e.message }) }
+      }
+      return Response.json({ ok: true, campaign_id: cid, guncellenen: sonuc }, { headers: cors })
     }
 
     throw new Error("Gecersiz action: " + action)
