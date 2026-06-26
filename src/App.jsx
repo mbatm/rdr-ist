@@ -5345,8 +5345,6 @@ function ZekaModul({ user, onGeri, onManuelAc }) {
   const [ozUreten,    setOzUreten]  = useState(null)  // "gunId:altId" üretiliyor
   const [ozHata,      setOzHata]    = useState(null)
   const [ozUfuk,      setOzUfuk]    = useState(120)
-  const [gAdsYuk,     setGAdsYuk]   = useState(false)
-  const [gAdsMsg,     setGAdsMsg]   = useState(null)
   const timerRef = useRef(null)
 
   // Geçmişi localStorage'dan yükle
@@ -5540,25 +5538,6 @@ KURALLAR:
     } catch(e) {}
   }
 
-  // ── Google Ads: Altın kampanyası aç (PAUSED) ──
-  const googleReklamAc = async () => {
-    if (gAdsYuk) return
-    const _tok = (typeof localStorage!=='undefined' && localStorage.getItem('cms_token')) || ''
-    setGAdsYuk(true); setGAdsMsg(null)
-    try {
-      const r = await fetch('/api/google-ads', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'kampanya_ac', preset:'altin', butce:50, secret:_tok })
-      })
-      const d = await r.json()
-      if (!d.ok) throw new Error(d.error || 'Hata')
-      setGAdsMsg({ ok:true, text:`✅ Kampanya açıldı (DURAKLATILMIŞ): #${d.kampanya_id} · ${d.butce_tl}₺/gün · ${d.kelime_sayisi} kelime. Google Ads'te kontrol edip "Yayına al" diyebilirsin.` })
-    } catch(e) {
-      setGAdsMsg({ ok:false, text:'❌ ' + e.message })
-    }
-    setGAdsYuk(false)
-  }
-
   const skRenk = (s) => s >= 75 ? '#1D9E75' : s >= 60 ? '#EF9F27' : '#8891a5'
   const skBg   = (s) => s >= 75 ? 'rgba(29,158,117,.12)' : s >= 60 ? 'rgba(239,159,39,.12)' : 'rgba(136,145,165,.06)'
   const SEZON_LABEL = { bayram:'🕌 Bayram', okul:'📚 Okul', sinav:'📝 Sınav' }
@@ -5598,27 +5577,12 @@ KURALLAR:
         </div>
 
         <div style={{marginLeft:'auto',display:'flex',gap:6}}>
-          <button onClick={googleReklamAc} disabled={gAdsYuk} title="Altın Fiyatları Search kampanyası (50₺/gün, duraklatılmış başlar)"
-            style={{fontSize:11,background:'rgba(66,133,244,.12)',border:'0.5px solid rgba(66,133,244,.4)',color:'#4285F4'}}>
-            <Ic n={gAdsYuk?'loader-2':'brand-google'} size={12}/> {gAdsYuk?'Açılıyor…':'Google: Altın'}
-          </button>
           <button onClick={tara} disabled={yukT}
             style={{fontSize:11,background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',color:'#A855F7'}}>
             <Ic n={yukT?'loader-2':'refresh'} size={12}/> {yukT?'Taranıyor…':'Yenile'}
           </button>
         </div>
       </div>
-
-      {/* Google reklam sonucu */}
-      {gAdsMsg && (
-        <div style={{padding:'8px 14px',fontSize:12,lineHeight:1.5,
-          background: gAdsMsg.ok ? 'rgba(29,158,117,.1)' : 'rgba(230,57,70,.1)',
-          borderBottom:'0.5px solid var(--border)',
-          color: gAdsMsg.ok ? '#1D9E75' : '#ff7b7b', display:'flex', justifyContent:'space-between', gap:8}}>
-          <span>{gAdsMsg.text}</span>
-          <span style={{cursor:'pointer',opacity:.6}} onClick={()=>setGAdsMsg(null)}>×</span>
-        </div>
-      )}
 
       {/* Reklam onay diyalogu */}
       {reklamOnay && (() => {
@@ -5944,6 +5908,12 @@ function MetaAdsModul({ user, onGeri }) {
   const [yukleniyor, setYuk]   = useState(true)
   const [islem,    setIslem]   = useState(null)
   const [sonuc,    setSonuc]   = useState(null)
+  // Google Ads
+  const [gCamps,  setGCamps]  = useState([])
+  const [gYuk,    setGYuk]    = useState(false)
+  const [gIslem,  setGIslem]  = useState(null)
+  const [gSonuc,  setGSonuc]  = useState(null)
+  const [gButce,  setGButce]  = useState(50)
 
   const _tok = (typeof localStorage !== "undefined" && localStorage.getItem("cms_token")) || ""
 
@@ -5980,6 +5950,40 @@ function MetaAdsModul({ user, onGeri }) {
 
   const insMap = {}
   for (const ins of insights) insMap[ins.campaign_id] = ins
+
+  // ── Google Ads ──
+  const gYukle = async () => {
+    setGYuk(true)
+    try {
+      const d = await fetch("/api/google-ads?action=status").then(r => r.json())
+      if (d.ok) setGCamps((d.campaigns || []).filter(c => c.status !== "REMOVED"))
+      else setGSonuc({ ok: false, msg: d.error || "Yüklenemedi" })
+    } catch(e) { setGSonuc({ ok: false, msg: e.message }) }
+    setGYuk(false)
+  }
+  useEffect(() => { if (tab === "google" && gCamps.length === 0) gYukle() }, [tab])
+
+  const gPost = async (body, label) => {
+    setGIslem(body.campaign_id || body.action); setGSonuc(null)
+    try {
+      const d = await fetch("/api/google-ads", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, secret: _tok })
+      }).then(r => r.json())
+      if (!d.ok) throw new Error(d.error)
+      setGSonuc({ ok: true, msg: label || "Güncellendi" })
+      await gYukle()
+    } catch(e) { setGSonuc({ ok: false, msg: e.message }) }
+    setGIslem(null)
+  }
+  const gStRenk = (s) =>
+    s === "ENABLED" ? { bg: "rgba(29,158,117,.1)", c: "#1D9E75", b: "rgba(29,158,117,.3)" } :
+    s === "PAUSED"  ? { bg: "rgba(239,159,39,.1)", c: "#EF9F27", b: "rgba(239,159,39,.3)" } :
+                      { bg: "rgba(136,145,165,.1)", c: "#8891a5", b: "rgba(136,145,165,.3)" }
+  const gToplamButce  = gCamps.filter(c => c.status === "ENABLED").reduce((s, c) => s + parseFloat(c.butce_tl || 0), 0)
+  const gHarcama      = gCamps.reduce((s, c) => s + parseFloat(c.spend_tl || 0), 0)
+  const gTiklama      = gCamps.reduce((s, c) => s + parseInt(c.clicks || 0), 0)
+  const gOrtCPC       = gTiklama > 0 ? (gHarcama / gTiklama).toFixed(2) : "-"
 
   const aktifCamps = durum?.campaigns?.filter(c => c.status !== "ARCHIVED" && c.status !== "DELETED") || []
   const toplamButce   = aktifCamps.filter(c => c.status === "ACTIVE" && c.daily_budget).reduce((s, c) => s + parseInt(c.daily_budget), 0)
@@ -6034,37 +6038,137 @@ function MetaAdsModul({ user, onGeri }) {
             </button>
           </div>
         )}
+        {tab === "google" && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            <select value={gButce} onChange={e => setGButce(parseInt(e.target.value))}
+              style={{ fontSize: 11, background: "var(--surface)", border: "0.5px solid var(--border)", color: "var(--fg)", borderRadius: "var(--radius-sm)", padding: "3px 6px" }}>
+              <option value={30}>30₺/gün</option><option value={50}>50₺/gün</option><option value={100}>100₺/gün</option><option value={200}>200₺/gün</option>
+            </select>
+            <button onClick={() => gPost({ action: "kampanya_ac", preset: "altin", butce: gButce }, "Kampanya açıldı (duraklatılmış)")} disabled={gIslem === "kampanya_ac"}
+              style={{ fontSize: 11, background: "rgba(234,67,53,.12)", border: "0.5px solid rgba(234,67,53,.4)", color: "#EA4335" }}>
+              <Ic n={gIslem === "kampanya_ac" ? "loader-2" : "plus"} size={11}/> {gIslem === "kampanya_ac" ? "Açılıyor..." : "Altın Kampanyası Aç"}
+            </button>
+            <button onClick={gYukle} disabled={gYuk}
+              style={{ fontSize: 11, background: "rgba(234,67,53,.1)", border: "0.5px solid rgba(234,67,53,.3)", color: "#EA4335" }}>
+              <Ic n={gYuk ? "loader-2" : "refresh"} size={11}/> {gYuk ? "..." : "Yenile"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
 
         {/* ── GOOGLE ADS TAB ── */}
-        {tab === "google" && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "2.5rem 1rem", gap: 16, textAlign: "center" }}>
-            <Ic n="brand-google" size={44} style={{ color: "#EA4335", opacity: 0.5 }}/>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>Google Ads baglantisi gerekiyor</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", maxWidth: 400, lineHeight: 1.7 }}>
-              Supermetrics uzerinden Google Ads hesabini bagla. Baglanti kurulunca kampanya, butce ve tiklama verileri burada gorunecek.
+        {tab === "google" && (<>
+          {gSonuc && (
+            <div style={{ marginBottom: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between",
+              background: gSonuc.ok ? "rgba(29,158,117,.08)" : "rgba(226,75,74,.08)",
+              border: "0.5px solid " + (gSonuc.ok ? "rgba(29,158,117,.3)" : "rgba(226,75,74,.3)"),
+              borderRadius: "var(--radius-md)", fontSize: 12, color: gSonuc.ok ? "#1D9E75" : "#ff7b7b" }}>
+              {gSonuc.ok ? gSonuc.msg : "Hata: " + gSonuc.msg}
+              <span style={{ cursor: "pointer" }} onClick={() => setGSonuc(null)}>x</span>
             </div>
-            <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1rem 1.25rem", width: "100%", maxWidth: 360, textAlign: "left" }}>
-              {[
-                "rdr.ist ayarlarinda Supermetrics panelini ac",
-                "Data Sources seciminde Google Ads sec",
-                "Connect tiklayip atmmedya@gmail.com ile giris yap",
-                "Musteri numarasi: 773-177-8727",
-                "Bu sayfaya don ve Yenile butonuna bas",
-              ].map((s, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "7px 0", borderBottom: i < 4 ? "0.5px solid var(--border)" : "none" }}>
-                  <span style={{ minWidth: 20, height: 20, borderRadius: "50%", background: "rgba(234,67,53,.12)", color: "#EA4335", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>{i+1}</span>
-                  <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>{s}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize: 12, background: "rgba(234,67,53,.06)", border: "0.5px solid rgba(234,67,53,.2)", borderRadius: "var(--radius-md)", padding: "8px 16px", color: "var(--muted)" }}>
-              Musteri ID: <strong style={{ color: "#EA4335" }}>773-177-8727</strong>
-            </div>
+          )}
+
+          {/* Özet kartlari */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+            {[
+              { l: "Günlük Bütçe (Aktif)", v: gToplamButce.toFixed(0) + " TL", sub: gCamps.filter(c => c.status === "ENABLED").length + " aktif kampanya" },
+              { l: "Son 7 Gün Harcama", v: gHarcama.toFixed(2) + " TL", sub: gTiklama + " tıklama" },
+              { l: "Toplam Tıklama", v: gTiklama.toLocaleString("tr-TR"), sub: "son 7 gün" },
+              { l: "Ort. CPC", v: gOrtCPC !== "-" ? gOrtCPC + " TL" : "-", sub: "son 7 gün" },
+            ].map(s => (
+              <div key={s.l} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-md)", padding: "0.875rem" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{s.l}</div>
+                <div style={{ fontSize: 19, fontWeight: 600 }}>{s.v}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{s.sub}</div>
+              </div>
+            ))}
           </div>
-        )}
+
+          {/* Kampanya tablosu */}
+          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+            <div style={{ padding: "10px 14px", borderBottom: "0.5px solid var(--border)", fontSize: 13, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Google Kampanyaları <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>— Search · Kayseri hedefli</span></span>
+              {gYuk && <Ic n="loader-2" size={14} style={{ color: "var(--muted)" }}/>}
+            </div>
+
+            {gCamps.length === 0 && !gYuk && (
+              <div style={{ padding: "2rem", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+                Kampanya yok. Yukarıdan "Altın Kampanyası Aç" ile başla.
+              </div>
+            )}
+
+            {gCamps.map(camp => {
+              const isEnabled = camp.status === "ENABLED"
+              const isBusy    = gIslem === camp.id
+              const st        = gStRenk(camp.status)
+              const budgetTL  = parseFloat(camp.butce_tl || 0)
+              return (
+                <div key={camp.id} style={{ padding: "12px 14px", borderBottom: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600, background: st.bg, color: st.c, border: "0.5px solid " + st.b, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    {isEnabled ? "Aktif" : camp.status === "PAUSED" ? "Durduruldu" : camp.status}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{camp.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>...{String(camp.id).slice(-8)}</div>
+                  </div>
+
+                  {/* Bütçe kontrolü */}
+                  <div style={{ textAlign: "center", minWidth: 90 }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Günlük Bütçe</div>
+                    <div style={{ fontSize: 17, fontWeight: 600 }}>{budgetTL > 0 ? budgetTL.toFixed(0) + " TL" : "-"}</div>
+                    <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 4 }}>
+                      <button onClick={() => gPost({ action: "set_budget", campaign_id: camp.id, budget_tl: Math.max(10, budgetTL - 10) }, "Bütçe güncellendi")}
+                        disabled={isBusy || budgetTL <= 10}
+                        style={{ fontSize: 11, padding: "2px 7px", background: "rgba(226,75,74,.1)", border: "0.5px solid rgba(226,75,74,.3)", color: "#ff7b7b" }}>-10</button>
+                      <button onClick={() => gPost({ action: "set_budget", campaign_id: camp.id, budget_tl: budgetTL + 10 }, "Bütçe güncellendi")}
+                        disabled={isBusy}
+                        style={{ fontSize: 11, padding: "2px 7px", background: "rgba(29,158,117,.1)", border: "0.5px solid rgba(29,158,117,.3)", color: "#1D9E75" }}>+10</button>
+                    </div>
+                  </div>
+
+                  {/* Performans */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, minWidth: 240 }}>
+                    {[
+                      { l: "Harcama", v: (parseFloat(camp.spend_tl || 0)).toFixed(2) + " TL" },
+                      { l: "Tıklama", v: camp.clicks || "0" },
+                      { l: "CTR",     v: camp.ctr || "-" },
+                      { l: "CPC",     v: camp.cpc_tl && camp.cpc_tl !== "-" ? camp.cpc_tl + " TL" : "-" },
+                    ].map(m => (
+                      <div key={m.l} style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: "var(--muted)" }}>{m.l}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{m.v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Yayına al / Durdur + Kaldır */}
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => gPost({ action: isEnabled ? "pause" : "enable", campaign_id: camp.id }, isEnabled ? "Durduruldu" : "Yayına alındı")}
+                      disabled={isBusy}
+                      style={{ fontSize: 11, padding: "5px 12px",
+                        background: isEnabled ? "rgba(226,75,74,.1)" : "rgba(29,158,117,.1)",
+                        border: "0.5px solid " + (isEnabled ? "rgba(226,75,74,.3)" : "rgba(29,158,117,.3)"),
+                        color: isEnabled ? "#ff7b7b" : "#1D9E75" }}>
+                      <Ic n={isBusy ? "loader-2" : isEnabled ? "player-pause" : "player-play"} size={11}/>
+                      {isBusy ? "..." : isEnabled ? "Durdur" : "Yayına Al"}
+                    </button>
+                    <button onClick={() => { if (window.confirm("Kampanya kalıcı olarak kaldırılsın mı? (geri alınamaz)")) gPost({ action: "remove", campaign_id: camp.id }, "Kaldırıldı") }}
+                      disabled={isBusy} title="Kaldır"
+                      style={{ fontSize: 11, padding: "5px 9px", background: "transparent", border: "0.5px solid var(--border)", color: "var(--muted)" }}>
+                      <Ic n="trash" size={11}/>
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: 11, color: "var(--muted)", textAlign: "center" }}>
+            Yeni kampanyalar <strong>duraklatılmış</strong> açılır — "Yayına Al" demeden harcama yapmaz · Müşteri ID: 773-177-8727
+          </div>
+        </>)}
 
         {/* ── META ADS TAB ── */}
         {tab === "meta" && (<>

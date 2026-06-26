@@ -281,18 +281,32 @@ export async function onRequestPost({ request, env }) {
   if (!env.GADS_DEV_TOKEN) return Response.json({ ok: false, error: "GADS_DEV_TOKEN eksik" }, { status: 500, headers: cors })
   let body = {}
   try { body = await request.json() } catch {}
+  if (!(await yetkili(request, env, body))) return Response.json({ ok: false, error: "yetkisiz" }, { status: 401, headers: cors })
   try {
     if (body.action === "kampanya_ac") {
-      if (!(await yetkili(request, env, body))) return Response.json({ ok: false, error: "yetkisiz" }, { status: 401, headers: cors })
       return Response.json(await kampanyaAc(env, body), { headers: cors })
     }
-    // duraklat / yayına al
+
     const token = await getAccessToken(env)
-    const st    = body.action === "pause" ? "PAUSED" : "ENABLED"
-    const r     = await gadsPost(env, token, "/customers/" + CID + "/campaigns:mutate", {
-      operations: [{ update: { resourceName: "customers/" + CID + "/campaigns/" + body.campaign_id, status: st }, updateMask: "status" }]
+    const base  = "/customers/" + CID
+
+    // Bütçe güncelle: kampanyanın bütçe kaynağını bul, miktarı değiştir
+    if (body.action === "set_budget") {
+      const q = await query("SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = " + body.campaign_id, env)
+      const budgetRN = q[0] && q[0].campaign && q[0].campaign.campaignBudget
+      if (!budgetRN) throw new Error("Bütçe kaynağı bulunamadı")
+      await gadsPost(env, token, base + "/campaignBudgets:mutate", {
+        operations: [{ update: { resourceName: budgetRN, amountMicros: String(Math.round(parseFloat(body.budget_tl) * 1e6)) }, updateMask: "amount_micros" }]
+      })
+      return Response.json({ ok: true, durum: "butce", butce_tl: parseFloat(body.budget_tl) }, { headers: cors })
+    }
+
+    // duraklat / yayına al / kaldır
+    const st = body.action === "pause" ? "PAUSED" : body.action === "remove" ? "REMOVED" : "ENABLED"
+    await gadsPost(env, token, base + "/campaigns:mutate", {
+      operations: [{ update: { resourceName: base + "/campaigns/" + body.campaign_id, status: st }, updateMask: "status" }]
     })
-    return Response.json({ ok: true, result: r }, { headers: cors })
+    return Response.json({ ok: true, durum: st }, { headers: cors })
   } catch(e) {
     return Response.json({ ok: false, error: e.message }, { status: 500, headers: cors })
   }
