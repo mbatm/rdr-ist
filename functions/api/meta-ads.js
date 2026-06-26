@@ -187,7 +187,7 @@ export async function onRequestGet({ request, env }) {
 
     // ── Performans gecmisi ──
     if (action === "insights") {
-      const date  = url.searchParams.get("date") || "last_7d"
+      const date  = url.searchParams.get("date") || "this_month"
       const level = url.searchParams.get("level") || "campaign"
       const data  = await graph(
         ACT + "/insights?fields=campaign_name,campaign_id,adset_name,spend,clicks,impressions,ctr,cpc,reach,frequency,actions&date_preset=" + date + "&level=" + level,
