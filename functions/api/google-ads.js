@@ -259,6 +259,18 @@ export async function onRequestGet({ request, env }) {
         sonuc.keyword_durum = kw.slice(0,15).map(r => ({ kw: r.adGroupCriterion && r.adGroupCriterion.keyword && r.adGroupCriterion.keyword.text, durum: r.adGroupCriterion && r.adGroupCriterion.status, eff_cpc_tl: r.adGroupCriterion && r.adGroupCriterion.effectiveCpcBidMicros ? (Number(r.adGroupCriterion.effectiveCpcBidMicros)/1e6) : null, primary: r.adGroupCriterion && r.adGroupCriterion.primaryStatus, nedenler: r.adGroupCriterion && r.adGroupCriterion.primaryStatusReasons }));
         sonuc.keyword_sayisi = kw.length;
       } catch (e) { sonuc.keyword_durum_hata = String(e).slice(0, 200); }
+      try {
+        const loc = rowsOf(await query("SELECT campaign.name, campaign_criterion.location.geo_target_constant, campaign_criterion.negative FROM campaign_criterion WHERE campaign.status = 'ENABLED' AND campaign_criterion.type = 'LOCATION'", env));
+        sonuc.lokasyon = loc.map(r => ({ kampanya: r.campaign && r.campaign.name, geo: r.campaignCriterion && r.campaignCriterion.location && r.campaignCriterion.location.geoTargetConstant, negatif: r.campaignCriterion && r.campaignCriterion.negative }));
+      } catch (e) { sonuc.lokasyon_hata = String(e).slice(0, 200); }
+      try {
+        const lang = rowsOf(await query("SELECT campaign.name, campaign_criterion.language.language_constant FROM campaign_criterion WHERE campaign.status = 'ENABLED' AND campaign_criterion.type = 'LANGUAGE'", env));
+        sonuc.dil = lang.map(r => ({ kampanya: r.campaign && r.campaign.name, dil: r.campaignCriterion && r.campaignCriterion.language && r.campaignCriterion.language.languageConstant }));
+      } catch (e) { sonuc.dil_hata = String(e).slice(0, 200); }
+      try {
+        const m30 = rowsOf(await query("SELECT campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros FROM campaign WHERE campaign.status = 'ENABLED' AND segments.date DURING LAST_30_DAYS", env));
+        sonuc.son30 = m30.map(r => ({ kampanya: r.campaign && r.campaign.name, imp: r.metrics && r.metrics.impressions, clk: r.metrics && r.metrics.clicks, tl: r.metrics && r.metrics.costMicros ? (Number(r.metrics.costMicros) / 1e6) : 0 }));
+      } catch (e) { sonuc.son30_hata = String(e).slice(0, 200); }
       sonuc.teshis =
         sonuc.billing_var === false ? "FATURALANDIRMA_YOK: Google Ads hesabinda onayli odeme yontemi yok; kampanyalar ENABLED olsa da yayinlanmaz." :
         (sonuc.reklam_sayisi === 0 ? "REKLAM_YOK: ENABLED kampanyalarda servis edilebilir reklam yok (eksik reklam/ad group)." :
