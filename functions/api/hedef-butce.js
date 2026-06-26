@@ -10,17 +10,31 @@ export async function onRequestGet({ request, env }) {
   const hedef  = parseInt(url.searchParams.get("hedef") || "20000")
 
     // ── Hedef Motoru: gün-içi pace ayarı (agresif kapatma + imkânsız freni) ──
+    if (url.searchParams.get('action') === 'ayar_kaydet') {
+      const sec = url.searchParams.get('key') || url.searchParams.get('secret') || '';
+      if (sec !== env.RSS_API_KEY) return new Response(JSON.stringify({ ok: false, error: 'Yetkisiz' }), { headers: cors });
+      let ayar = {};
+      try { ayar = JSON.parse((await env.HABERLER.get('hedef:ayar')) || '{}'); } catch (e) {}
+      const p = url.searchParams;
+      if (p.get('hedef')) ayar.hedef = Math.max(1000, parseInt(p.get('hedef'), 10) || ayar.hedef || 22000);
+      if (p.get('normal_gunluk')) ayar.normal_gunluk = Math.max(0, parseInt(p.get('normal_gunluk'), 10) || ayar.normal_gunluk || 3000);
+      if (p.get('anomali_kat')) ayar.anomali_kat = Math.max(1, parseFloat(p.get('anomali_kat')) || ayar.anomali_kat || 4);
+      try { await env.HABERLER.put('hedef:ayar', JSON.stringify(ayar)); } catch (e) {}
+      return new Response(JSON.stringify({ ok: true, ayar }), { headers: cors });
+    }
     if (url.searchParams.get('action') === 'durum') {
       let durum = null, uyari = null;
       try { durum = JSON.parse((await env.HABERLER.get('hedef:durum')) || 'null'); } catch (e) {}
       try { uyari = JSON.parse((await env.HABERLER.get('hedef:uyari')) || 'null'); } catch (e) {}
-      return new Response(JSON.stringify({ ok: true, durum, uyari }), { headers: cors });
+      let ayar = null; try { ayar = JSON.parse((await env.HABERLER.get('hedef:ayar')) || 'null'); } catch (e) {}
+      return new Response(JSON.stringify({ ok: true, durum, uyari, ayar }), { headers: cors });
     }
     if (url.searchParams.get('action') === 'pace_ayar') {
       const uygula = url.searchParams.get('uygula') === '1';
       const keyOk = !!url.searchParams.get('key') && url.searchParams.get('key') === env.RSS_API_KEY;
       let ayar = {};
       try { ayar = JSON.parse((await env.HABERLER.get('hedef:ayar')) || '{}'); } catch (e) {}
+      const hedefAktif = (ayar && +ayar.hedef) ? +ayar.hedef : hedef;
       const normalGunluk = +ayar.normal_gunluk || 3000;
       const anomaliKat = +ayar.anomali_kat || 4;
       const bg = await jget(origin + '/api/ga4?action=bugun');
@@ -33,10 +47,10 @@ export async function onRequestGet({ request, env }) {
       for (const k in kanal) { if (paidKeys.includes(k)) paidSoFar += kanal[k]; else nonPaidSoFar += kanal[k]; }
       let zbm = 0.35;
       try { const eng = await jget(origin + '/api/hedef-butce?hedef=' + hedef); if (eng && +eng.zbm_ziyaretci > 0) zbm = +eng.zbm_ziyaretci; } catch (e) {}
-      const beklenen = Math.round(hedef * pay);
+      const beklenen = Math.round(hedefAktif * pay);
       const paceAcik = beklenen - gercek;
       const projOrganikEOD = pay > 0 ? Math.round(nonPaidSoFar / pay) : nonPaidSoFar;
-      const paidIhtiyacEOD = Math.max(0, hedef - projOrganikEOD);
+      const paidIhtiyacEOD = Math.max(0, hedefAktif - projOrganikEOD);
       const gerekenPaidButce = Math.round(paidIhtiyacEOD * zbm);
       const sonZbm = +(ayar.son_zbm || zbm);
       const zbmSicrama = zbm > sonZbm * 2;
@@ -63,7 +77,7 @@ export async function onRequestGet({ request, env }) {
         }
       }
       const snap = {
-        tarih: bg && bg.tarih, saat, hedef,
+        tarih: bg && bg.tarih, saat, hedef: hedefAktif,
         bugun_su_ana_kadar: gercek, beklenen, pace_acik: paceAcik,
         pace_durum: paceAcik > 0 ? 'geride' : 'onde',
         organik_so_far: nonPaidSoFar, paid_so_far: paidSoFar,
