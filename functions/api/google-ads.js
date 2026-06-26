@@ -271,6 +271,14 @@ export async function onRequestGet({ request, env }) {
         const m30 = rowsOf(await query("SELECT campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros FROM campaign WHERE campaign.status = 'ENABLED' AND segments.date DURING LAST_30_DAYS", env));
         sonuc.son30 = m30.map(r => ({ kampanya: r.campaign && r.campaign.name, imp: r.metrics && r.metrics.impressions, clk: r.metrics && r.metrics.clicks, tl: r.metrics && r.metrics.costMicros ? (Number(r.metrics.costMicros) / 1e6) : 0 }));
       } catch (e) { sonuc.son30_hata = String(e).slice(0, 200); }
+      try {
+        const gids = [...new Set((sonuc.lokasyon || []).map(x => x.geo).filter(Boolean))];
+        sonuc.geo_adlari = [];
+        for (const gg of gids) {
+          const gn = rowsOf(await query("SELECT geo_target_constant.id, geo_target_constant.name, geo_target_constant.canonical_name, geo_target_constant.country_code, geo_target_constant.target_type, geo_target_constant.status FROM geo_target_constant WHERE geo_target_constant.resource_name = '" + gg + "'", env));
+          sonuc.geo_adlari.push({ rn: gg, detay: (gn[0] && gn[0].geoTargetConstant) || null });
+        }
+      } catch (e) { sonuc.geo_adlari_hata = String(e).slice(0, 200); }
       sonuc.teshis =
         sonuc.billing_var === false ? "FATURALANDIRMA_YOK: Google Ads hesabinda onayli odeme yontemi yok; kampanyalar ENABLED olsa da yayinlanmaz." :
         (sonuc.reklam_sayisi === 0 ? "REKLAM_YOK: ENABLED kampanyalarda servis edilebilir reklam yok (eksik reklam/ad group)." :
