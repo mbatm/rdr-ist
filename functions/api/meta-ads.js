@@ -244,6 +244,36 @@ export async function onRequestPost({ request, env }) {
     const action = body.action
     if (!(await yetkili(request, env, body.secret))) return Response.json({ ok: false, error: "Yetkisiz" }, { status: 401, headers: cors })
 
+    // ── Bozuk geo (Fransa key 789723) adsetleri Kayseri region 3686'ya duzelt ──
+    if (action === "geo_duzelt") {
+      const KAYSERI = { regions: [{ key: "3686" }], location_types: ["home", "recent"] };
+      const camps = await graph("/act_708028213253830/campaigns?fields=id,name,effective_status&limit=200", "GET", null, TOKEN);
+      const rapor = [];
+      let tarandi = 0;
+      for (const cmp of ((camps && camps.data) || [])) {
+        let adsets;
+        try { adsets = await graph("/" + cmp.id + "/adsets?fields=id,name,targeting,effective_status&limit=50", "GET", null, TOKEN); }
+        catch (e) { continue; }
+        for (const as of ((adsets && adsets.data) || [])) {
+          tarandi++;
+          const tg = as.targeting || {};
+          const geo = tg.geo_locations || {};
+          const cities = geo.cities || [];
+          const countries = geo.countries || [];
+          const frVar = cities.some(x => String(x.key) === "789723" || x.country === "FR") || countries.includes("FR");
+          if (!frVar) continue;
+          const yeniTg = Object.assign({}, tg, { geo_locations: KAYSERI });
+          try {
+            await graph("/" + as.id, "POST", { targeting: yeniTg }, TOKEN);
+            rapor.push({ kampanya: cmp.name, adset: as.id, durum: "duzeltildi" });
+          } catch (e) {
+            rapor.push({ kampanya: cmp.name, adset: as.id, durum: "hata: " + String(e).slice(0, 100) });
+          }
+        }
+      }
+      return Response.json({ ok: true, tarandi, duzeltilen: rapor.filter(r => r.durum === "duzeltildi").length, rapor }, { headers: cors });
+    }
+
     // ── Kampanyayi durdur / baslat ──
     if (action === "pause" || action === "resume") {
       const cid    = typeof body.campaign_id === "string" ? body.campaign_id : CAMPAIGNS[body.campaign_key]
