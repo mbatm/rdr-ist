@@ -148,7 +148,7 @@ async function kampanyaAc(env, opts) {
       status: "PAUSED",
       advertisingChannelType: "SEARCH",
       containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
-      manualCpc: {},
+      manualCpc: {}, ...(opts.bitis ? { endDate: opts.bitis } : {}),
       campaignBudget: budgetRN,
       networkSettings: { targetGoogleSearch: true, targetSearchNetwork: true, targetContentNetwork: false, targetPartnerSearchNetwork: false }
     } }]
