@@ -247,8 +247,8 @@ export async function onRequestGet({ request, env }) {
         sonuc.reklam_ham = ads[0] || null;
       } catch (e) { sonuc.reklam_hata = String(e).slice(0, 200); }
       try {
-        const cp = rowsOf(await query("SELECT campaign.name, campaign.primary_status, campaign.primary_status_reasons, campaign.bidding_strategy_type, campaign.start_date, campaign.end_date FROM campaign WHERE campaign.status = 'ENABLED'", env));
-        sonuc.kampanya_durum = cp.map(r => ({ ad: r.campaign && r.campaign.name, primary: r.campaign && r.campaign.primaryStatus, nedenler: r.campaign && r.campaign.primaryStatusReasons, teklif_strateji: r.campaign && r.campaign.biddingStrategyType, baslangic: r.campaign && r.campaign.startDate, bitis: r.campaign && r.campaign.endDate }));
+        const cp = rowsOf(await query("SELECT campaign.name, campaign.primary_status, campaign.primary_status_reasons, campaign.bidding_strategy_type FROM campaign WHERE campaign.status = 'ENABLED'", env));
+        sonuc.kampanya_durum = cp.map(r => ({ ad: r.campaign && r.campaign.name, primary: r.campaign && r.campaign.primaryStatus, nedenler: r.campaign && r.campaign.primaryStatusReasons, teklif_strateji: r.campaign && r.campaign.biddingStrategyType}));
       } catch (e) { sonuc.kampanya_durum_hata = String(e).slice(0, 200); }
       try {
         const ag = rowsOf(await query("SELECT ad_group.name, ad_group.cpc_bid_micros, ad_group.primary_status, ad_group.primary_status_reasons FROM ad_group WHERE campaign.status = 'ENABLED'", env));
