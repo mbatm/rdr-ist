@@ -105,6 +105,48 @@ export async function onRequestGet({ env, request }) {
     const token = await getAccessToken(env);
     const pid   = (env.GA4_PROPERTY_ID || '307514768').trim();
 
+    // ── Hedef Motoru: bugün-şu-ana-kadar + saatlik dağılım eğrisi ──
+    const __act = url.searchParams.get('action') || '';
+    if (__act === 'bugun' || __act === 'pace') {
+      const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }));
+      const suankiSaat = tzNow.getHours();
+      const tH = await ga4Report(token, pid, {
+        dateRanges: [{ startDate: 'today', endDate: 'today' }],
+        dimensions: [{ name: 'hour' }],
+        metrics: [{ name: 'activeUsers' }]
+      });
+      const bugunSaatlik = {};
+      (tH && tH.rows ? tH.rows : []).forEach(r => { bugunSaatlik[r.dimensionValues[0].value] = +r.metricValues[0].value; });
+      const bugunToplam = Object.values(bugunSaatlik).reduce((a, b) => a + b, 0);
+      const tC = await ga4Report(token, pid, {
+        dateRanges: [{ startDate: 'today', endDate: 'today' }],
+        dimensions: [{ name: 'sessionDefaultChannelGrouping' }],
+        metrics: [{ name: 'activeUsers' }]
+      });
+      const bugunKanal = {};
+      (tC && tC.rows ? tC.rows : []).forEach(r => { bugunKanal[r.dimensionValues[0].value] = +r.metricValues[0].value; });
+      const hH = await ga4Report(token, pid, {
+        dateRanges: [{ startDate: '28daysAgo', endDate: 'yesterday' }],
+        dimensions: [{ name: 'hour' }],
+        metrics: [{ name: 'activeUsers' }]
+      });
+      const egriRaw = new Array(24).fill(0);
+      (hH && hH.rows ? hH.rows : []).forEach(r => { const h = +r.dimensionValues[0].value; if (h >= 0 && h < 24) egriRaw[h] = +r.metricValues[0].value; });
+      const egriTop = egriRaw.reduce((a, b) => a + b, 0) || 1;
+      const egri = egriRaw.map(v => v / egriTop);
+      let beklenenPay = 0; for (let h = 0; h <= suankiSaat && h < 24; h++) beklenenPay += egri[h];
+      return new Response(JSON.stringify({
+        ok: true,
+        tarih: tzNow.toISOString().slice(0, 10),
+        saat: suankiSaat,
+        bugun_su_ana_kadar: bugunToplam,
+        bugun_saatlik: bugunSaatlik,
+        bugun_kanal: bugunKanal,
+        saatlik_egri: egri,
+        beklenen_pay: beklenenPay
+      }), { headers: cors });
+    }
+
     const [sum, yes, ch, tr, tp] = await Promise.all([
       ga4Report(token, pid, {
         dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
