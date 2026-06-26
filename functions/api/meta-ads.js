@@ -288,9 +288,9 @@ export async function onRequestPost({ request, env }) {
         billing_event:     "IMPRESSIONS",
         optimization_goal: body.optimization_goal || "LINK_CLICKS",
         bid_amount:        (body.bid_tl || 2) * 100,
-        promoted_object:   { page_id: body.page_id || "506931626168922" },
+        promoted_object:   { page_id: body.page_id || "139690272760213" },
         targeting:         body.targeting || {
-          geo_locations: { cities: [{ key: "789723", name: "Kayseri", country: "TR" }] },
+          geo_locations: { regions: [{ key: "3686" }], location_types: ["home", "recent"] },
           age_min: 18, age_max: 65
         },
         dsa_beneficiary:   "Kayserim.net",
