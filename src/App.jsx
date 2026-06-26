@@ -2882,6 +2882,33 @@ function KayseradarModul({ user, onGeri }) {
                   style={{width:'100%',fontSize:13,boxSizing:'border-box'}}/>
               </div>
 
+              {/* Metin */}
+              {onayKayit.metin && (
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}}>Metin</div>
+                  <textarea value={onayKayit.metin} onChange={e=>onayGuncelle('metin',e.target.value)}
+                    rows={4} style={{width:'100%',fontSize:13,resize:'vertical',boxSizing:'border-box'}}/>
+                </div>
+              )}
+
+              {/* Instagram metni */}
+              {onayKayit.instagram && (
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:'#E1306C',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}}>📸 Instagram Metni</div>
+                  <textarea value={onayKayit.instagram} onChange={e=>onayGuncelle('instagram',e.target.value)}
+                    rows={3} style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+                </div>
+              )}
+
+              {/* Facebook metni */}
+              {onayKayit.facebook && (
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:'#1877F2',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em'}}>👍 Facebook Metni</div>
+                  <textarea value={onayKayit.facebook} onChange={e=>onayGuncelle('facebook',e.target.value)}
+                    rows={2} style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
+                </div>
+              )}
+
               {/* Render durumu */}
               <div style={{marginBottom:16}}>
                 {Object.entries(videoRenders).map(([fmt,r])=>(
