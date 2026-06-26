@@ -10,6 +10,12 @@ export async function onRequestGet({ request, env }) {
   const hedef  = parseInt(url.searchParams.get("hedef") || "20000")
 
     // ── Hedef Motoru: gün-içi pace ayarı (agresif kapatma + imkânsız freni) ──
+    if (url.searchParams.get('action') === 'durum') {
+      let durum = null, uyari = null;
+      try { durum = JSON.parse((await env.HABERLER.get('hedef:durum')) || 'null'); } catch (e) {}
+      try { uyari = JSON.parse((await env.HABERLER.get('hedef:uyari')) || 'null'); } catch (e) {}
+      return new Response(JSON.stringify({ ok: true, durum, uyari }), { headers: cors });
+    }
     if (url.searchParams.get('action') === 'pace_ayar') {
       const uygula = url.searchParams.get('uygula') === '1';
       const keyOk = !!url.searchParams.get('key') && url.searchParams.get('key') === env.RSS_API_KEY;
