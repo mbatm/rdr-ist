@@ -5901,6 +5901,82 @@ KURALLAR:
 
 
 // ── META ADS YONETIM MODULU ───────────────────────────────────────────────────
+function HedefTakipModul() {
+  const [hd, setHd] = useState(null);
+  const [yuk, setYuk] = useState(false);
+  const [hata, setHata] = useState('');
+  const yukle = async () => {
+    setYuk(true); setHata('');
+    try {
+      const r = await fetch('/api/hedef-butce?action=pace_ayar');
+      const j = await r.json();
+      if (j && j.ok !== false) setHd(j); else setHata('Veri alinamadi');
+    } catch (e) { setHata('Baglanti hatasi'); }
+    setYuk(false);
+  };
+  useEffect(() => { yukle(); }, []);
+  const fmt = (n) => (n == null ? '-' : Math.round(n).toLocaleString('tr-TR'));
+  const gercek = hd ? hd.bugun_su_ana_kadar : 0;
+  const beklenen = hd && hd.beklenen != null ? hd.beklenen : 0;
+  const hedef = hd ? hd.hedef : 22000;
+  const geride = hd && hd.pace_acik > 0;
+  const oran = hedef ? Math.min(100, Math.round((gercek / hedef) * 100)) : 0;
+  const beklenenOran = hedef ? Math.min(100, Math.round((beklenen / hedef) * 100)) : 0;
+  const kutu = { padding: 8, borderRadius: 8, background: 'rgba(120,120,160,0.08)' };
+  return (
+    <div style={{ margin: '0 0 16px', padding: 16, borderRadius: 14, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Ic n="target" /> Hedef Takip
+        </div>
+        <button onClick={yukle} disabled={yuk} style={{ fontSize: 12, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(120,120,160,0.3)', background: 'transparent', cursor: 'pointer', color: 'inherit' }}>
+          {yuk ? '...' : 'Yenile'}
+        </button>
+      </div>
+      {hata ? <div style={{ color: '#e66', fontSize: 13, marginBottom: 8 }}>{hata}</div> : null}
+      {hd && hd.imkansiz ? (
+        <div style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: 10, background: 'rgba(220,60,60,0.15)', border: '1px solid rgba(220,60,60,0.4)', color: '#f88', fontSize: 13 }}>
+          Bugunku hedef mevcut ZBM ile imkansiz gorunuyor ({hd.imkansiz_sebep}). Otomatik harcama durduruldu, karariniz bekleniyor.
+        </div>
+      ) : null}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+        <div><div style={{ fontSize: 11, opacity: 0.7 }}>Hedef</div><div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(hedef)}</div></div>
+        <div><div style={{ fontSize: 11, opacity: 0.7 }}>Bugun (saat {hd ? hd.saat : '-'}:00)</div><div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(gercek)}</div></div>
+        <div><div style={{ fontSize: 11, opacity: 0.7 }}>Bu saatte beklenen</div><div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(beklenen)}</div></div>
+        <div><div style={{ fontSize: 11, opacity: 0.7 }}>Pace</div><div style={{ fontSize: 20, fontWeight: 700, color: geride ? '#f3a85a' : '#4ec88a' }}>{hd ? (geride ? 'Geride ' + fmt(hd.pace_acik) : 'Onde') : '-'}</div></div>
+      </div>
+      <div style={{ position: 'relative', height: 10, borderRadius: 6, background: 'rgba(120,120,160,0.18)', marginBottom: 4, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: oran + '%', background: geride ? 'linear-gradient(90deg,#f3a85a,#f7765a)' : 'linear-gradient(90deg,#4ec88a,#6aaddd)' }} />
+        <div style={{ position: 'absolute', left: beklenenOran + '%', top: -2, bottom: -2, width: 2, background: '#fff', opacity: 0.7 }} />
+      </div>
+      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 12 }}>%{oran} tamamlandi - beyaz cizgi: bu saatte olmasi gereken (%{beklenenOran})</div>
+      {hd ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, fontSize: 12 }}>
+          <div style={kutu}>Organik EOD projeksiyon<br /><b>{fmt(hd.proj_organik_eod)}</b></div>
+          <div style={kutu}>Gereken paid (ziyaretci)<br /><b>{fmt(hd.paid_ihtiyac_eod)}</b></div>
+          <div style={kutu}>ZBM (TL/ziyaretci)<br /><b>{hd.zbm_ziyaretci != null ? hd.zbm_ziyaretci.toFixed(2) : '-'}</b></div>
+          <div style={kutu}>Gereken gunluk butce<br /><b>{fmt(hd.gereken_paid_gunluk_butce)} TL</b></div>
+        </div>
+      ) : null}
+      {hd && hd.dagilim && hd.dagilim.length ? (
+        <div style={{ marginTop: 10, fontSize: 12 }}>
+          <div style={{ opacity: 0.7, marginBottom: 4 }}>Onerilen dagilim:</div>
+          {hd.dagilim.map((d, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 6, background: 'rgba(120,120,160,0.06)', marginBottom: 3 }}>
+              <span>{d.ad}</span><b>{fmt(d.butce_tl)} TL</b>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {hd && hd.uygulama ? (
+        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.6 }}>
+          Durum: {hd.uygulama.yapildi ? 'butceler uygulandi' : 'dry-run (' + (hd.uygulama.sebep || '') + ')'}{hd.guncelleme ? ' - guncelleme ' + hd.guncelleme.slice(11, 16) : ''}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function MetaAdsModul({ user, onGeri }) {
   const [tab,      setTab]     = useState("meta")
   const [durum,    setDurum]   = useState(null)
@@ -6553,6 +6629,16 @@ function ModulSecici({ user, onModul }) {
       yetki: 'admin',
     },
     {
+      id: 'hedef',
+      baslik: 'Hedef Takip',
+      aciklama: 'Gunluk 22.000 hedefi, gun-ici pace ve otomatik butce koprusu',
+      ic: 'target',
+      renk: '#F59E0B',
+      bg: 'rgba(245,158,11,0.08)',
+      border: 'rgba(245,158,11,0.2)',
+      yetki: 'admin',
+    },
+    {
       id: 'yonetim',
       baslik: 'Yönetim',
       aciklama: 'Log kayıtları, kullanıcı yönetimi, reklam raporları',
@@ -6702,6 +6788,7 @@ export default function App() {
   if (aktifModul === 'galeri')  return <GaleriModul   user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'zeka')   return <ZekaModul user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
   if (aktifModul === 'kesfet') return <KesfetRadar user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
+  if (aktifModul === 'hedef') return <HedefTakipModul />;
   if (aktifModul === 'metaads') return <MetaAdsModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
