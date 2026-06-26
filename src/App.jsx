@@ -5901,18 +5901,41 @@ KURALLAR:
 
 
 // ── META ADS YONETIM MODULU ───────────────────────────────────────────────────
-function HedefTakipModul() {
+function HedefTakipModul({ geri }) {
   const [hd, setHd] = useState(null);
   const [yuk, setYuk] = useState(false);
   const [hata, setHata] = useState('');
+  const [hedefIn, setHedefIn] = useState('22000');
+  const [normalIn, setNormalIn] = useState('3000');
+  const [anomaliIn, setAnomaliIn] = useState('4');
+  const [kayit, setKayit] = useState('');
   const yukle = async () => {
     setYuk(true); setHata('');
     try {
       const r = await fetch('/api/hedef-butce?action=pace_ayar');
       const j = await r.json();
       if (j && j.ok !== false) setHd(j); else setHata('Veri alinamadi');
+      try {
+        const rd = await fetch('/api/hedef-butce?action=durum');
+        const jd = await rd.json();
+        const a = (jd && jd.ayar) || {};
+        setHedefIn(String(a.hedef || (j && j.hedef) || 22000));
+        setNormalIn(String(a.normal_gunluk || 3000));
+        setAnomaliIn(String(a.anomali_kat || 4));
+      } catch (e) {}
     } catch (e) { setHata('Baglanti hatasi'); }
     setYuk(false);
+  };
+  const kaydet = async () => {
+    setKayit('Kaydediliyor...');
+    try {
+      const tok = localStorage.getItem('cms_token') || '';
+      const u = '/api/hedef-butce?action=ayar_kaydet&hedef=' + encodeURIComponent(hedefIn) + '&normal_gunluk=' + encodeURIComponent(normalIn) + '&anomali_kat=' + encodeURIComponent(anomaliIn) + '&secret=' + encodeURIComponent(tok);
+      const r = await fetch(u);
+      const j = await r.json();
+      if (j && j.ok) { setKayit('Kaydedildi'); yukle(); }
+      else setKayit(j && j.error ? j.error : 'Hata');
+    } catch (e) { setKayit('Baglanti hatasi'); }
   };
   useEffect(() => { yukle(); }, []);
   const fmt = (n) => (n == null ? '-' : Math.round(n).toLocaleString('tr-TR'));
@@ -5923,15 +5946,18 @@ function HedefTakipModul() {
   const oran = hedef ? Math.min(100, Math.round((gercek / hedef) * 100)) : 0;
   const beklenenOran = hedef ? Math.min(100, Math.round((beklenen / hedef) * 100)) : 0;
   const kutu = { padding: 8, borderRadius: 8, background: 'rgba(120,120,160,0.08)' };
+  const inp = { width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid rgba(120,120,160,0.35)', background: 'rgba(0,0,0,0.15)', color: 'inherit', fontSize: 14 };
+  const btn = { fontSize: 12, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(120,120,160,0.3)', background: 'transparent', cursor: 'pointer', color: 'inherit' };
   return (
     <div style={{ margin: '0 0 16px', padding: 16, borderRadius: 14, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
           <Ic n="target" /> Hedef Takip
         </div>
-        <button onClick={yukle} disabled={yuk} style={{ fontSize: 12, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(120,120,160,0.3)', background: 'transparent', cursor: 'pointer', color: 'inherit' }}>
-          {yuk ? '...' : 'Yenile'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {geri ? <button onClick={geri} style={btn}>← Menu</button> : null}
+          <button onClick={yukle} disabled={yuk} style={btn}>{yuk ? '...' : 'Yenile'}</button>
+        </div>
       </div>
       {hata ? <div style={{ color: '#e66', fontSize: 13, marginBottom: 8 }}>{hata}</div> : null}
       {hd && hd.imkansiz ? (
@@ -5951,7 +5977,7 @@ function HedefTakipModul() {
       </div>
       <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 12 }}>%{oran} tamamlandi - beyaz cizgi: bu saatte olmasi gereken (%{beklenenOran})</div>
       {hd ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, fontSize: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, fontSize: 12, marginBottom: 12 }}>
           <div style={kutu}>Organik EOD projeksiyon<br /><b>{fmt(hd.proj_organik_eod)}</b></div>
           <div style={kutu}>Gereken paid (ziyaretci)<br /><b>{fmt(hd.paid_ihtiyac_eod)}</b></div>
           <div style={kutu}>ZBM (TL/ziyaretci)<br /><b>{hd.zbm_ziyaretci != null ? hd.zbm_ziyaretci.toFixed(2) : '-'}</b></div>
@@ -5959,7 +5985,7 @@ function HedefTakipModul() {
         </div>
       ) : null}
       {hd && hd.dagilim && hd.dagilim.length ? (
-        <div style={{ marginTop: 10, fontSize: 12 }}>
+        <div style={{ marginBottom: 12, fontSize: 12 }}>
           <div style={{ opacity: 0.7, marginBottom: 4 }}>Onerilen dagilim:</div>
           {hd.dagilim.map((d, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 6, background: 'rgba(120,120,160,0.06)', marginBottom: 3 }}>
@@ -5968,6 +5994,25 @@ function HedefTakipModul() {
           ))}
         </div>
       ) : null}
+      <div style={{ padding: 12, borderRadius: 10, background: 'rgba(120,120,160,0.07)', border: '1px solid rgba(120,120,160,0.18)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><Ic n="adjustments" /> Hedef Ayarlari</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginBottom: 8 }}>
+          <label style={{ fontSize: 11, opacity: 0.75 }}>Gunluk hedef (tekil)
+            <input type="number" value={hedefIn} onChange={e => setHedefIn(e.target.value)} style={inp} />
+          </label>
+          <label style={{ fontSize: 11, opacity: 0.75 }}>Normal gunluk taban
+            <input type="number" value={normalIn} onChange={e => setNormalIn(e.target.value)} style={inp} />
+          </label>
+          <label style={{ fontSize: 11, opacity: 0.75 }}>Anomali katsayisi
+            <input type="number" step="0.5" value={anomaliIn} onChange={e => setAnomaliIn(e.target.value)} style={inp} />
+          </label>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={kaydet} style={{ ...btn, borderColor: 'rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.12)' }}>Kaydet</button>
+          <span style={{ fontSize: 12, opacity: 0.8 }}>{kayit}</span>
+        </div>
+        <div style={{ fontSize: 10, opacity: 0.55, marginTop: 6 }}>Imkansiz freni: gereken butce normal_gunluk x anomali_kat ustune cikarsa otomatik harcama durur.</div>
+      </div>
       {hd && hd.uygulama ? (
         <div style={{ marginTop: 8, fontSize: 11, opacity: 0.6 }}>
           Durum: {hd.uygulama.yapildi ? 'butceler uygulandi' : 'dry-run (' + (hd.uygulama.sebep || '') + ')'}{hd.guncelleme ? ' - guncelleme ' + hd.guncelleme.slice(11, 16) : ''}
@@ -6788,7 +6833,7 @@ export default function App() {
   if (aktifModul === 'galeri')  return <GaleriModul   user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'zeka')   return <ZekaModul user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
   if (aktifModul === 'kesfet') return <KesfetRadar user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
-  if (aktifModul === 'hedef') return <HedefTakipModul />;
+  if (aktifModul === 'hedef') return <HedefTakipModul geri={() => setAktifModul(null)} />;
   if (aktifModul === 'metaads') return <MetaAdsModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
   // Reklam, Manuel, Yönetim modülleri yakında
