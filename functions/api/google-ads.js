@@ -95,6 +95,28 @@ const PRESETLER = {
       "Bugün altın ne kadar? Canlı altın fiyatlarını kayserim.net'ten takip edin.",
       "Gram, çeyrek, ata altın güncel fiyatları. Anlık takip kayserim.net'te."
     ]
+  },
+  namaz: {
+    ad:   "Search - Namaz Vakitleri",
+    link: "https://www.kayserim.net/kayseri-namaz-vakitleri",
+    kelimeler: ["kayseri namaz vakitleri", "kayseri namaz vakti", "namaz vakti kayseri", "kayseri ezan saati", "kayseri imsak vakti"],
+    basliklar: ["Kayseri Namaz Vakitleri", "Bugün Ezan Saatleri", "Kayseri İmsak Vakti", "Namaz Saatleri Kayseri", "Güncel Ezan Vakti", "Kayseri'de Namaz Saati", "Öğle İkindi Akşam"],
+    aciklamalar: [
+      "Kayseri namaz vakitleri: imsak, öğle, ikindi, akşam, yatsı saatleri güncel.",
+      "Bugün Kayseri'de ezan saat kaçta? Tüm namaz vakitleri kayserim.net'te.",
+      "Kayseri için güncel namaz ve imsak vakitlerini anlık takip edin."
+    ]
+  },
+  eczane: {
+    ad:   "Search - Nöbetçi Eczane",
+    link: "https://www.kayserim.net/kayseri-nobetci-eczaneler",
+    kelimeler: ["kayseri nöbetçi eczane", "nöbetçi eczane kayseri", "kayseri nöbetçi eczaneler", "develi nöbetçi eczane", "bugün nöbetçi eczane kayseri"],
+    basliklar: ["Kayseri Nöbetçi Eczane", "Bugün Nöbetçi Eczaneler", "En Yakın Nöbetçi Eczane", "Kayseri Eczane Nöbeti", "Açık Eczaneler Kayseri", "Nöbetçi Eczane Listesi", "Kayseri'de Açık Eczane"],
+    aciklamalar: [
+      "Kayseri nöbetçi eczaneler: bugün açık olan en yakın eczaneleri bul.",
+      "Kayseri ve ilçelerinde nöbetçi eczane listesi, adres ve telefon.",
+      "Gece açık eczane mi arıyorsun? Güncel nöbetçi eczane listesi burada."
+    ]
   }
 }
 
@@ -331,6 +353,57 @@ export async function onRequestPost({ request, env }) {
         operations: [{ update: { resourceName: budgetRN, amountMicros: String(Math.round(parseFloat(body.budget_tl) * 1e6)) }, updateMask: "amount_micros" }]
       })
       return Response.json({ ok: true, durum: "butce", butce_tl: parseFloat(body.budget_tl) }, { headers: cors })
+    }
+
+    // Boş (kampanyaya bağsız) bütçeleri temizle
+    if (body.action === "bos_butce_temizle") {
+      const bq = await query("SELECT campaign_budget.resource_name, campaign_budget.name, campaign_budget.reference_count FROM campaign_budget WHERE campaign_budget.reference_count = 0", env)
+      const ops = bq.map(function(r) { return { remove: r.campaignBudget.resourceName } })
+      let silinen = 0
+      if (ops.length) {
+        const res = await gadsPost(env, token, base + "/campaignBudgets:mutate", { operations: ops, partialFailure: true })
+        silinen = (res.results || []).filter(Boolean).length
+      }
+      return Response.json({ ok: true, bulunan: bq.length, silinen }, { headers: cors })
+    }
+
+    // Otomatik bütçe formülü (varsayılan: öneri/kuru çalışma; asla durdurmaz)
+    if (body.action === "oto_formul") {
+      const tavan  = parseFloat(body.tavan || 500)
+      const uygula = body.uygula === true || body.uygula === "true"
+      const rows = await query(
+        "SELECT campaign.id, campaign.name, campaign.status, campaign_budget.amount_micros, " +
+        "metrics.clicks, metrics.impressions, metrics.ctr, metrics.average_cpc " +
+        "FROM campaign WHERE campaign.status = 'ENABLED' AND segments.date DURING LAST_7_DAYS", env)
+      const plan = []
+      let toplam = 0
+      for (const r of rows) {
+        const m = r.metrics || {}, b = r.campaignBudget || {}
+        const butce = b.amountMicros ? parseInt(b.amountMicros) / 1e6 : 0
+        const imp = parseInt(m.impressions || 0)
+        const ctr = parseFloat(m.ctr || 0) * 100
+        const cpc = m.averageCpc ? parseInt(m.averageCpc) / 1e6 : 0
+        let yeni = butce, neden = "yeterli veri yok → sabit"
+        if (imp >= 200) {
+          if (ctr >= 6 && cpc > 0 && cpc <= 1.5) { yeni = Math.round(butce * 1.2); neden = "yüksek performans → +%20" }
+          else if (ctr < 2 || cpc > 3)            { yeni = Math.max(20, Math.round(butce * 0.8)); neden = "düşük performans → -%20" }
+          else                                     { neden = "dengeli → sabit" }
+        }
+        toplam += yeni
+        plan.push({ id: r.campaign.id, ad: r.campaign.name, eski_butce: butce, yeni_butce: yeni, neden, ctr: ctr.toFixed(1) + "%", cpc: cpc.toFixed(2), imp })
+      }
+      let uyari = null
+      if (toplam > tavan) uyari = "Planlanan toplam " + toplam + "TL > tavan " + tavan + "TL. Uygulamadan once gozden gecir."
+      if (uygula && !uyari) {
+        for (const p of plan) {
+          if (p.yeni_butce !== p.eski_butce) {
+            const cq = await query("SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = " + p.id, env)
+            const budgetRN = cq[0] && cq[0].campaign && cq[0].campaign.campaignBudget
+            if (budgetRN) await gadsPost(env, token, base + "/campaignBudgets:mutate", { operations: [{ update: { resourceName: budgetRN, amountMicros: String(Math.round(p.yeni_butce * 1e6)) }, updateMask: "amount_micros" }] })
+          }
+        }
+      }
+      return Response.json({ ok: true, uygulandi: uygula && !uyari, tavan, toplam_plan: toplam, uyari, plan }, { headers: cors })
     }
 
     // duraklat / yayına al / kaldır
