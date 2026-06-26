@@ -426,6 +426,16 @@ function seoNormalize(seo) {
 
 // ── ANA HANDLER ─────────────────────────────────────────────────────────────
 export async function onRequestGet({ env, request }) {
+  // ── Hedef Motoru: 2 saatte bir gün-içi pace tetikleyici (oto-isle her ~5dk çalışır) ──
+  try {
+    const __ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }));
+    const __h = __ist.getHours(), __m = __ist.getMinutes();
+    if (__m < 5 && [8, 10, 12, 14, 16, 18, 20, 22].includes(__h)) {
+      const __o = new URL(request.url).origin;
+      await fetch(__o + '/api/hedef-butce?action=pace_ayar&uygula=1&key=' + encodeURIComponent(env.RSS_API_KEY || '')).catch(() => {});
+    }
+  } catch (e) {}
+
   try {
     const url      = new URL(request.url)
 
