@@ -5914,6 +5914,7 @@ function MetaAdsModul({ user, onGeri }) {
   const [gIslem,  setGIslem]  = useState(null)
   const [gSonuc,  setGSonuc]  = useState(null)
   const [gButce,  setGButce]  = useState(50)
+  const [gPreset, setGPreset] = useState("altin")
 
   const _tok = (typeof localStorage !== "undefined" && localStorage.getItem("cms_token")) || ""
 
@@ -6039,14 +6040,39 @@ function MetaAdsModul({ user, onGeri }) {
           </div>
         )}
         {tab === "google" && (
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={gPreset} onChange={e => setGPreset(e.target.value)}
+              style={{ fontSize: 11, background: "var(--surface)", border: "0.5px solid var(--border)", color: "var(--fg)", borderRadius: "var(--radius-sm)", padding: "3px 6px" }}>
+              <option value="altin">Altın Fiyatları</option><option value="namaz">Namaz Vakitleri</option><option value="eczane">Nöbetçi Eczane</option>
+            </select>
             <select value={gButce} onChange={e => setGButce(parseInt(e.target.value))}
               style={{ fontSize: 11, background: "var(--surface)", border: "0.5px solid var(--border)", color: "var(--fg)", borderRadius: "var(--radius-sm)", padding: "3px 6px" }}>
               <option value={30}>30₺/gün</option><option value={50}>50₺/gün</option><option value={100}>100₺/gün</option><option value={200}>200₺/gün</option>
             </select>
-            <button onClick={() => gPost({ action: "kampanya_ac", preset: "altin", butce: gButce }, "Kampanya açıldı (duraklatılmış)")} disabled={gIslem === "kampanya_ac"}
+            <button onClick={() => gPost({ action: "kampanya_ac", preset: gPreset, butce: gButce }, "Kampanya açıldı (duraklatılmış)")} disabled={gIslem === "kampanya_ac"}
               style={{ fontSize: 11, background: "rgba(234,67,53,.12)", border: "0.5px solid rgba(234,67,53,.4)", color: "#EA4335" }}>
-              <Ic n={gIslem === "kampanya_ac" ? "loader-2" : "plus"} size={11}/> {gIslem === "kampanya_ac" ? "Açılıyor..." : "Altın Kampanyası Aç"}
+              <Ic n={gIslem === "kampanya_ac" ? "loader-2" : "plus"} size={11}/> {gIslem === "kampanya_ac" ? "Açılıyor..." : "Kampanya Aç"}
+            </button>
+            <button onClick={() => { if (window.confirm("Kampanyaya bağlı olmayan boş bütçeler silinsin mi?")) gPost({ action: "bos_butce_temizle" }, "Boş bütçeler temizlendi") }} disabled={gIslem === "bos_butce_temizle"}
+              style={{ fontSize: 11, background: "transparent", border: "0.5px solid var(--border)", color: "var(--muted)" }}>
+              <Ic n={gIslem === "bos_butce_temizle" ? "loader-2" : "trash"} size={11}/> Boş Bütçe
+            </button>
+            <button onClick={async () => {
+              setGSonuc(null); setGIslem("oto_formul")
+              try {
+                const d = await fetch("/api/google-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "oto_formul", secret: _tok }) }).then(r => r.json())
+                if (!d.ok) throw new Error(d.error)
+                const ozet = (d.plan || []).map(p => "- " + p.ad + ": " + p.eski_butce + " -> " + p.yeni_butce + " TL (" + p.neden + ")").join("\n")
+                const msg = "OTO-FORMUL ONERISI (son 7 gun):\n\n" + (ozet || "degisiklik yok") + "\n\nToplam plan: " + d.toplam_plan + " TL / tavan " + d.tavan + " TL" + (d.uyari ? "\n\n! " + d.uyari : "\n\nButceler bu plana gore guncellensin mi?")
+                if (!d.uyari && window.confirm(msg)) {
+                  const a = await fetch("/api/google-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "oto_formul", uygula: true, secret: _tok }) }).then(r => r.json())
+                  setGSonuc({ ok: a.ok, msg: a.ok ? "Oto-formul uygulandi" : a.error }); await gYukle()
+                } else { if (d.uyari) window.alert(msg); setGSonuc({ ok: true, msg: "Oneri gosterildi (uygulanmadi)" }) }
+              } catch(e) { setGSonuc({ ok: false, msg: e.message }) }
+              setGIslem(null)
+            }} disabled={gIslem === "oto_formul"}
+              style={{ fontSize: 11, background: "rgba(168,85,247,.1)", border: "0.5px solid rgba(168,85,247,.3)", color: "#A855F7" }}>
+              <Ic n={gIslem === "oto_formul" ? "loader-2" : "robot"} size={11}/> Oto-Formül
             </button>
             <button onClick={gYukle} disabled={gYuk}
               style={{ fontSize: 11, background: "rgba(234,67,53,.1)", border: "0.5px solid rgba(234,67,53,.3)", color: "#EA4335" }}>
