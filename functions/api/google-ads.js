@@ -54,7 +54,20 @@ async function gadsPost(env, token, path, body) {
   const txt = await r.text()
   let d
   try { d = JSON.parse(txt) } catch { throw new Error("HTTP " + r.status + ": " + txt.slice(0, 300)) }
-  if (d.error) throw new Error((d.error.message || JSON.stringify(d.error)).slice(0, 400))
+  if (d.error) {
+    let det = ""
+    try {
+      const gaf = (d.error.details || []).find(x => x.errors) || (d.error.details || [])[0]
+      const errs = gaf && gaf.errors ? gaf.errors : null
+      if (errs) det = " :: " + errs.map(e => {
+        const fp = e.location && e.location.fieldPathElements ? e.location.fieldPathElements.map(f => f.fieldName).join(".") : ""
+        const code = e.errorCode ? Object.values(e.errorCode)[0] : ""
+        return (fp ? fp + " → " : "") + code + (e.message ? " (" + e.message + ")" : "")
+      }).join(" | ")
+    } catch(_) {}
+    if (!det) det = " :: " + JSON.stringify(d.error.details || d.error).slice(0, 600)
+    throw new Error((d.error.message || "Google Ads API") + det)
+  }
   return d
 }
 
