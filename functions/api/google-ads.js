@@ -406,8 +406,15 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, uygulandi: uygula && !uyari, tavan, toplam_plan: toplam, uyari, plan }, { headers: cors })
     }
 
-    // duraklat / yayına al / kaldır
-    const st = body.action === "pause" ? "PAUSED" : body.action === "remove" ? "REMOVED" : "ENABLED"
+    // kaldır (kalıcı) — Google'da remove operasyonu kullanılır, status=REMOVED kabul edilmez
+    if (body.action === "remove") {
+      await gadsPost(env, token, base + "/campaigns:mutate", {
+        operations: [{ remove: base + "/campaigns/" + body.campaign_id }]
+      })
+      return Response.json({ ok: true, durum: "REMOVED" }, { headers: cors })
+    }
+    // duraklat / yayına al
+    const st = body.action === "pause" ? "PAUSED" : "ENABLED"
     await gadsPost(env, token, base + "/campaigns:mutate", {
       operations: [{ update: { resourceName: base + "/campaigns/" + body.campaign_id, status: st }, updateMask: "status" }]
     })
