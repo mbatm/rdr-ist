@@ -12,7 +12,8 @@ export async function onRequestGet({ request, env }) {
     // ── Hedef Motoru: gün-içi pace ayarı (agresif kapatma + imkânsız freni) ──
     if (url.searchParams.get('action') === 'ayar_kaydet') {
       const sec = url.searchParams.get('key') || url.searchParams.get('secret') || '';
-      if (sec !== env.RSS_API_KEY) return new Response(JSON.stringify({ ok: false, error: 'Yetkisiz' }), { headers: cors });
+      const tokenOk = (sec === env.RSS_API_KEY) || !!(await env.HABERLER.get('token:' + sec));
+      if (!tokenOk) return new Response(JSON.stringify({ ok: false, error: 'Yetkisiz' }), { headers: cors });
       let ayar = {};
       try { ayar = JSON.parse((await env.HABERLER.get('hedef:ayar')) || '{}'); } catch (e) {}
       const p = url.searchParams;
