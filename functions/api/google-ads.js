@@ -386,6 +386,20 @@ export async function onRequestPost({ request, env }) {
     const base  = "/customers/" + CID
 
     // Bütçe güncelle: kampanyanın bütçe kaynağını bul, miktarı değiştir
+    if (body.action === "bid_guncelle") {
+      const tkn = await getAccessToken(env);
+      const cid = body.campaign_id;
+      const tl = Number(body.bid_tl);
+      if (!cid || !tl || tl <= 0) return Response.json({ ok: false, error: "campaign_id ve bid_tl gerekli" }, { headers: cors });
+      const res0 = await query("SELECT ad_group.resource_name FROM ad_group WHERE campaign.id = " + cid + " AND ad_group.status != 'REMOVED'", env);
+      const rows = Array.isArray(res0) ? res0 : (res0 && res0.results ? res0.results : []);
+      const micros = String(Math.round(tl * 1e6));
+      const ops = rows.map(r => ({ update: { resourceName: r.adGroup.resourceName, cpcBidMicros: micros }, updateMask: "cpc_bid_micros" }));
+      if (!ops.length) return Response.json({ ok: false, error: "ad group bulunamadi" }, { headers: cors });
+      await gadsPost(env, tkn, "/customers/" + CID + "/adGroups:mutate", { operations: ops });
+      return Response.json({ ok: true, guncellenen_adgroup: ops.length, bid_tl: tl }, { headers: cors });
+    }
+
     if (body.action === "set_budget") {
       const q = await query("SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = " + body.campaign_id, env)
       const budgetRN = q[0] && q[0].campaign && q[0].campaign.campaignBudget
