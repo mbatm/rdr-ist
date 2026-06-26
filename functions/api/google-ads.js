@@ -226,6 +226,34 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
+    if (act === "tani") {
+      const rowsOf = (res) => Array.isArray(res) ? res : (res && Array.isArray(res.results) ? res.results : (res && res.results ? res.results : []));
+      const sonuc = { ok: true };
+      try {
+        const b = rowsOf(await query("SELECT billing_setup.id, billing_setup.status, billing_setup.payments_account_info.payments_account_name FROM billing_setup", env));
+        sonuc.billing = b.map(r => ({ status: r.billingSetup && r.billingSetup.status, hesap: r.billingSetup && r.billingSetup.paymentsAccountInfo && r.billingSetup.paymentsAccountInfo.paymentsAccountName || null }));
+        sonuc.billing_var = sonuc.billing.some(x => x.status === "APPROVED");
+        sonuc.billing_ham = b[0] || null;
+      } catch (e) { sonuc.billing_hata = String(e).slice(0, 200); }
+      try {
+        const cu = rowsOf(await query("SELECT customer.id, customer.status, customer.test_account FROM customer", env));
+        sonuc.hesap = cu.map(r => ({ id: r.customer && r.customer.id, durum: r.customer && r.customer.status, test: r.customer && r.customer.testAccount }));
+      } catch (e) { sonuc.hesap_hata = String(e).slice(0, 200); }
+      try {
+        const ads = rowsOf(await query("SELECT campaign.name, ad_group.status, ad_group_ad.status, ad_group_ad.policy_summary.approval_status, ad_group_ad.policy_summary.review_status FROM ad_group_ad WHERE campaign.status = 'ENABLED'", env));
+        sonuc.reklamlar = ads.map(r => ({ kampanya: r.campaign && r.campaign.name, adgroup: r.adGroup && r.adGroup.status, reklam: r.adGroupAd && r.adGroupAd.status, onay: r.adGroupAd && r.adGroupAd.policySummary && r.adGroupAd.policySummary.approvalStatus, inceleme: r.adGroupAd && r.adGroupAd.policySummary && r.adGroupAd.policySummary.reviewStatus }));
+        sonuc.reklam_sayisi = sonuc.reklamlar.length;
+        sonuc.onayli_reklam = sonuc.reklamlar.filter(x => x.onay === "APPROVED").length;
+        sonuc.reklam_ham = ads[0] || null;
+      } catch (e) { sonuc.reklam_hata = String(e).slice(0, 200); }
+      sonuc.teshis =
+        sonuc.billing_var === false ? "FATURALANDIRMA_YOK: Google Ads hesabinda onayli odeme yontemi yok; kampanyalar ENABLED olsa da yayinlanmaz." :
+        (sonuc.reklam_sayisi === 0 ? "REKLAM_YOK: ENABLED kampanyalarda servis edilebilir reklam yok (eksik reklam/ad group)." :
+        (sonuc.onayli_reklam === 0 ? "REKLAM_ONAYSIZ: Reklamlar onaylanmamis/incelemede." :
+        "Yapisal sorun gorunmuyor; bid/keyword/hedefleme kontrol edilmeli."));
+      return Response.json(sonuc, { headers: cors });
+    }
+
     if (act === "status") {
       const token = await getAccessToken(env)
       const accRes = await fetch(API_BASE + "/customers:listAccessibleCustomers", {
