@@ -270,6 +270,38 @@ export async function onRequestGet({ request, env }) {
       }, { headers: cors })
     }
 
+    if (act === "reklam_durum") {
+      const rows = await query(
+        "SELECT campaign.id, campaign.name, campaign.status, " +
+        "ad_group.name, ad_group.status, " +
+        "ad_group_ad.ad.id, ad_group_ad.status, " +
+        "ad_group_ad.policy_summary.approval_status, " +
+        "ad_group_ad.policy_summary.review_status, " +
+        "ad_group_ad.policy_summary.policy_topic_entries " +
+        "FROM ad_group_ad " +
+        "WHERE campaign.status != 'REMOVED' AND ad_group_ad.status != 'REMOVED'",
+        env
+      )
+      const onayTR = { APPROVED:"Onaylandı", APPROVED_LIMITED:"Sınırlı onay", DISAPPROVED:"REDDEDİLDİ", AREA_OF_INTEREST_ONLY:"Kısıtlı", UNKNOWN:"Bilinmiyor" }
+      const incTR  = { REVIEWED:"İncelendi", REVIEW_IN_PROGRESS:"İnceleniyor", UNDER_APPEAL:"İtirazda", ELIGIBLE_MAY_SERVE:"Yayına uygun" }
+      return Response.json({
+        ok: true,
+        reklamlar: rows.map(function(r) {
+          const ps = (r.adGroupAd && r.adGroupAd.policySummary) || {}
+          const topics = (ps.policyTopicEntries || []).map(function(t) { return (t.topic || "") + (t.type ? " [" + t.type + "]" : "") })
+          return {
+            kampanya:       r.campaign && r.campaign.name,
+            kampanya_durum: r.campaign && r.campaign.status,
+            grup_durum:     r.adGroup && r.adGroup.status,
+            reklam_durum:   r.adGroupAd && r.adGroupAd.status,
+            onay:           onayTR[ps.approvalStatus] || ps.approvalStatus || "-",
+            inceleme:       incTR[ps.reviewStatus] || ps.reviewStatus || "-",
+            sorunlar:       topics
+          }
+        })
+      }, { headers: cors })
+    }
+
     return Response.json({ ok: false, error: "Gecersiz action: " + act }, { headers: cors })
   } catch(e) {
     return Response.json({ ok: false, error: e.message, env_durum: envDurum }, { status: 500, headers: cors })
