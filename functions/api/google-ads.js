@@ -125,6 +125,7 @@ async function kampanyaAc(env, opts) {
       name: ad + " " + stamp,
       status: "PAUSED",
       advertisingChannelType: "SEARCH",
+      containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
       manualCpc: {},
       campaignBudget: budgetRN,
       networkSettings: { targetGoogleSearch: true, targetSearchNetwork: true, targetContentNetwork: false, targetPartnerSearchNetwork: false }
