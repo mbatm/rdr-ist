@@ -8,6 +8,71 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url)
   const origin = url.origin
   const hedef  = parseInt(url.searchParams.get("hedef") || "20000")
+
+    // ── Hedef Motoru: gün-içi pace ayarı (agresif kapatma + imkânsız freni) ──
+    if (url.searchParams.get('action') === 'pace_ayar') {
+      const uygula = url.searchParams.get('uygula') === '1';
+      const keyOk = !!url.searchParams.get('key') && url.searchParams.get('key') === env.RSS_API_KEY;
+      let ayar = {};
+      try { ayar = JSON.parse((await env.HABERLER.get('hedef:ayar')) || '{}'); } catch (e) {}
+      const normalGunluk = +ayar.normal_gunluk || 3000;
+      const anomaliKat = +ayar.anomali_kat || 4;
+      const bg = await jget(origin + '/api/ga4?action=bugun');
+      const gercek = +(bg && bg.bugun_su_ana_kadar || 0);
+      const pay = +(bg && bg.beklenen_pay || 0);
+      const saat = +(bg && bg.saat || 0);
+      const kanal = (bg && bg.bugun_kanal) || {};
+      const paidKeys = ['Paid Social', 'Paid Search', 'Paid Other', 'Display', 'Cross-network', 'Paid Shopping', 'Paid Video'];
+      let paidSoFar = 0, nonPaidSoFar = 0;
+      for (const k in kanal) { if (paidKeys.includes(k)) paidSoFar += kanal[k]; else nonPaidSoFar += kanal[k]; }
+      let zbm = 0.35;
+      try { const eng = await jget(origin + '/api/hedef-butce?hedef=' + hedef); if (eng && +eng.zbm_ziyaretci > 0) zbm = +eng.zbm_ziyaretci; } catch (e) {}
+      const beklenen = Math.round(hedef * pay);
+      const paceAcik = beklenen - gercek;
+      const projOrganikEOD = pay > 0 ? Math.round(nonPaidSoFar / pay) : nonPaidSoFar;
+      const paidIhtiyacEOD = Math.max(0, hedef - projOrganikEOD);
+      const gerekenPaidButce = Math.round(paidIhtiyacEOD * zbm);
+      const sonZbm = +(ayar.son_zbm || zbm);
+      const zbmSicrama = zbm > sonZbm * 2;
+      const butcAnomali = gerekenPaidButce > normalGunluk * anomaliKat;
+      const imkansiz = zbmSicrama || butcAnomali;
+      const dagilim = imkansiz ? [] : [
+        { plat: 'meta', campaign_id: '120245120758240539', ad: 'Meta Altın', oran: 0.35 },
+        { plat: 'meta', campaign_id: '120245120742230539', ad: 'Meta Haber Trafik', oran: 0.35 },
+        { plat: 'google', campaign_id: '23971158633', ad: 'Google Altın', oran: 0.30 }
+      ].map(x => ({ plat: x.plat, campaign_id: x.campaign_id, ad: x.ad, butce_tl: Math.max(50, Math.round(gerekenPaidButce * x.oran)) }));
+      let uygulama = { yapildi: false, sebep: '' };
+      if (imkansiz) { uygulama.sebep = 'imkansiz_fren'; }
+      else if (!uygula) { uygulama.sebep = 'dry_run'; }
+      else if (!keyOk) { uygulama.sebep = 'yetki_yok'; }
+      else {
+        uygulama.yapildi = true; uygulama.sonuc = [];
+        for (const d of dagilim) {
+          try {
+            const ep = d.plat === 'google' ? '/api/google-ads' : '/api/meta-ads';
+            const rp = await fetch(origin + ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set_budget', campaign_id: d.campaign_id, budget_tl: d.butce_tl, secret: env.RSS_API_KEY, key: env.RSS_API_KEY }) });
+            let rj = null; try { rj = await rp.json(); } catch (e) {}
+            uygulama.sonuc.push({ ad: d.ad, butce: d.butce_tl, ok: rp.ok && !(rj && rj.error) });
+          } catch (e) { uygulama.sonuc.push({ ad: d.ad, butce: d.butce_tl, ok: false, err: String(e).slice(0, 80) }); }
+        }
+      }
+      const snap = {
+        tarih: bg && bg.tarih, saat, hedef,
+        bugun_su_ana_kadar: gercek, beklenen, pace_acik: paceAcik,
+        pace_durum: paceAcik > 0 ? 'geride' : 'onde',
+        organik_so_far: nonPaidSoFar, paid_so_far: paidSoFar,
+        proj_organik_eod: projOrganikEOD, paid_ihtiyac_eod: paidIhtiyacEOD,
+        zbm_ziyaretci: zbm, gereken_paid_gunluk_butce: gerekenPaidButce,
+        dagilim, imkansiz, imkansiz_sebep: imkansiz ? (zbmSicrama ? 'zbm_sicramasi' : 'butce_anomali') : null,
+        uygulama, guncelleme: new Date().toISOString()
+      };
+      try {
+        await env.HABERLER.put('hedef:durum', JSON.stringify(snap));
+        if (imkansiz) await env.HABERLER.put('hedef:uyari', JSON.stringify({ tarih: snap.tarih, saat, zbm, gereken_paid_gunluk_butce: gerekenPaidButce, sebep: snap.imkansiz_sebep, mesaj: 'Bugunku hedef mevcut ZBM ile imkansiz gorunuyor — karariniz bekleniyor.', guncelleme: snap.guncelleme }));
+        ayar.son_zbm = zbm; await env.HABERLER.put('hedef:ayar', JSON.stringify(ayar));
+      } catch (e) {}
+      return new Response(JSON.stringify(snap), { headers: cors });
+    }
   const zarfAy = url.searchParams.get("zarf") ? parseFloat(url.searchParams.get("zarf")) : null
   const sec    = env.RSS_API_KEY || ""
 
