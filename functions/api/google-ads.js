@@ -246,6 +246,19 @@ export async function onRequestGet({ request, env }) {
         sonuc.onayli_reklam = sonuc.reklamlar.filter(x => x.onay === "APPROVED").length;
         sonuc.reklam_ham = ads[0] || null;
       } catch (e) { sonuc.reklam_hata = String(e).slice(0, 200); }
+      try {
+        const cp = rowsOf(await query("SELECT campaign.name, campaign.primary_status, campaign.primary_status_reasons, campaign.bidding_strategy_type FROM campaign WHERE campaign.status = 'ENABLED'", env));
+        sonuc.kampanya_durum = cp.map(r => ({ ad: r.campaign && r.campaign.name, primary: r.campaign && r.campaign.primaryStatus, nedenler: r.campaign && r.campaign.primaryStatusReasons, teklif_strateji: r.campaign && r.campaign.biddingStrategyType }));
+      } catch (e) { sonuc.kampanya_durum_hata = String(e).slice(0, 200); }
+      try {
+        const ag = rowsOf(await query("SELECT ad_group.name, ad_group.cpc_bid_micros, ad_group.primary_status, ad_group.primary_status_reasons FROM ad_group WHERE campaign.status = 'ENABLED'", env));
+        sonuc.adgroup_durum = ag.map(r => ({ ad: r.adGroup && r.adGroup.name, cpc_tl: r.adGroup && r.adGroup.cpcBidMicros ? (Number(r.adGroup.cpcBidMicros)/1e6) : null, primary: r.adGroup && r.adGroup.primaryStatus, nedenler: r.adGroup && r.adGroup.primaryStatusReasons }));
+      } catch (e) { sonuc.adgroup_durum_hata = String(e).slice(0, 200); }
+      try {
+        const kw = rowsOf(await query("SELECT ad_group_criterion.keyword.text, ad_group_criterion.status, ad_group_criterion.effective_cpc_bid_micros, ad_group_criterion.primary_status, ad_group_criterion.primary_status_reasons FROM ad_group_criterion WHERE campaign.status = 'ENABLED' AND ad_group_criterion.type = 'KEYWORD'", env));
+        sonuc.keyword_durum = kw.slice(0,15).map(r => ({ kw: r.adGroupCriterion && r.adGroupCriterion.keyword && r.adGroupCriterion.keyword.text, durum: r.adGroupCriterion && r.adGroupCriterion.status, eff_cpc_tl: r.adGroupCriterion && r.adGroupCriterion.effectiveCpcBidMicros ? (Number(r.adGroupCriterion.effectiveCpcBidMicros)/1e6) : null, primary: r.adGroupCriterion && r.adGroupCriterion.primaryStatus, nedenler: r.adGroupCriterion && r.adGroupCriterion.primaryStatusReasons }));
+        sonuc.keyword_sayisi = kw.length;
+      } catch (e) { sonuc.keyword_durum_hata = String(e).slice(0, 200); }
       sonuc.teshis =
         sonuc.billing_var === false ? "FATURALANDIRMA_YOK: Google Ads hesabinda onayli odeme yontemi yok; kampanyalar ENABLED olsa da yayinlanmaz." :
         (sonuc.reklam_sayisi === 0 ? "REKLAM_YOK: ENABLED kampanyalarda servis edilebilir reklam yok (eksik reklam/ad group)." :
