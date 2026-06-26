@@ -2619,6 +2619,40 @@ function KayseradarModul({ user, onGeri }) {
 
   const onayGuncelle = (alan, deger) => setOnayKayit(p => ({ ...p, [alan]: deger }))
 
+  // Yeniden Üret — düzenlenen başlık/metin ile yeni Creatomate render al
+  const yenidenUret = async () => {
+    if (!onayKayit) return
+    setIsleniyor(true); setHata(null); setVideoRenders({})
+    try {
+      const res  = await fetch('/api/kayseradar-isle', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body:    JSON.stringify({
+          sablon:   onayKayit.sablon || seciliSablon?.id,
+          baslik:   onayKayit.baslik,
+          metin:    onayKayit.metin,
+          medyalar: onayKayit.medyalar || [],
+          // Güncellenen sosyal medya metinlerini de gönder
+          instagram: onayKayit.instagram,
+          facebook:  onayKayit.facebook,
+        }),
+      })
+      const data = await res.json()
+      if (data.hata) throw new Error(data.hata)
+      setOnayKayit(data.kayit)
+      if (data.kayit.creatomate?.length) {
+        const rv = {}
+        for (const r of data.kayit.creatomate) {
+          rv[r.format] = { render_id: r.render_id, status: 'planned', url: null, tip: r.tip || 'video' }
+        }
+        setVideoRenders(rv)
+        const bekleyenler = data.kayit.creatomate.filter(r => r.status !== 'succeeded')
+        if (bekleyenler.length) takipBaslat(bekleyenler, data.kayit.id)
+      }
+    } catch(e) { setHata(e.message) }
+    setIsleniyor(false)
+  }
+
   // Paylaş
   const paylas = async (kayit, platformlar, fbIds=[], igIds=[]) => {
     setPaylasiyor(true); setPSonuc(null); setHata(null)
@@ -2908,6 +2942,15 @@ function KayseradarModul({ user, onGeri }) {
                     rows={2} style={{width:'100%',fontSize:12,resize:'vertical',boxSizing:'border-box'}}/>
                 </div>
               )}
+
+              {/* Yeniden Üret butonu */}
+              <button onClick={yenidenUret} disabled={isleniyor}
+                style={{marginBottom:16,fontSize:13,background:'rgba(255,183,0,.12)',
+                  border:'0.5px solid rgba(255,183,0,.4)',color:'#FFB700',
+                  display:'flex',alignItems:'center',gap:6,padding:'8px 16px',width:'100%',justifyContent:'center'}}>
+                <Ic n={isleniyor?'loader-2':'refresh'} size={14}/>
+                {isleniyor ? 'İşleniyor…' : '🔄 Düzenlemeyi Uygula & Yeniden Üret'}
+              </button>
 
               {/* Render durumu */}
               <div style={{marginBottom:16}}>
