@@ -5130,10 +5130,14 @@ function YonetimModul({ user, onGeri }) {
         <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Modül Yetkileri</div>
         <div style={{display:'flex',flexDirection:'column',gap:4}}>
           {[
-            ['modul_kayserim','kayserim.net Haber Girişi'],
-            ['modul_kayseradar','Kayseradar Veri Girişi'],
-            ['modul_reklam','Reklam Girişi'],
-            ['modul_manuel','Manuel Haber Girişi'],
+            ['modul_kayserim',    'kayserim.net Haber Girişi'],
+            ['modul_kayseradar',  'Kayseradar Veri Girişi'],
+            ['modul_reklam',      'Reklam Girişi'],
+            ['modul_manuel',      'Manuel Haber Girişi'],
+            ['modul_galeri',      'Galeri Oluştur'],
+            ['modul_zeka',        'İçerik Zekası'],
+            ['modul_kesfet',      'Keşfet Radar'],
+            ['modul_yonetim',     'Yönetim'],
           ].map(([key,label])=>(
             <label key={key} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,cursor:'pointer',padding:'3px 0'}}>
               <input type="checkbox" checked={form[key]!==false}
@@ -6762,7 +6766,7 @@ function ModulSecici({ user, onModul }) {
       renk: '#B04EFF',
       bg: 'rgba(176,78,255,0.08)',
       border: 'rgba(176,78,255,0.2)',
-      yetki: 'modul_kayserim',
+      yetki: 'modul_galeri',
     },
     {
       id: 'zeka',
@@ -6772,7 +6776,7 @@ function ModulSecici({ user, onModul }) {
       renk: '#A855F7',
       bg: 'rgba(168,85,247,0.08)',
       border: 'rgba(168,85,247,0.2)',
-      yetki: 'modul_kayserim',
+      yetki: 'modul_zeka',
     },
     {
       id: 'kesfet',
@@ -6782,7 +6786,7 @@ function ModulSecici({ user, onModul }) {
       renk: '#9b6bff',
       bg: 'rgba(155,107,255,0.08)',
       border: 'rgba(155,107,255,0.2)',
-      yetki: 'modul_kayserim',
+      yetki: 'modul_kesfet',
     },
     {
       id: 'metaads',
@@ -6812,7 +6816,7 @@ function ModulSecici({ user, onModul }) {
       renk: '#8899a6',
       bg: 'rgba(136,153,166,0.08)',
       border: 'rgba(136,153,166,0.2)',
-      yetki: 'admin',
+      yetki: 'modul_yonetim',
     },
   ]
 
@@ -6820,6 +6824,7 @@ function ModulSecici({ user, onModul }) {
   const erisim = (m) => {
     if (user?.rol === 'admin') return true
     if (m.yetki === 'admin') return false
+    if (m.yetki === 'modul_yonetim') return false  // Yönetim sadece admin
     return user?.[m.yetki] !== false
   }
 

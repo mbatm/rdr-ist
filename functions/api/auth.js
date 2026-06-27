@@ -20,12 +20,26 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ hata: 'Kullanıcı adı veya şifre yanlış' }, { status: 401 })
     }
 
-    // Basit token: kullanici:timestamp:hash
-    const token = btoa(`${kullanici}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
-    // Token'ı KV'ye kaydet (24 saat)
-    await env.HABERLER.put(`token:${token}`, JSON.stringify({ kullanici, rol: user.rol, ad: user.ad, sayfalar: user.sayfalar||null }), { expirationTtl: 86400 })
+    // Token verisi — modül yetkileri dahil
+    const tokenData = {
+      kullanici,
+      rol:              user.rol,
+      ad:               user.ad,
+      sayfalar:         user.sayfalar || null,
+      modul_kayserim:   user.modul_kayserim  !== false,
+      modul_kayseradar: user.modul_kayseradar !== false,
+      modul_reklam:     user.modul_reklam    !== false,
+      modul_manuel:     user.modul_manuel    !== false,
+      modul_galeri:     user.modul_galeri    !== false,
+      modul_zeka:       user.modul_zeka      !== false,
+      modul_kesfet:     user.modul_kesfet    !== false,
+      modul_yonetim:    user.modul_yonetim   !== false,
+    }
 
-    return Response.json({ ok: true, token, kullanici, rol: user.rol, ad: user.ad })
+    const token = btoa(`${kullanici}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
+    await env.HABERLER.put(`token:${token}`, JSON.stringify(tokenData), { expirationTtl: 86400 })
+
+    return Response.json({ ok: true, token, ...tokenData })
   } catch(e) {
     return Response.json({ hata: e.message }, { status: 500 })
   }
