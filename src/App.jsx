@@ -5399,6 +5399,56 @@ function YonetimModul({ user, onGeri }) {
 
 
 // ── ZEKA MODÜLÜ — İçerik Zekası ──────────────────────────────────────────────
+function GoogleReklamButton({ haber }) {
+  const km = (haber && haber.keyword_matches) || [];
+  const ilk = (haber && haber.matched_keyword) || (km[0] && km[0].keyword) || '';
+  const [open, setOpen] = useState(false);
+  const [kelime, setKelime] = useState(ilk);
+  const [maxCpc, setMaxCpc] = useState(0.20);
+  const [butce, setButce] = useState(14);
+  const [durum, setDurum] = useState('');
+  const [yapan, setYapan] = useState(false);
+  const baslat = async () => {
+    if (!kelime || !kelime.trim()) { setDurum('Hedef kelime bos.'); return; }
+    setYapan(true); setDurum('Kampanya aciliyor...');
+    try {
+      const tok = localStorage.getItem('cms_token') || '';
+      const baslik = (haber && haber.title) ? haber.title : kelime;
+      const aciklama = (haber && haber.description) ? haber.description : baslik;
+      const basliklar = [baslik.slice(0,30), kelime.slice(0,30), 'Kayserim.net Haber'].filter(x => x && x.length > 0);
+      const aciklamalar = [baslik.slice(0,90), aciklama.slice(0,90)].filter(x => x && x.length > 0);
+      const r = await fetch('/api/google-ads', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'kampanya_ac', kelimeler:[kelime.trim()], link:(haber && haber.link) ? haber.link : 'https://kayserim.net', max_cpc:Number(maxCpc), butce:Number(butce), aktif:true, ad:('Zeka: ' + kelime).slice(0,55), basliklar:basliklar, aciklamalar:aciklamalar, secret:tok }) });
+      let j = {}; try { j = await r.json(); } catch(e) { j = {}; }
+      if (r.ok && !(j.error || j.hata)) {
+        const id = j.campaign_id || j.kampanya_id || (j.campaign && j.campaign.id) || '';
+        setDurum('OK Acildi: ' + kelime + (id ? (' (ID ' + id + ')') : '') + ' - max TBM ' + maxCpc + ' TL - ' + butce + ' TL/gun');
+      } else {
+        setDurum('HATA: ' + ((j.error || j.hata) || ('HTTP ' + r.status)));
+      }
+    } catch(e) { setDurum('HATA: ' + String(e).slice(0,140)); }
+    setYapan(false);
+  };
+  const iStyle = { width:'100%', boxSizing:'border-box', background:'#0f172a', color:'#e2e8f0', border:'1px solid #334155', borderRadius:6, padding:'6px 8px', fontSize:13, marginBottom:4 };
+  const lStyle = { display:'block', fontSize:10, color:'#5eead4', margin:'6px 0 2px', fontWeight:700 };
+  return (
+    <div style={{ marginTop:8 }}>
+      <button onClick={() => setOpen(o => !o)} style={{ background:'#0d9488', color:'#fff', border:'none', borderRadius:8, padding:'8px 12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>Google Reklam Ac</button>
+      {open && (
+        <div style={{ marginTop:10, padding:'10px 12px', background:'#0b3b37', border:'1px solid #0d9488', borderRadius:10 }}>
+          <label style={lStyle}>HEDEF KELIME</label>
+          <input style={iStyle} value={kelime} onChange={e => setKelime(e.target.value)} placeholder="anahtar kelime" />
+          <label style={lStyle}>MAX TIKLAMA BEDELI TL</label>
+          <input style={iStyle} type="number" step="0.01" value={maxCpc} onChange={e => setMaxCpc(e.target.value)} />
+          <label style={lStyle}>GUNLUK BUTCE TL</label>
+          <input style={iStyle} type="number" step="1" value={butce} onChange={e => setButce(e.target.value)} />
+          <button onClick={baslat} disabled={yapan} style={{ marginTop:8, width:'100%', background: yapan ? '#475569' : '#14b8a6', color:'#042f2e', border:'none', borderRadius:8, padding:'9px', fontSize:14, fontWeight:800, cursor: yapan ? 'default' : 'pointer' }}>{yapan ? 'Aciliyor...' : 'Basla'}</button>
+          {durum && <div style={{ marginTop:8, fontSize:12, color:'#e2e8f0', lineHeight:1.4 }}>{durum}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ZekaModul({ user, onGeri, onManuelAc }) {
   const [tab,         setTab]       = useState('firsatlar')  // 'firsatlar' | 'gecmis'
   const [tarama,      setTarama]    = useState(null)
@@ -5708,7 +5758,8 @@ KURALLAR:
                 {hata}<span style={{cursor:'pointer'}} onClick={()=>setHata(null)}>×</span>
               </div>
             )}
-            {reklamSonuc && (
+            {reklamOnay && <GoogleReklamButton haber={reklamOnay} />}
+          {reklamSonuc && (
               <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(29,158,117,.08)',border:'0.5px solid rgba(29,158,117,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#1D9E75',display:'flex',justifyContent:'space-between'}}>
                 {reklamSonuc}<span style={{cursor:'pointer'}} onClick={()=>setRS(null)}>×</span>
               </div>
