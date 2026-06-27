@@ -10,7 +10,12 @@
 export async function onRequestGet({ env }) {
   try {
     const haberler      = (await env.HABERLER.get('liste', 'json'))       || []
-    const radarHaberler = (await env.HABERLER.get('radar_liste', 'json')) || []
+    const radarHaberlerTum = (await env.HABERLER.get('radar_liste', 'json')) || []
+    // kayserim.net kaynaklı haberleri çıkar — zaten 1ha feed'inde var
+    const radarHaberler = radarHaberlerTum.filter(h => {
+      const link = h.fb_link || h.source_url || h.link || ''
+      return !link.includes('kayserim.net') && !link.includes('kayserimnet')
+    })
 
     // Radar haberlerini Kayseradar kategorisiyle işaretle
     const radarIsaretli = radarHaberler.map(h => ({
