@@ -211,8 +211,35 @@ export async function onRequestGet({ request, env }) {
   const mevcut = await env.HABERLER.get('radar_fb_posts', 'json') || []
   const mevcutIds = new Set(mevcut.map(h => h.source_id))
 
+  // Yeni haberlerin video/gorsel URL'lerini R2'ye kopyala
+  async function r2Kopyala(url, tip) {
+    if (!url || url.includes('medya.rdr.ist')) return url
+    try {
+      const res  = await fetch(url)
+      if (!res.ok) return url
+      const buf  = await res.arrayBuffer()
+      const ext  = tip === 'video' ? 'mp4' : (url.includes('.jpg') ? 'jpg' : 'jpg')
+      const key  = `radar_fb/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+      const mime = tip === 'video' ? 'video/mp4' : 'image/jpeg'
+      await env.MEDYA.put(key, buf, { httpMetadata: { contentType: mime } })
+      return `https://medya.rdr.ist/${key}`
+    } catch { return url }
+  }
+
   // Yeni olanları ekle, toplam 200 ile sınırla
-  const yeniHaberler = haberler.filter(h => !mevcutIds.has(h.source_id))
+  const yeniHaberlerHam = haberler.filter(h => !mevcutIds.has(h.source_id))
+
+  // Video ve görsel URL'lerini R2'ye kopyala
+  const yeniHaberler = await Promise.all(yeniHaberlerHam.map(async h => {
+    if (h.video && !h.video.includes('medya.rdr.ist')) {
+      h.video = await r2Kopyala(h.video, 'video')
+    }
+    if (h.gorsel && !h.gorsel.includes('medya.rdr.ist')) {
+      h.gorsel     = await r2Kopyala(h.gorsel, 'gorsel')
+      h.gorsel_url = h.gorsel
+    }
+    return h
+  }))
   const guncellenmis = [...yeniHaberler, ...mevcut].slice(0, 200)
 
   await env.HABERLER.put('radar_fb_posts', JSON.stringify(guncellenmis), {
