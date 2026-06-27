@@ -2291,19 +2291,24 @@ function AdminLog({ onKapat }) {
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>ROL</div>
                 <select value={yeniK.rol} onChange={e=>setYeniK(p=>({...p,rol:e.target.value}))} style={{width:'100%',fontSize:13,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'6px 8px'}}>
                   <option value="editor">Editör</option>
+                  <option value="icerik_olusturucu">İçerik Oluşturucu</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
             </div>
-            {yeniK.rol !== 'admin' && (
+            {(yeniK.rol === 'editor' || yeniK.rol === 'icerik_olusturucu') && (
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Modül Yetkileri</div>
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
                   {[
-                    ['modul_kayserim','kayserim.net Haber Girişi'],
-                    ['modul_kayseradar','Kayseradar Veri Girişi'],
-                    ['modul_reklam','Reklam Girişi'],
-                    ['modul_manuel','Manuel Haber Girişi'],
+                    ['modul_kayserim',   'kayserim.net Haber Girişi'],
+                    ['modul_kayseradar', 'Kayseradar Veri Girişi'],
+                    ['modul_reklam',     'Reklam Girişi'],
+                    ['modul_manuel',     'Manuel Haber Girişi'],
+                    ['modul_galeri',     'Galeri Oluştur'],
+                    ['modul_zeka',       'İçerik Zekası'],
+                    ['modul_kesfet',     'Keşfet Radar'],
+                    ['modul_yonetim',    'Yönetim'],
                   ].map(([key,label])=>(
                     <label key={key} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,cursor:'pointer',padding:'4px 0'}}>
                       <input type="checkbox" checked={yeniK[key]!==false} onChange={e=>setYeniK(p=>({...p,[key]:e.target.checked}))}/>
@@ -2327,7 +2332,7 @@ function AdminLog({ onKapat }) {
                   <Ic n="user" size={16}/>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,fontWeight:500}}>{u.ad||u.kullanici}</div>
-                    <div style={{fontSize:11,color:'var(--muted)'}}>{u.kullanici} · {u.rol==='admin'?'Admin':'Editör'}
+                    <div style={{fontSize:11,color:'var(--muted)'}}>{u.kullanici} · {u.rol==='admin'?'Admin':u.rol==='icerik_olusturucu'?'İçerik Oluşturucu':'Editör'}
                       {u.sayfalar?.length ? ` · ${u.sayfalar.length} sayfa` : ' · Tümü'}
                     </div>
                   </div>
@@ -5282,7 +5287,7 @@ function YonetimModul({ user, onGeri }) {
                     <div style={{fontSize:13,fontWeight:500}}>{u.ad||u.kullanici}</div>
                     <div style={{fontSize:11,color:'var(--muted)',display:'flex',gap:6,flexWrap:'wrap'}}>
                       <span>@{u.kullanici}</span>
-                      <span>· {u.rol==='admin'?'Admin':'Editör'}</span>
+                      <span>· {u.rol==='admin'?'Admin':u.rol==='icerik_olusturucu'?'İçerik Oluşturucu':'Editör'}</span>
                       {u.rol!=='admin' && [
                         u.modul_kayserim!==false&&'Kayserim',
                         u.modul_kayseradar!==false&&'Radar',
