@@ -420,6 +420,18 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, guncellenen_adgroup: ops.length, bid_tl: tl }, { headers: cors });
     }
 
+    if (body.action === "bitis_ayar") {
+      const tkn = await getAccessToken(env);
+      const ids = Array.isArray(body.campaign_ids) ? body.campaign_ids : (body.campaign_id ? [body.campaign_id] : []);
+      const bitis = body.bitis;
+      if (!ids.length || !bitis) return Response.json({ ok: false, error: "campaign_ids ve bitis gerekli" }, { headers: cors });
+      const ops = ids.map(id => ({ update: { resourceName: "customers/" + CID + "/campaigns/" + id, endDate: bitis }, updateMask: "end_date" }));
+      try {
+        await gadsPost(env, tkn, "/customers/" + CID + "/campaigns:mutate", { operations: ops });
+        return Response.json({ ok: true, guncellenen: ops.length, bitis: bitis }, { headers: cors });
+      } catch (e) { return Response.json({ ok: false, error: String(e).slice(0, 400) }, { headers: cors }); }
+    }
+
     if (body.action === "set_budget") {
       const q = await query("SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = " + body.campaign_id, env)
       const budgetRN = q[0] && q[0].campaign && q[0].campaign.campaignBudget
