@@ -2096,6 +2096,7 @@ function DuzenleForm({ u, token, tumHesaplar, onKaydet }) {
           <select value={form.rol} onChange={e=>setForm(p=>({...p,rol:e.target.value}))}
             style={{width:'100%',fontSize:12,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'5px 8px'}}>
             <option value="editor">Editör</option>
+            <option value="icerik_olusturucu">İçerik Oluşturucu</option>
             <option value="admin">Admin</option>
           </select>
         </div>
@@ -5264,6 +5265,7 @@ function YonetimModul({ user, onGeri }) {
                   <select value={yeniK.rol} onChange={e=>setYeniK(p=>({...p,rol:e.target.value}))}
                     style={{width:'100%',fontSize:13,background:'var(--surface)',color:'var(--text)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'6px 8px'}}>
                     <option value="editor">Editör</option>
+                    <option value="icerik_olusturucu">İçerik Oluşturucu</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -5293,6 +5295,9 @@ function YonetimModul({ user, onGeri }) {
                         u.modul_kayseradar!==false&&'Radar',
                         u.modul_reklam!==false&&'Reklam',
                         u.modul_manuel!==false&&'Manuel',
+                        u.modul_galeri!==false&&'Galeri',
+                        u.modul_zeka!==false&&'Zeka',
+                        u.modul_kesfet!==false&&'Keşfet',
                       ].filter(Boolean).map(m=>(
                         <span key={m} style={{background:'rgba(68,136,255,.1)',color:'#4488FF',padding:'0 5px',borderRadius:8,fontSize:10}}>{m}</span>
                       ))}
