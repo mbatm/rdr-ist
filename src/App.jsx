@@ -5401,7 +5401,7 @@ function YonetimModul({ user, onGeri }) {
 // ── ZEKA MODÜLÜ — İçerik Zekası ──────────────────────────────────────────────
 function GoogleReklamButton({ haber }) {
   const km = (haber && haber.keyword_matches) || [];
-  const ilk = (haber && haber.matched_keyword) || (km[0] && km[0].keyword) || '';
+  const ilk = (km[0] && (km[0].matched_keyword || (km[0].keywords && km[0].keywords[0]))) || (haber && haber.matched_keyword) || '';
   const [open, setOpen] = useState(false);
   const [kelime, setKelime] = useState(ilk);
   const [maxCpc, setMaxCpc] = useState(0.20);
@@ -5431,10 +5431,10 @@ function GoogleReklamButton({ haber }) {
   const iStyle = { width:'100%', boxSizing:'border-box', background:'#0f172a', color:'#e2e8f0', border:'1px solid #334155', borderRadius:6, padding:'6px 8px', fontSize:13, marginBottom:4 };
   const lStyle = { display:'block', fontSize:10, color:'#5eead4', margin:'6px 0 2px', fontWeight:700 };
   return (
-    <div style={{ marginTop:8 }}>
-      <button onClick={() => setOpen(o => !o)} style={{ background:'#0d9488', color:'#fff', border:'none', borderRadius:8, padding:'8px 12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>Google Reklam Ac</button>
+    <span style={{ position:'relative', display:'inline-block', verticalAlign:'top' }}>
+      <button onClick={() => setOpen(o => !o)} style={{ background:'#0d9488', color:'#fff', border:'none', borderRadius:8, padding:'8px 12px', fontSize:13, fontWeight:600, cursor:'pointer' }}>Google Reklam Ac</button>
       {open && (
-        <div style={{ marginTop:10, padding:'10px 12px', background:'#0b3b37', border:'1px solid #0d9488', borderRadius:10 }}>
+        <div style={{ position:'absolute', top:'100%', left:0, marginTop:6, zIndex:50, width:240, padding:'10px 12px', background:'#0b3b37', border:'1px solid #0d9488', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,0.5)' }}>
           <label style={lStyle}>HEDEF KELIME</label>
           <input style={iStyle} value={kelime} onChange={e => setKelime(e.target.value)} placeholder="anahtar kelime" />
           <label style={lStyle}>MAX TIKLAMA BEDELI TL</label>
@@ -5445,7 +5445,7 @@ function GoogleReklamButton({ haber }) {
           {durum && <div style={{ marginTop:8, fontSize:12, color:'#e2e8f0', lineHeight:1.4 }}>{durum}</div>}
         </div>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -5758,8 +5758,7 @@ KURALLAR:
                 {hata}<span style={{cursor:'pointer'}} onClick={()=>setHata(null)}>×</span>
               </div>
             )}
-            {reklamOnay && <GoogleReklamButton haber={reklamOnay} />}
-          {reklamSonuc && (
+            {reklamSonuc && (
               <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(29,158,117,.08)',border:'0.5px solid rgba(29,158,117,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#1D9E75',display:'flex',justifyContent:'space-between'}}>
                 {reklamSonuc}<span style={{cursor:'pointer'}} onClick={()=>setRS(null)}>×</span>
               </div>
@@ -5826,6 +5825,7 @@ KURALLAR:
                                     <Ic n={isRek?'loader-2':'speakerphone'} size={11}/>
                                     {isRek?'Açılıyor…':'📢 Meta Reklam Aç'}
                                   </button>
+                  {haber && <GoogleReklamButton haber={haber} />}
                                 )}
 
                                 <a href={haber.link} target="_blank" rel="noreferrer"
