@@ -5825,8 +5825,8 @@ KURALLAR:
                                     <Ic n={isRek?'loader-2':'speakerphone'} size={11}/>
                                     {isRek?'Açılıyor…':'📢 Meta Reklam Aç'}
                                   </button>
-                  {haber && <GoogleReklamButton haber={haber} />}
                                 )}
+                                {haber && <GoogleReklamButton haber={haber} />}
 
                                 <a href={haber.link} target="_blank" rel="noreferrer"
                                   style={{fontSize:11,color:'var(--muted)',textDecoration:'none',border:'0.5px solid var(--border)',padding:'4px 8px',borderRadius:'var(--radius-sm)',display:'flex',alignItems:'center',gap:3}}>
