@@ -19,8 +19,16 @@ export async function onRequestGet({ env }) {
       _kayseradar: true,
     }))
 
-    // Birleştir — tarihe göre sırala (en yeni önce)
+    // Birleştir — dedup (source_id veya fb_id bazlı) + tarihe göre sırala
+    const gorulmusIdler = new Set()
     const tumHaberler = [...haberler, ...radarIsaretli]
+      .filter(h => {
+        const id = h.source_id || h.fb_id || h.url_slug || h.id
+        if (!id) return true  // ID yoksa dahil et
+        if (gorulmusIdler.has(id)) return false
+        gorulmusIdler.add(id)
+        return true
+      })
       .sort((a, b) => new Date(b.tarih_iso || b.kaydedildi) - new Date(a.tarih_iso || a.kaydedildi))
 
     const esc = s => String(s || '')
