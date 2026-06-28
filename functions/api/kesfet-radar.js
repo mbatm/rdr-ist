@@ -32,15 +32,11 @@ const KAYNAKLAR = [
 
 // Her domain için sırayla denenecek olası feed yolları
 function feedAdaylari(domain) {
-  return [
-    `https://www.${domain}/rss`,
-    `https://${domain}/rss`,
-    `https://www.${domain}/feed`,
-    `https://${domain}/feed`,
-    `https://www.${domain}/rss.xml`,
-    `https://${domain}/sitemap-news.xml`,
-    `https://www.${domain}/sitemap-news.xml`,
-  ]
+  const bases = ['https://www.' + domain, 'https://' + domain]
+  const paths = ['/rss/', '/rss', '/feed/', '/feed', '/rss.xml', '/export/rss', '/sitemap-news.xml']
+  const list = []
+  for (const b of bases) for (const p of paths) list.push(b + p)
+  return list
 }
 
 // ── Discover "ısı" sözlüğü ─────────────────────────────────────────────────
@@ -147,17 +143,34 @@ function durumBelirle(skor, bizdeVar) {
 
 // ── Feed çekme + parse (RSS item + news-sitemap url) ───────────────────────
 async function feedCek(domain) {
-  for (const url of feedAdaylari(domain)) {
+  const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+  const getir = async (url) => {
     try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'KesfetRadar/1.0 (+https://rdr.ist)' },
-        cf: { cacheTtl: 300, cacheEverything: true },
-      })
-      if (!res.ok) continue
-      const xml = await res.text()
-      const items = parseItems(xml, domain)
-      if (items.length) return { url, items }
-    } catch (_) { /* sıradaki adayı dene */ }
+      const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/rss+xml, application/xml, text/xml, */*' }, redirect: 'follow', cf: { cacheTtl: 300, cacheEverything: true } })
+      if (!res.ok) return null
+      return await res.text()
+    } catch (_) { return null }
+  }
+  for (const url of feedAdaylari(domain)) {
+    const xml = await getir(url)
+    if (!xml) continue
+    const items = parseItems(xml, domain)
+    if (items.length) return { url, items }
+  }
+  for (const home of ['https://www.' + domain + '/', 'https://' + domain + '/']) {
+    const html = await getir(home)
+    if (!html) continue
+    const mm = html.match(/<link[^>]+type=["']application[/](?:rss|atom)[+]xml["'][^>]*>/i)
+    if (!mm) continue
+    const hrefM = mm[0].match(/href=["']([^"']+)["']/i)
+    if (!hrefM) continue
+    let fu = hrefM[1]
+    if (fu.indexOf('//') === 0) fu = 'https:' + fu
+    else if (fu.charAt(0) === '/') fu = 'https://www.' + domain + fu
+    const xml2 = await getir(fu)
+    if (!xml2) continue
+    const items = parseItems(xml2, domain)
+    if (items.length) return { url: fu, items }
   }
   return { url: null, items: [] }
 }
