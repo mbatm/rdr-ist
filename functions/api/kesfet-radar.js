@@ -402,9 +402,19 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url)
   const action = url.searchParams.get('action') || 'list'
   if (action === 'feedtest') {
-    const dd = new URL(request.url).searchParams.get('d') || ''
-    const res = await feedCek(dd)
-    return Response.json({ domain: dd, url: res.url, count: res.items.length, sample: res.items.slice(0,2).map(x => ({ t: (x.title||'').slice(0,60), l: (x.link||'').slice(0,45) })) }, { headers: CORS })
+    const dq = new URL(request.url).searchParams.get('d') || ''
+    const gn = 'https://news.google.com/rss/search?q=site:' + dq + '%20when:2d&hl=tr&gl=TR&ceid=TR:tr'
+    let gstatus = 0, glen = 0, gitems = 0, gparsed = 0, gerr = null
+    try {
+      const gr = await fetch(gn, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' }, redirect: 'follow', cf: { cacheTtl: 300, cacheEverything: true } })
+      gstatus = gr.status
+      const gt = await gr.text()
+      glen = gt.length
+      gitems = (gt.match(/<item[\s>]/g) || []).length
+      gparsed = parseItems(gt, dq).length
+    } catch (e) { gerr = String(e).slice(0, 120) }
+    const res = await feedCek(dq)
+    return Response.json({ domain: dq, feedCek_url: res.url, feedCek_count: res.items.length, gnews: { status: gstatus, len: glen, items: gitems, parsed: gparsed, err: gerr } }, { headers: CORS })
   }
   const secret = url.searchParams.get('secret') || ''
 
