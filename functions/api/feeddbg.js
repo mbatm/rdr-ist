@@ -1,4 +1,4 @@
-const ALLOW = ['kayseriolay.com', 'kayserianadoluhaber.com.tr']
+const ALLOW = ['kayseriolay.com', 'kayserianadoluhaber.com.tr', 'news.google.com']
 export async function onRequestGet({ request }) {
   const u = new URL(request.url).searchParams.get('u') || ''
   let host = ''
@@ -8,6 +8,7 @@ export async function onRequestGet({ request }) {
   try {
     const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept': 'application/rss+xml, application/xml, text/xml, */*' }, redirect: 'follow' })
     const t = await r.text()
-    return Response.json({ status: r.status, finalUrl: r.url, ct: r.headers.get('content-type'), len: t.length, head: t.slice(0, 250), server: r.headers.get('server'), cf_mitigated: r.headers.get('cf-mitigated') })
+    const itemCount = (t.match(/<item>/g) || []).length
+    return Response.json({ status: r.status, ct: r.headers.get('content-type'), len: t.length, items: itemCount, head: t.slice(0, 120), cf_mit: r.headers.get('cf-mitigated') })
   } catch (e) { return Response.json({ error: String(e) }) }
 }
