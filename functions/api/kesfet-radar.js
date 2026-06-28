@@ -401,6 +401,11 @@ const CORS = {
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url)
   const action = url.searchParams.get('action') || 'list'
+  if (action === 'feedtest') {
+    const dd = new URL(request.url).searchParams.get('d') || ''
+    const res = await feedCek(dd)
+    return Response.json({ domain: dd, url: res.url, count: res.items.length, sample: res.items.slice(0,2).map(x => ({ t: (x.title||'').slice(0,60), l: (x.link||'').slice(0,45) })) }, { headers: CORS })
+  }
   const secret = url.searchParams.get('secret') || ''
 
   try {
