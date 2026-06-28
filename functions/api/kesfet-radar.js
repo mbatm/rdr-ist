@@ -172,6 +172,15 @@ async function feedCek(domain) {
     const items = parseItems(xml2, domain)
     if (items.length) return { url: fu, items }
   }
+  // 3) Cloudflare 'Just a moment' challenge fallback: Google News RSS (site:domain)
+  try {
+    const gn = 'https://news.google.com/rss/search?q=site:' + domain + '%20when:2d&hl=tr&gl=TR&ceid=TR:tr'
+    const xmlG = await getir(gn)
+    if (xmlG) {
+      const itemsG = parseItems(xmlG, domain)
+      if (itemsG.length) return { url: gn, items: itemsG }
+    }
+  } catch (_) {}
   return { url: null, items: [] }
 }
 
@@ -401,6 +410,21 @@ export async function onRequestGet({ request, env }) {
 
     if (action === 'scan') {
       if (!(await yetkili(secret, env))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
+      const _ref = request.headers.get('referer') || ''
+      const _force = url.searchParams.get('force') === '1' || _ref.includes('rdr.ist')
+      if (!_force) {
+        const stRaw = await env.HABERLER.get('kesfet:son_tarama')
+        if (stRaw) {
+          try {
+            const stObj = JSON.parse(stRaw)
+            const lastT = Date.parse(stObj.zaman || stObj)
+            if (lastT && (Date.now() - lastT) < 3600000) {
+              const frRaw = await env.HABERLER.get('kesfet:firsatlar')
+              return Response.json({ ok: true, atlandi: true, sebep: 'saatlik_gate', son_tarama: stObj, firsatlar: frRaw ? JSON.parse(frRaw) : [] }, { headers: CORS })
+            }
+          } catch (_) {}
+        }
+      }
       const log = await tara(env)
       // Tarama sonrası oto motoru tetikle (pasifse anında döner)
       let oto = null
