@@ -173,10 +173,20 @@ async function feedCek(domain) {
     if (items.length) return { url: fu, items }
   }
   // 3) Cloudflare 'Just a moment' challenge fallback: Google News RSS (site:domain)
+  // NOT: getir() yerine doğrudan fetch — cacheEverything bozuk gövdeyi 300s saklayabilir
   try {
     const gn = 'https://news.google.com/rss/search?q=site:' + domain + '%20when:2d&hl=tr&gl=TR&ceid=TR:tr'
-    const xmlG = await getir(gn)
-    if (xmlG) {
+    const gnRes = await fetch(gn, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'tr-TR,tr;q=0.9',
+      },
+      redirect: 'follow',
+      cf: { cacheTtl: 0, cacheEverything: false },
+    })
+    if (gnRes.ok) {
+      const xmlG = await gnRes.text()
       const itemsG = parseItems(xmlG, domain)
       if (itemsG.length) return { url: gn, items: itemsG }
     }
@@ -406,7 +416,7 @@ export async function onRequestGet({ request, env }) {
     const gn = 'https://news.google.com/rss/search?q=site:' + dq + '%20when:2d&hl=tr&gl=TR&ceid=TR:tr'
     let gstatus = 0, glen = 0, gitems = 0, gparsed = 0, gerr = null
     try {
-      const gr = await fetch(gn, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' }, redirect: 'follow', cf: { cacheTtl: 300, cacheEverything: true } })
+      const gr = await fetch(gn, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*', 'Accept-Language': 'tr-TR,tr;q=0.9' }, redirect: 'follow', cf: { cacheTtl: 0, cacheEverything: false } })
       gstatus = gr.status
       const gt = await gr.text()
       glen = gt.length
