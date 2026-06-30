@@ -386,10 +386,12 @@ async function googleNewsTara(env) {
       redirect: 'follow', cf: { cacheTtl: 0, cacheEverything: false },
     })
     if (!res.ok) return { ok: false, mesaj: 'GNews ' + res.status }
-    const items = rssAyristir(await res.text())
+    const items = rssAyristir(await res.text()).slice(0, 40)  // en yeni 40 ile sınırla
 
     for (const it of items) {
       if (karaListede(it.title)) continue
+      // Başlıkta gerçekten Kayseri/ilçe geçmeli — snippet eşleşmesi yetmez
+      if (!kayseriIlgili(it.title)) continue
       const pid = hashId(it.link || it.title)
       if (gorulen.has(pid)) continue
       const yas = it.pubDate ? (Date.now() - Date.parse(it.pubDate)) / 36e5 : 0
@@ -398,14 +400,15 @@ async function googleNewsTara(env) {
       // GNews başlığı "Başlık - Kaynak" formatında — kaynağı etikete al
       const parca = (it.title || '').split(' - ')
       const kaynakAdi = parca.length > 1 ? parca.pop().trim() : 'Google News'
-      const skor = sosyalSkor({ ts, oncelik: 2, kayseri: true })
+      // GNews ikincil sinyal (Keşfet Radar'da zaten var) → skoru düşür
+      const skor = Math.max(0, sosyalSkor({ ts, oncelik: 3, kayseri: true }) - 20)
 
       yeniFirsatlar.push({
         id: pid, kaynak_tip: 'gnews', hesap: kaynakAdi, etiket: 'Google News · ' + kaynakAdi,
         baslik: parca.join(' - ').slice(0, 200) || it.title.slice(0, 200),
         tam_metin: (it.description || it.title).slice(0, 600),
         link: it.link, gorsel_url: null, tip: 'haber', begeni: 0,
-        pubDate: ts, kayseri: true, oncelik: 2,
+        pubDate: ts, kayseri: true, oncelik: 3,
         skor, durum: sosyalDurum(skor, ts),
         yazildi: false, gizli: false, bulundu: new Date().toISOString(),
       })
