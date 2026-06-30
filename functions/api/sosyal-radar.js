@@ -260,18 +260,11 @@ async function instagramSonucToparla(env) {
     gorulen.add(pid)
   }
 
-  // Fırsatları birleştir (eski yazıldı/gizli işaretlerini koru)
-  const onceki = await env.HABERLER.get('sosyal:firsatlar', 'json') || []
-  const map = new Map(onceki.map(o => [o.id, o]))
-  for (const f of yeniFirsatlar) {
-    const o = map.get(f.id)
-    map.set(f.id, o ? { ...f, yazildi: o.yazildi, gizli: o.gizli, bulundu: o.bulundu } : f)
-  }
-  const birlesik = [...map.values()].sort((a, b) => b.skor - a.skor).slice(0, 150)
-  await env.HABERLER.put('sosyal:firsatlar', JSON.stringify(birlesik))
+  // Fırsatları birleştir (ortak helper — IG/RSS/GNews aynı yere yazar)
+  const birlesik = await firsatlariBirlestir(env, yeniFirsatlar)
 
-  // Görülen ID'leri sınırlı tut (son 800)
-  await env.HABERLER.put('sosyal:gorulen', JSON.stringify([...gorulen].slice(-800)))
+  // Görülen ID'leri sınırlı tut
+  await env.HABERLER.put('sosyal:gorulen', JSON.stringify([...gorulen].slice(-1500)))
   await env.HABERLER.delete('sosyal:apify_run')
 
   const log = {
@@ -283,6 +276,146 @@ async function instagramSonucToparla(env) {
   }
   await env.HABERLER.put('sosyal:son_tarama', JSON.stringify(log))
   return { ok: true, log }
+}
+
+// ── Genel RSS/XML ayrıştırıcı (Worker'da DOMParser yok → regex) ───────────────
+function rssAyristir(xml) {
+  if (!xml || typeof xml !== 'string') return []
+  const items = []
+  const bloklar = xml.match(/<item[\s\S]*?<\/item>/gi) || []
+  for (const blok of bloklar) {
+    const al = (etiket) => {
+      const m = blok.match(new RegExp(`<${etiket}[^>]*>([\\s\\S]*?)<\\/${etiket}>`, 'i'))
+      if (!m) return ''
+      return m[1]
+        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x?\d+;/g, ' ')
+        .replace(/\s+/g, ' ').trim()
+    }
+    const linkM = blok.match(/<link[^>]*>([\s\S]*?)<\/link>/i)
+    items.push({
+      title: al('title'),
+      link: linkM ? linkM[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '',
+      pubDate: al('pubDate') || al('dc:date') || al('published'),
+      description: al('description') || al('content:encoded'),
+    })
+  }
+  return items
+}
+
+// ── Ortak fırsat birleştirme (IG + RSS + GNews + YouTube hepsi bunu kullanır) ──
+async function firsatlariBirlestir(env, yeniFirsatlar) {
+  const onceki = await env.HABERLER.get('sosyal:firsatlar', 'json') || []
+  const map = new Map(onceki.map(o => [o.id, o]))
+  for (const f of yeniFirsatlar) {
+    const o = map.get(f.id)
+    map.set(f.id, o ? { ...f, yazildi: o.yazildi, gizli: o.gizli, bulundu: o.bulundu } : f)
+  }
+  const birlesik = [...map.values()].sort((a, b) => b.skor - a.skor).slice(0, 200)
+  await env.HABERLER.put('sosyal:firsatlar', JSON.stringify(birlesik))
+  return birlesik
+}
+
+// Basit hash → dedup ID (link bazlı)
+function hashId(s) {
+  let h = 0
+  for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0 }
+  return 'h' + (h >>> 0).toString(36)
+}
+
+// ── Twitter/X RSS taraması (rss.app feed'i) ──────────────────────────────────
+async function twitterRssTara(env) {
+  const kaynaklar = await kaynaklariGetir(env)
+  const rssKaynaklar = kaynaklar.filter(k => k.platform === 'rss' && k.aktif !== false)
+  if (!rssKaynaklar.length) return { ok: true, mesaj: 'RSS kaynağı yok', yeni: 0 }
+
+  const gorulen = new Set(await env.HABERLER.get('sosyal:gorulen', 'json') || [])
+  const yeniFirsatlar = []
+
+  for (const kaynak of rssKaynaklar) {
+    try {
+      const res = await fetch(kaynak.handle, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; rdr-ist/1.0)', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
+        cf: { cacheTtl: 0, cacheEverything: false },
+      })
+      if (!res.ok) continue
+      const xml = await res.text()
+      const items = rssAyristir(xml)
+
+      for (const it of items) {
+        const metin = (it.title || '') + ' ' + (it.description || '')
+        if (karaListede(metin)) continue              // reklam/eskort → at
+        if (!kayseriIlgili(metin)) continue           // Kayseri dışı → at
+        const pid = hashId(it.link || it.title)
+        if (gorulen.has(pid)) continue
+
+        const yas = it.pubDate ? (Date.now() - Date.parse(it.pubDate)) / 36e5 : 0
+        if (yas > 24) { gorulen.add(pid); continue }   // 24s'ten eski → at
+        const ts = it.pubDate ? new Date(it.pubDate).toISOString() : new Date().toISOString()
+        const skor = sosyalSkor({ ts, oncelik: kaynak.oncelik || 2, kayseri: true })
+
+        yeniFirsatlar.push({
+          id: pid, kaynak_tip: 'twitter', hesap: 'X/hashtag', etiket: kaynak.etiket || 'Twitter Kayseri',
+          baslik: (it.title || it.description || '').slice(0, 200),
+          tam_metin: (it.description || it.title || '').slice(0, 1000),
+          link: it.link, gorsel_url: null, tip: 'tweet', begeni: 0,
+          pubDate: ts, kayseri: true, oncelik: kaynak.oncelik || 2,
+          skor, durum: sosyalDurum(skor, ts),
+          yazildi: false, gizli: false, bulundu: new Date().toISOString(),
+        })
+        gorulen.add(pid)
+      }
+    } catch (_) {}
+  }
+
+  await firsatlariBirlestir(env, yeniFirsatlar)
+  await env.HABERLER.put('sosyal:gorulen', JSON.stringify([...gorulen].slice(-1500)))
+  return { ok: true, yeni: yeniFirsatlar.length }
+}
+
+// ── Google News RSS taraması (Kayseri, son 24 saat — Apify gerekmez) ──────────
+async function googleNewsTara(env) {
+  const gorulen = new Set(await env.HABERLER.get('sosyal:gorulen', 'json') || [])
+  const yeniFirsatlar = []
+  try {
+    const gn = 'https://news.google.com/rss/search?q=Kayseri%20when:1d&hl=tr&gl=TR&ceid=TR:tr'
+    const res = await fetch(gn, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*', 'Accept-Language': 'tr-TR,tr;q=0.9' },
+      redirect: 'follow', cf: { cacheTtl: 0, cacheEverything: false },
+    })
+    if (!res.ok) return { ok: false, mesaj: 'GNews ' + res.status }
+    const items = rssAyristir(await res.text())
+
+    for (const it of items) {
+      if (karaListede(it.title)) continue
+      const pid = hashId(it.link || it.title)
+      if (gorulen.has(pid)) continue
+      const yas = it.pubDate ? (Date.now() - Date.parse(it.pubDate)) / 36e5 : 0
+      if (yas > 24) { gorulen.add(pid); continue }
+      const ts = it.pubDate ? new Date(it.pubDate).toISOString() : new Date().toISOString()
+      // GNews başlığı "Başlık - Kaynak" formatında — kaynağı etikete al
+      const parca = (it.title || '').split(' - ')
+      const kaynakAdi = parca.length > 1 ? parca.pop().trim() : 'Google News'
+      const skor = sosyalSkor({ ts, oncelik: 2, kayseri: true })
+
+      yeniFirsatlar.push({
+        id: pid, kaynak_tip: 'gnews', hesap: kaynakAdi, etiket: 'Google News · ' + kaynakAdi,
+        baslik: parca.join(' - ').slice(0, 200) || it.title.slice(0, 200),
+        tam_metin: (it.description || it.title).slice(0, 600),
+        link: it.link, gorsel_url: null, tip: 'haber', begeni: 0,
+        pubDate: ts, kayseri: true, oncelik: 2,
+        skor, durum: sosyalDurum(skor, ts),
+        yazildi: false, gizli: false, bulundu: new Date().toISOString(),
+      })
+      gorulen.add(pid)
+    }
+  } catch (e) { return { ok: false, mesaj: String(e).slice(0, 120) } }
+
+  await firsatlariBirlestir(env, yeniFirsatlar)
+  await env.HABERLER.put('sosyal:gorulen', JSON.stringify([...gorulen].slice(-1500)))
+  return { ok: true, yeni: yeniFirsatlar.length }
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
@@ -318,20 +451,29 @@ export async function onRequestGet({ request, env }) {
       return Response.json({ ok: true, firsatlar, son_tarama: son }, { headers: CORS })
     }
 
-    // FAZ 1: Instagram tarama başlat (Apify run)
+    // FAZ 1: Instagram tarama başlat (Apify run) + senkron RSS/GNews
     if (action === 'tara') {
       const zorla = url.searchParams.get('force') === '1'
       if (!taramaPenceresinde() && !zorla) {
         return Response.json({ ok: true, atlandi: 'Tarama penceresi dışında (08:00–00:00 TR)' }, { headers: CORS })
       }
-      // Zaten bekleyen run varsa önce onu toplamaya çalış
+
+      // Senkron kaynaklar (hızlı, Apify gerektirmez): Twitter RSS + Google News
+      const [tw, gn] = await Promise.all([
+        twitterRssTara(env).catch(e => ({ ok: false, mesaj: String(e).slice(0, 80) })),
+        googleNewsTara(env).catch(e => ({ ok: false, mesaj: String(e).slice(0, 80) })),
+      ])
+
+      // Instagram (asenkron Apify): bekleyen run varsa topla, yoksa başlat
+      let ig
       const bekleyen = await env.HABERLER.get('sosyal:apify_run', 'json')
       if (bekleyen && bekleyen.runId) {
-        const t = await instagramSonucToparla(env)
-        return Response.json({ ok: true, faz: 'topla (bekleyen run vardı)', sonuc: t }, { headers: CORS })
+        ig = await instagramSonucToparla(env)
+      } else {
+        ig = await instagramTaramaBaslat(env)
       }
-      const r = await instagramTaramaBaslat(env)
-      return Response.json(r, { status: r.ok ? 200 : 500, headers: CORS })
+
+      return Response.json({ ok: true, twitter: tw, gnews: gn, instagram: ig }, { headers: CORS })
     }
 
     // FAZ 2: Bekleyen run'ı topla
