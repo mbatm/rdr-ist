@@ -193,7 +193,7 @@ async function instagramTaramaBaslat(env) {
 }
 
 // ── FAZ 2: Biten run'ı topla, filtrele, fırsat üret ──────────────────────────
-async function instagramSonucToparla(env) {
+async function instagramSonucToparla(env, maxYasSaat = 24) {
   if (!env.APIFY_TOKEN) return { hata: 'APIFY_TOKEN yok' }
   const run = await env.HABERLER.get('sosyal:apify_run', 'json')
   if (!run || !run.runId) return { ok: true, mesaj: 'Bekleyen run yok' }
@@ -228,7 +228,7 @@ async function instagramSonucToparla(env) {
     // Yaş filtresi: Apify bazen son postu döndürür (yeni yoksa) — eskileri ele.
     // Sadece son 24 saatteki paylaşımlar haber adayı olur.
     const postYas = p.timestamp ? (Date.now() - Date.parse(p.timestamp)) / 36e5 : 9999
-    if (postYas > 24) { gorulen.add(p.id || p.shortCode || p.url); continue }
+    if (postYas > maxYasSaat) { gorulen.add(p.id || p.shortCode || p.url); continue }
 
     const kaynak = handleEtiket.get(String(p.ownerUsername || '').toLowerCase())
     const oncelik = kaynak ? (kaynak.oncelik || 2) : 2
@@ -457,6 +457,8 @@ export async function onRequestGet({ request, env }) {
     // FAZ 1: Instagram tarama başlat (Apify run) + senkron RSS/GNews
     if (action === 'tara') {
       const zorla = url.searchParams.get('force') === '1'
+      const gun = Number(url.searchParams.get('gun')) || 1   // varsayılan 1 gün (24s)
+      const maxYas = gun * 24
       if (!taramaPenceresinde() && !zorla) {
         return Response.json({ ok: true, atlandi: 'Tarama penceresi dışında (08:00–00:00 TR)' }, { headers: CORS })
       }
@@ -471,17 +473,18 @@ export async function onRequestGet({ request, env }) {
       let ig
       const bekleyen = await env.HABERLER.get('sosyal:apify_run', 'json')
       if (bekleyen && bekleyen.runId) {
-        ig = await instagramSonucToparla(env)
+        ig = await instagramSonucToparla(env, maxYas)
       } else {
         ig = await instagramTaramaBaslat(env)
       }
 
-      return Response.json({ ok: true, twitter: tw, gnews: gn, instagram: ig }, { headers: CORS })
+      return Response.json({ ok: true, gun, twitter: tw, gnews: gn, instagram: ig }, { headers: CORS })
     }
 
     // FAZ 2: Bekleyen run'ı topla
     if (action === 'topla') {
-      const r = await instagramSonucToparla(env)
+      const gun = Number(url.searchParams.get('gun')) || 1
+      const r = await instagramSonucToparla(env, gun * 24)
       return Response.json(r, { status: r.ok ? 200 : 500, headers: CORS })
     }
 
