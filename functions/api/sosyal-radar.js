@@ -225,6 +225,11 @@ async function instagramSonucToparla(env) {
     const caption = p.caption || ''
     if (karaListede(caption)) continue            // reklam/yetişkin → at
 
+    // Yaş filtresi: Apify bazen son postu döndürür (yeni yoksa) — eskileri ele.
+    // Sadece son 24 saatteki paylaşımlar haber adayı olur.
+    const postYas = p.timestamp ? (Date.now() - Date.parse(p.timestamp)) / 36e5 : 9999
+    if (postYas > 24) { gorulen.add(p.id || p.shortCode || p.url); continue }
+
     const kaynak = handleEtiket.get(String(p.ownerUsername || '').toLowerCase())
     const oncelik = kaynak ? (kaynak.oncelik || 2) : 2
     const etiket = kaynak ? kaynak.etiket : (p.ownerUsername || 'instagram')
@@ -333,6 +338,13 @@ export async function onRequestGet({ request, env }) {
     if (action === 'topla') {
       const r = await instagramSonucToparla(env)
       return Response.json(r, { status: r.ok ? 200 : 500, headers: CORS })
+    }
+
+    // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
+    if (action === 'temizle') {
+      await env.HABERLER.put('sosyal:firsatlar', JSON.stringify([]))
+      await env.HABERLER.put('sosyal:gorulen', JSON.stringify([]))
+      return Response.json({ ok: true, mesaj: 'Fırsat cache temizlendi' }, { headers: CORS })
     }
 
     return Response.json({ hata: 'Bilinmeyen action', mevcut: ['kaynaklar', 'durum', 'firsatlar', 'tara', 'topla'] },
