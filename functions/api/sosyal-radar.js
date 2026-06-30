@@ -561,6 +561,20 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, guncellendi: k }, { headers: CORS })
     }
 
+    // Fırsatı işaretle — { id, alan: 'yazildi'|'gizli', deger: bool }
+    if (action === 'isaretle') {
+      const { id, alan, deger } = govde
+      if (!id || !['yazildi', 'gizli'].includes(alan)) {
+        return Response.json({ hata: 'Geçersiz' }, { status: 400, headers: CORS })
+      }
+      const liste = await env.HABERLER.get('sosyal:firsatlar', 'json') || []
+      const f = liste.find(x => x.id === id)
+      if (!f) return Response.json({ hata: 'Fırsat bulunamadı' }, { status: 404, headers: CORS })
+      f[alan] = !!deger
+      await env.HABERLER.put('sosyal:firsatlar', JSON.stringify(liste))
+      return Response.json({ ok: true, guncellendi: { id, alan, deger: f[alan] } }, { headers: CORS })
+    }
+
     // Toplu içe aktar — { girdiler: ["url1", "url2", ...] }
     if (action === 'kaynak-topla-ekle') {
       const girdiler = Array.isArray(govde.girdiler) ? govde.girdiler : []
