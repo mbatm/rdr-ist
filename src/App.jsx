@@ -6799,6 +6799,16 @@ function ModulSecici({ user, onModul }) {
       yetki: 'modul_kesfet',
     },
     {
+      id: 'sosyal',
+      baslik: 'Sosyal Radar',
+      aciklama: 'Kurum ve siyasi sosyal medya hesapları + Google News, Kayseri içerikleri 24 saat tara',
+      ic: 'radar',
+      renk: '#22c55e',
+      bg: 'rgba(34,197,94,0.08)',
+      border: 'rgba(34,197,94,0.2)',
+      yetki: 'modul_kesfet',
+    },
+    {
       id: 'metaads',
       baslik: 'Meta Ads Yonetimi',
       aciklama: 'Kampanya durumu, butce yonetimi, performans ve harcama takibi',
@@ -6962,7 +6972,7 @@ export default function App() {
   if (loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',background:'var(--bg)'}}>Yükleniyor…</div>
   if (!user) return <LoginEkrani onGiris={girisYap}/>
   if (adminLog) return <AdminLog onKapat={()=>setAdminLog(false)}/>
-  if (!aktifModul) return <ModulSecici user={user} onModul={setAktifModul}/>
+  if (!aktifModul) return <ModulSecici user={user} onModul={(id)=>{ if(id==='sosyal'){ window.open('/sosyal-radar.html','_blank'); return } setAktifModul(id) }}/>
   if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'reklam') return <ReklamModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>{setZekaPreFill(null);setAktifModul(null)}} prefill={zekaPreFill}/>
