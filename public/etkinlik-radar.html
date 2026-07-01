@@ -160,12 +160,30 @@ function kart(f){
         ${f.begeni?`<span>❤ ${f.begeni}</span>`:''}
         ${f.kaynak_tip?'<span>🎪 Etkinlik</span>':''}
         <span class="aksiyon">
+          <button onclick="haberlestir('${esc(f.id)}')" style="background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600">📰 Haberleştir</button>
           <button onclick="isaretle('${esc(f.id)}','yazildi')">${f.yazildi?'↩ Geri':'✓ Yazıldı'}</button>
           <button onclick="isaretle('${esc(f.id)}','gizli')">${f.gizli?'↩ Göster':'✕ Gizle'}</button>
         </span>
       </div>
     </div>
   </div>`;
+}
+
+function haberlestir(id){
+  const f = veri.find(x=>x.id===id);
+  if (!f) return;
+  const prefill = {
+    baslik: f.baslik || '',
+    metin: f.tam_metin || f.baslik || '',
+    kategori: 'Güncel',
+  };
+  if (f.video_url) prefill.video_url = f.video_url;
+  else if (f.gorsel_url) prefill.gorsel_url = f.gorsel_url;
+  prefill.kaynak_notu = (f.etiket || f.hesap || '') + ' · ' + (f.link || '');
+  try {
+    window.parent.postMessage({ type: 'rdrist:haberlestir', prefill }, '*');
+  } catch(e) {}
+  isaretle(id, 'yazildi');
 }
 
 async function isaretle(id, alan){
