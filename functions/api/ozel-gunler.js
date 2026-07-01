@@ -380,7 +380,7 @@ function yilDoldur(s, tarih) {
 }
 
 // Tüm veri setini (kullanıcı ekstraları dahil) çözüp listeler
-async function listele(env, ufukGun) {
+async function listele(env, ufukGun, kullanici) {
   const bugun = bugunTR()
   const ufukSon = new Date(bugun.getTime() + ufukGun * GUN_MS)
   const onaylar = await kvGet(env, 'ozelgun:onaylar', {})
@@ -390,7 +390,10 @@ async function listele(env, ufukGun) {
 
   const out = []
   for (const ev of tumVeri) {
-    if (reddedilen[ev.id]) continue
+    const r = reddedilen[ev.id]
+    // Eski format (sayı = herkes için gizli, geriye uyumluluk) veya yeni format (obje = kullanıcı bazlı)
+    if (typeof r === 'number') continue
+    if (r && typeof r === 'object' && kullanici && r[kullanici]) continue
     const c = cozTarih(ev, bugun, ufukSon)
     if (!c) continue
     const gunKala = Math.round((c.tarih - bugun) / GUN_MS)
@@ -505,7 +508,8 @@ export async function onRequestGet({ request, env }) {
     if (action === 'liste') {
       const ayar = await kvGet(env, 'ozelgun:ayarlar', { ufuk: 120 })
       const ufuk = parseInt(url.searchParams.get('ufuk') || ayar.ufuk || 120, 10)
-      return Response.json(await listele(env, ufuk), { headers: cors })
+      const kullanici = url.searchParams.get('kullanici') || null
+      return Response.json(await listele(env, ufuk, kullanici), { headers: cors })
     }
     if (action === 'aktif') return Response.json(await aktifler(env), { headers: cors })
     if (action === 'durum') {
@@ -540,14 +544,17 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true }, { headers: cors })
     }
     if (action === 'reddet') {
+      const kullanici = body.kullanici || 'bilinmeyen'
       const red = await kvGet(env, 'ozelgun:reddedilen', {})
-      red[body.gun_id] = Date.now()
+      if (!red[body.gun_id] || typeof red[body.gun_id] === 'number') red[body.gun_id] = {}
+      red[body.gun_id][kullanici] = Date.now()
       await kvPut(env, 'ozelgun:reddedilen', red)
       return Response.json({ ok: true }, { headers: cors })
     }
     if (action === 'geri_al') {
+      const kullanici = body.kullanici || 'bilinmeyen'
       const red = await kvGet(env, 'ozelgun:reddedilen', {})
-      delete red[body.gun_id]
+      if (red[body.gun_id] && typeof red[body.gun_id] === 'object') delete red[body.gun_id][kullanici]
       await kvPut(env, 'ozelgun:reddedilen', red)
       return Response.json({ ok: true }, { headers: cors })
     }
