@@ -197,7 +197,7 @@ function buildPrompt(haber, strateji) {
   return `Sen kayserim.net için kıdemli bir haber editörü ve SEO uzmanısın.
 
 ## TEMEL GÖREV
-Verilen haberi; bağlamından ASLA koparmadan, gerçekleri değiştirmeden, SEO uyumlu ve okuyucu odaklı şekilde düzenle. Haber kısa ise mantıklı bağlamsal bilgilerle genişlet.
+Verilen haberi; bağlamından ASLA koparmadan, gerçekleri değiştirmeden, SEO uyumlu ve okuyucu odaklı şekilde düzenle. SADECE verilen metindeki bilgileri kullan — kelime sayısını artırmak için yeni bilgi, detay, sayı, isim, tarih, açıklama veya bağlam UYDURMA/EKLEME.
 
 ## HABER BİLGİSİ
 Başlık: ${haber.baslik.slice(0,200)}
@@ -234,9 +234,9 @@ ${kayseriKurali}
 - Editöryal yorum YASAK: "önlem alınmalıdır"
 - Sayıları kullan: "35 kişi" > "çok sayıda kişi"
 - Unvan/özel isim ASLA değiştirme: "Kocasinan Kaymakamı" → olduğu gibi
-- HEDEF: 400-600 kelime
-  * Kısa haberler için: bölge bağlamı, geçmiş benzer olaylar, yetkili açıklamaları genişlet
-  * Uydurma değil — haberin doğal uzantısı olan gerçek bilgiler ekle
+- METİNDE OLMAYAN HİÇBİR BİLGİ EKLEME: Sayı, isim, tarih, olay, yetkili açıklaması, geçmiş olay referansı — kaynakta yoksa yazma
+- Kelime sayısını yapay şekilde artırma. Haber kısaysa kısa kalsın; SADECE dil, akış ve SEO açısından iyileştir
+- HEDEF: Kaynak metnin doğal uzunluğuna sadık kal (kısa haber kısa, uzun haber 400-600 kelime olabilir) — ama içerik SADECE verilen bilgilerden oluşmalı
 
 ## ÖNCELIK KARAR KURALI
 - Birincil keyword zorluk 0-10 → "yuksek" öncelik (direkt sıralanabilir)
@@ -250,7 +250,7 @@ ${kayseriKurali}
   "sosyal_baslik": "5-8 kelime, merak uyandırıcı — Kayseri zorunlu değil",
   "meta_description": "max 155 karakter, ${kw1.keyword} ve haberin özü, tıklatıcı",
   "url_slug": "kısa-tire-ile-benzersiz-slug-kw1-iceren",
-  "optimize_icerik": "400-600 kelime, AA/DHA haber dili, bağlam korunmuş, mantıklı genişletilmiş",
+  "optimize_icerik": "AA/DHA haber dili, bağlam korunmuş — SADECE kaynaktaki bilgiler, yeni bilgi/detay/rakam EKLEME, kaynak kısaysa kısa kalsın",
   "ozet": "1 cümle, haberin özü",
   "instagram": "Sürükleyici ilk cümle. Merak uyandır. Kayseri zorunlu değil. Emoji. 1200-2000 karakter. 'Detaylar kayserim.net\'te 🔗' sonda. 6-10 hashtag (#kayseri #kayserihaber + konuya özel).",
   "facebook": "Dikkat çekici + özet. Max 300 karakter. 2-3 hashtag. Link ayrıca eklenir.",
