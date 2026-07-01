@@ -6972,13 +6972,24 @@ export default function App() {
   if (loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)',background:'var(--bg)'}}>Yükleniyor…</div>
   if (!user) return <LoginEkrani onGiris={girisYap}/>
   if (adminLog) return <AdminLog onKapat={()=>setAdminLog(false)}/>
-  if (!aktifModul) return <ModulSecici user={user} onModul={(id)=>{ if(id==='sosyal'){ window.open('/sosyal-radar.html','_blank'); return } setAktifModul(id) }}/>
+  if (!aktifModul) return <ModulSecici user={user} onModul={setAktifModul}/>
   if (aktifModul === 'kayseradar') return <KayseradarModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'reklam') return <ReklamModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'manuel') return <ManuelHaberModul user={user} onGeri={()=>{setZekaPreFill(null);setAktifModul(null)}} prefill={zekaPreFill}/>
   if (aktifModul === 'galeri')  return <GaleriModul   user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'zeka')   return <ZekaModul user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
   if (aktifModul === 'kesfet') return <KesfetRadar user={user} onGeri={()=>setAktifModul(null)} onManuelAc={pf=>{setZekaPreFill(pf);setAktifModul('manuel')}}/>
+  if (aktifModul === 'sosyal') return (
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column', background:'var(--bg)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderBottom:'0.5px solid var(--border)', flexShrink:0 }}>
+        <button onClick={()=>setAktifModul(null)} style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'0.5px solid var(--border)', color:'var(--muted)', padding:'6px 12px', fontSize:13, borderRadius:'var(--radius-md)' }}>
+          <Ic n="arrow-left" size={14} /> Geri
+        </button>
+        <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>📡 Sosyal Radar</span>
+      </div>
+      <iframe src="/sosyal-radar.html" style={{ flex:1, border:'none', width:'100%' }} title="Sosyal Radar" />
+    </div>
+  )
   if (aktifModul === 'hedef') return <HedefTakipModul geri={() => setAktifModul(null)} />;
   if (aktifModul === 'metaads') return <MetaAdsModul user={user} onGeri={()=>setAktifModul(null)}/>
   if (aktifModul === 'yonetim') return <YonetimModul user={user} onGeri={()=>setAktifModul(null)}/>
