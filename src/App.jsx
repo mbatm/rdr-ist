@@ -6719,6 +6719,16 @@ function ModulSecici({ user, onModul }) {
       yetki: 'modul_kesfet',
     },
     {
+      id: 'arama',
+      baslik: 'Arama Radar',
+      aciklama: 'kayserim.net Google konumu, rakip analizi ve cevaplanmamış sorulardan içerik fırsatları',
+      ic: 'search',
+      renk: '#06b6d4',
+      bg: 'rgba(6,182,212,0.08)',
+      border: 'rgba(6,182,212,0.2)',
+      yetki: 'modul_kesfet',
+    },
+    {
       id: 'metaads',
       baslik: 'Meta Ads Yonetimi',
       aciklama: 'Kampanya durumu, butce yonetimi, performans ve harcama takibi',
@@ -6920,6 +6930,17 @@ export default function App() {
         <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>🎪 Etkinlik Radar</span>
       </div>
       <iframe src="/etkinlik-radar.html" style={{ flex:1, border:'none', width:'100%' }} title="Etkinlik Radar" />
+    </div>
+  )
+  if (aktifModul === 'arama') return (
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column', background:'var(--bg)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderBottom:'0.5px solid var(--border)', flexShrink:0 }}>
+        <button onClick={()=>setAktifModul(null)} style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'0.5px solid var(--border)', color:'var(--muted)', padding:'6px 12px', fontSize:13, borderRadius:'var(--radius-md)' }}>
+          <Ic n="arrow-left" size={14} /> Geri
+        </button>
+        <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>🔍 Arama Radar</span>
+      </div>
+      <iframe src="/arama-radar.html" style={{ flex:1, border:'none', width:'100%' }} title="Arama Radar" />
     </div>
   )
   if (aktifModul === 'hedef') return <HedefTakipModul geri={() => setAktifModul(null)} />;
