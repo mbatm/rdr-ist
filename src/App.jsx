@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import GorselSablon from './GorselSablon.jsx'
 import GorselEditor from './GorselEditor.jsx'
 import OtoGorselUret from './OtoGorselUret.jsx'
 import KesfetRadar from './KesfetRadar.jsx'
@@ -112,7 +111,6 @@ function Sidebar({ active, setActive, user, onLogout, bekCnt }) {
     { id:'haberler',  ic:'rss',              l:'1ha akışı', badge: bekCnt },
     { id:'yeni',      ic:'pencil',           l:'Yeni haber' },
     { id:'isleme',    ic:'bolt',             l:'İşleme sonucu' },
-    { id:'editor',    ic:'vector-bezier-2',  l:'Şablon Editörü' },
     { id:'ayarlar',   ic:'settings',         l:'Ayarlar' },
   ]
   return (
