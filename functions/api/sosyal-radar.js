@@ -175,6 +175,7 @@ async function instagramTaramaBaslat(env) {
     resultsType: 'posts',
     resultsLimit: 4,                 // pinned post + gerçek son paylaşımlara ulaşmak için
     addParentData: false,
+    proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
   }
 
   const r = await fetch(
@@ -493,6 +494,13 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
+    if (action === 'apify-actor-ara') {
+      const q = url.searchParams.get('q') || 'google news'
+      const rr = await fetch(`https://api.apify.com/v2/store?search=${encodeURIComponent(q)}&limit=8&token=${env.APIFY_TOKEN}`)
+      const rj = await rr.json()
+      const items = (rj.data && rj.data.items) || []
+      return Response.json({ ok: true, sonuclar: items.map(i => ({ id: i.name, sahip: i.username, tam_ad: `${i.username}/${i.name}`, baslik: i.title, aciklama: (i.description||'').slice(0,150) })) }, { headers: CORS })
+    }
     if (action === 'gnews-teshis') {
       const gn = 'https://news.google.com/rss/search?q=Kayseri%20when:1d&hl=tr&gl=TR&ceid=TR:tr'
       const res = await fetch(gn, {
