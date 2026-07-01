@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Etkinlik Radar · Etkinlik Adayları</title>
+<style>
+  :root {
+    --bg:#0f1115; --kart:#181b22; --kart2:#1f232c; --kenar:#2a2f3a;
+    --metin:#e6e8ec; --soluk:#9aa3b2; --vurgu:#4f9dff;
+    --acil:#f85149; --firsat:#3fb950; --izle:#d29922;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--metin);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:16px;max-width:920px;margin:0 auto;}
+  h1{font-size:20px;margin:8px 0 2px;}
+  .alt{color:var(--soluk);font-size:13px;margin-bottom:16px;}
+  .ust{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .istat{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;}
+  .istat b{font-size:18px;display:block;}
+  .istat .acil b{color:var(--acil);} .istat .firsat b{color:var(--firsat);} .istat .izle b{color:var(--izle);}
+  .araclar{display:flex;gap:8px;flex-wrap:wrap;}
+  button,select{background:var(--kart2);border:1px solid var(--kenar);border-radius:8px;
+    color:var(--metin);padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+  button.ana{background:var(--vurgu);border-color:var(--vurgu);color:#fff;font-weight:600;}
+  button:hover{border-color:var(--vurgu);}
+  a.link{color:var(--soluk);font-size:13px;text-decoration:none;border:1px solid var(--kenar);padding:8px 14px;border-radius:8px;}
+  a.link:hover{color:var(--vurgu);border-color:var(--vurgu);}
+  .filtreler{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .cip{font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--kenar);
+    background:var(--kart2);color:var(--soluk);cursor:pointer;}
+  .cip.aktif{background:var(--vurgu);color:#fff;border-color:var(--vurgu);}
+  .firsat-kart{display:flex;gap:12px;background:var(--kart);border:1px solid var(--kenar);
+    border-left:3px solid var(--kenar);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .firsat-kart.acil{border-left-color:var(--acil);}
+  .firsat-kart.firsat{border-left-color:var(--firsat);}
+  .firsat-kart.izle{border-left-color:var(--izle);}
+  .firsat-kart.yazildi{opacity:.45;}
+  .gorsel{width:64px;height:64px;border-radius:8px;object-fit:cover;background:var(--kart2);flex-shrink:0;}
+  .icerik{flex:1;min-width:0;}
+  .satir1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+  .rozet{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;text-transform:uppercase;}
+  .r-acil{background:#3a1518;color:#ff7b72;} .r-firsat{background:#12331c;color:#56d364;} .r-izle{background:#332813;color:#e3b341;}
+  .tip{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;}
+  .t-instagram{background:#3b1d3a;color:#e879c7;} .t-web{background:#1a2a3a;color:#6ab0ff;}
+  .t-twitter{background:#14304a;color:#5bb0ff;} .t-youtube{background:#3a1a1a;color:#ff6b6b;}
+  .skor{margin-left:auto;font-size:12px;color:var(--soluk);font-weight:700;}
+  .etiket{font-size:12px;color:var(--soluk);}
+  .baslik{font-size:14px;line-height:1.4;margin:2px 0 6px;}
+  .baslik a{color:var(--metin);text-decoration:none;}
+  .baslik a:hover{color:var(--vurgu);}
+  .meta{display:flex;gap:12px;font-size:11px;color:var(--soluk);align-items:center;}
+  .aksiyon{display:flex;gap:6px;}
+  .aksiyon button{padding:3px 9px;font-size:11px;}
+  .durum-yok{text-align:center;color:var(--soluk);padding:40px;}
+</style>
+</head>
+<body>
+  <h1>🎪 Etkinlik Radar · Etkinlik Adayları</h1>
+  <div class="alt">Kurum & sosyal hesaplar + web siteleri · son 48 saat · Kayseri + etkinlik filtreli</div>
+
+  <div class="ust">
+    <div class="istat" id="istat">
+      <div class="acil"><b id="s-acil">—</b>Acil</div>
+      <div class="firsat"><b id="s-firsat">—</b>Fırsat</div>
+      <div class="izle"><b id="s-izle">—</b>İzle</div>
+      <div><b id="s-toplam">—</b>Toplam</div>
+    </div>
+    <div class="araclar">
+      <button class="ana" onclick="tara()">⟳ Şimdi Tara</button>
+      <button onclick="yukle()">Yenile</button>
+      <a class="link" href="/etkinlik-kaynaklar.html">⚙ Kaynaklar</a>
+    </div>
+  </div>
+
+  <div class="filtreler" id="filtreler">
+    <span class="cip aktif" data-f="hepsi" onclick="filtrele(this)">Hepsi</span>
+    <span class="cip" data-f="acil" onclick="filtrele(this)">Acil</span>
+    <span class="cip" data-f="firsat" onclick="filtrele(this)">Fırsat</span>
+    <span class="cip" data-f="instagram" onclick="filtrele(this)">Instagram</span>
+    <span class="cip" data-f="web" onclick="filtrele(this)">Web/RSS</span>
+    <span class="cip" data-f="gizliler" onclick="filtrele(this)">Gizlenenler</span>
+  </div>
+
+  <div id="son" class="alt"></div>
+  <div id="liste"><div class="durum-yok">Yükleniyor…</div></div>
+
+<script>
+const API = "/api/etkinlik-radar";
+let veri = [];
+let filtre = "hepsi";
+
+const $ = id => document.getElementById(id);
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function zamanGec(iso){
+  if(!iso) return "";
+  const d=(Date.now()-Date.parse(iso))/60000;
+  if(d<60) return Math.round(d)+" dk önce";
+  if(d<1440) return Math.round(d/60)+" sa önce";
+  return Math.round(d/1440)+" gün önce";
+}
+
+async function yukle(){
+  $('liste').innerHTML='<div class="durum-yok">Yükleniyor…</div>';
+  try{
+    const r=await fetch(API+"?action=firsatlar&t="+Date.now(),{cache:"no-store"});
+    const j=await r.json();
+    veri=j.firsatlar||[];
+    if(j.son_tarama){
+      $('son').textContent="Son tarama: "+zamanGec(j.son_tarama.zaman)
+        +" · "+(j.son_tarama.yeni_firsat??0)+" yeni";
+    }
+    say(); ciz();
+  }catch(e){
+    $('liste').innerHTML='<div class="durum-yok">Hata: '+esc(e.message)+'</div>';
+  }
+}
+
+function say(){
+  const ac=veri.filter(f=>f.durum==='acil'&&!f.gizli&&!f.yazildi).length;
+  const fi=veri.filter(f=>f.durum==='firsat'&&!f.gizli&&!f.yazildi).length;
+  const iz=veri.filter(f=>f.durum==='izle'&&!f.gizli&&!f.yazildi).length;
+  $('s-acil').textContent=ac; $('s-firsat').textContent=fi;
+  $('s-izle').textContent=iz; $('s-toplam').textContent=veri.length;
+}
+
+function filtrele(el){
+  document.querySelectorAll('.cip').forEach(c=>c.classList.remove('aktif'));
+  el.classList.add('aktif'); filtre=el.dataset.f; ciz();
+}
+
+function ciz(){
+  let liste=veri.slice();
+  if(filtre==='gizliler') liste=liste.filter(f=>f.gizli);
+  else { liste=liste.filter(f=>!f.gizli);
+    if(filtre==='acil') liste=liste.filter(f=>f.durum==='acil');
+    else if(filtre==='firsat') liste=liste.filter(f=>f.durum==='firsat');
+    else if(['instagram','web','rss','twitter','youtube'].includes(filtre)) liste=liste.filter(f=>f.kaynak_tip===filtre);
+  }
+  if(!liste.length){ $('liste').innerHTML='<div class="durum-yok">Bu filtrede kayıt yok.</div>'; return; }
+  $('liste').innerHTML=liste.map(f=>kart(f)).join('');
+}
+
+function kart(f){
+  const dur=f.durum||'izle';
+  const gorsel=f.gorsel_url?`<img class="gorsel" src="${esc(f.gorsel_url)}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';
+  return `<div class="firsat-kart ${dur} ${f.yazildi?'yazildi':''}">
+    ${gorsel}
+    <div class="icerik">
+      <div class="satir1">
+        <span class="rozet r-${dur}">${dur}</span>
+        <span class="tip t-${f.kaynak_tip}">${({instagram:'IG',rss:'RSS',web:'WEB',twitter:'X',youtube:'YT'})[f.kaynak_tip]||f.kaynak_tip}</span>
+        <span class="etiket">${esc(f.etiket||f.hesap||'')}</span>
+        <span class="skor">${f.skor}</span>
+      </div>
+      <div class="baslik"><a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.baslik)}</a></div>
+      <div class="meta">
+        <span>${zamanGec(f.pubDate)}</span>
+        ${f.begeni?`<span>❤ ${f.begeni}</span>`:''}
+        ${f.kaynak_tip?'<span>🎪 Etkinlik</span>':''}
+        <span class="aksiyon">
+          <button onclick="isaretle('${esc(f.id)}','yazildi')">${f.yazildi?'↩ Geri':'✓ Yazıldı'}</button>
+          <button onclick="isaretle('${esc(f.id)}','gizli')">${f.gizli?'↩ Göster':'✕ Gizle'}</button>
+        </span>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function isaretle(id, alan){
+  const f=veri.find(x=>x.id===id); if(!f) return;
+  f[alan]=!f[alan];
+  // Yerel güncelle (backend mark action'ı sonraki parçada bağlanacak)
+  say(); ciz();
+  try{
+    await fetch(API+"?action=isaretle",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({id,alan,deger:f[alan]})});
+  }catch(e){}
+}
+
+async function tara(){
+  $('son').textContent="Taranıyor…";
+  try{
+    const r=await fetch(API+"?action=tara&t="+Date.now(),{cache:"no-store"});
+    const j=await r.json();
+    if(j.atlandi){ $('son').textContent="Atlandı: "+j.atlandi; return; }
+    $('son').textContent="Tarama tetiklendi · IG run başladı, ~1 dk sonra Yenile'ye bas";
+    setTimeout(yukle, 3000);
+  }catch(e){ $('son').textContent="Tarama hatası: "+e.message; }
+}
+
+yukle();
+setInterval(yukle, 120000); // 2 dk'da bir oto-yenile
+</script>
+</body>
+</html>
