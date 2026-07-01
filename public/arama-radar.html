@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arama Radar · SEO Fırsatları</title>
+<style>
+  :root {
+    --bg:#0f1115; --kart:#181b22; --kart2:#1f232c; --kenar:#2a2f3a;
+    --metin:#e6e8ec; --soluk:#9aa3b2; --vurgu:#4f9dff;
+    --acil:#f85149; --firsat:#3fb950; --izle:#d29922;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--metin);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:16px;max-width:960px;margin:0 auto;}
+  h1{font-size:20px;margin:8px 0 2px;}
+  .alt{color:var(--soluk);font-size:13px;margin-bottom:16px;}
+  .araclar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  button{background:var(--kart2);border:1px solid var(--kenar);border-radius:8px;
+    color:var(--metin);padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+  button.ana{background:var(--vurgu);border-color:var(--vurgu);color:#fff;font-weight:600;}
+  a.link{color:var(--soluk);font-size:13px;text-decoration:none;border:1px solid var(--kenar);padding:8px 14px;border-radius:8px;}
+  .anasekme{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--kenar);}
+  .as-btn{background:transparent;border:none;color:var(--soluk);padding:9px 16px;font-size:13px;cursor:pointer;
+    border-bottom:2px solid transparent;font-weight:500;font-family:inherit;}
+  .as-btn.as-aktif{color:var(--metin);border-bottom-color:var(--vurgu);}
+  .kw-kart{background:var(--kart);border:1px solid var(--kenar);border-radius:10px;padding:14px;margin-bottom:12px;}
+  .kw-ust{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+  .kw-ad{font-size:14px;font-weight:600;}
+  .kw-poz{font-size:12px;padding:3px 10px;border-radius:20px;font-weight:700;}
+  .poz-yok{background:#3a1518;color:#ff7b72;}
+  .poz-kotu{background:#332813;color:#e3b341;}
+  .poz-iyi{background:#12331c;color:#56d364;}
+  .rakip-liste{display:flex;flex-direction:column;gap:4px;}
+  .rakip{display:flex;gap:8px;font-size:12px;color:var(--soluk);align-items:center;}
+  .rakip .p{width:20px;color:var(--metin);font-weight:600;}
+  .rakip .d{color:var(--vurgu);}
+  .firsat-kart{display:flex;gap:12px;background:var(--kart);border:1px solid var(--kenar);
+    border-left:3px solid var(--kenar);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .firsat-kart.acil{border-left-color:var(--acil);} .firsat-kart.firsat{border-left-color:var(--firsat);} .firsat-kart.izle{border-left-color:var(--izle);}
+  .rozet{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;text-transform:uppercase;}
+  .r-acil{background:#3a1518;color:#ff7b72;} .r-firsat{background:#12331c;color:#56d364;} .r-izle{background:#332813;color:#e3b341;}
+  .durum-yok{text-align:center;color:var(--soluk);padding:40px;}
+  .son{color:var(--soluk);font-size:13px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+  <h1>🔍 Arama Radar · SEO Fırsatları</h1>
+  <div class="alt">kayserim.net Google konumu + rakip analizi + cevaplanmamış sorular (People Also Ask)</div>
+
+  <div class="araclar">
+    <a class="link" href="/">← rdr.ist</a>
+    <button class="ana" onclick="tara()">⟳ Şimdi Tara</button>
+    <button onclick="yukleHepsi()">Yenile</button>
+    <a class="link" href="/arama-kelimeler.html">⚙ Kelimeler</a>
+  </div>
+
+  <div class="anasekme">
+    <button class="as-btn as-aktif" data-as="rakip" onclick="anaSekmeDegis(this)">📊 Rakip Analizi</button>
+    <button class="as-btn" data-as="firsat" onclick="anaSekmeDegis(this)">💡 İçerik Fırsatları</button>
+  </div>
+
+  <div id="son" class="son"></div>
+
+  <div id="rakipPaneli">
+    <div id="rakipListe"><div class="durum-yok">Yükleniyor…</div></div>
+  </div>
+
+  <div id="firsatPaneli" style="display:none">
+    <div id="firsatListe"><div class="durum-yok">Yükleniyor…</div></div>
+  </div>
+
+<script>
+const API = "/api/arama-radar";
+const $ = id => document.getElementById(id);
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function zamanGec(iso){
+  if(!iso) return "";
+  const d=(Date.now()-Date.parse(iso))/60000;
+  if(d<60) return Math.round(d)+" dk önce";
+  if(d<1440) return Math.round(d/60)+" sa önce";
+  return Math.round(d/1440)+" gün önce";
+}
+
+function anaSekmeDegis(el){
+  document.querySelectorAll('.as-btn').forEach(b=>b.classList.remove('as-aktif'));
+  el.classList.add('as-aktif');
+  const hedef = el.dataset.as;
+  $('rakipPaneli').style.display = hedef==='rakip' ? '' : 'none';
+  $('firsatPaneli').style.display = hedef==='firsat' ? '' : 'none';
+}
+
+async function yukleHepsi(){
+  await Promise.all([rakipYukle(), firsatYukle()]);
+}
+
+async function rakipYukle(){
+  $('rakipListe').innerHTML = '<div class="durum-yok">Yükleniyor…</div>';
+  try{
+    const r = await fetch(API+"?action=sonuclar&t="+Date.now(),{cache:"no-store"});
+    const j = await r.json();
+    if(j.son_tarama){
+      $('son').textContent = "Son tarama: "+zamanGec(j.son_tarama.zaman)+" · "+
+        (j.son_tarama.taranan_kelime??0)+" kelime · "+(j.son_tarama.pozisyon_yok??0)+" kelimede kayserim.net yok";
+    }
+    if(!j.sonuclar || !j.sonuclar.length){ $('rakipListe').innerHTML='<div class="durum-yok">Henüz tarama yapılmadı. "Şimdi Tara" ile başlat.</div>'; return; }
+    $('rakipListe').innerHTML = j.sonuclar.map(s=>{
+      const pozSinif = s.pozisyon===null?'poz-yok':s.pozisyon>5?'poz-kotu':'poz-iyi';
+      const pozMetin = s.pozisyon===null?'İlk 10\'da yok':'#'+s.pozisyon;
+      return `<div class="kw-kart">
+        <div class="kw-ust">
+          <span class="kw-ad">${esc(s.keyword)}</span>
+          <span class="kw-poz ${pozSinif}">kayserim.net: ${pozMetin}</span>
+        </div>
+        <div class="rakip-liste">
+          ${(s.rakipler||[]).slice(0,5).map(r=>`<div class="rakip"><span class="p">#${r.pozisyon}</span><span class="d">${esc(r.domain)}</span><span>${esc((r.baslik||'').slice(0,60))}</span></div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ $('rakipListe').innerHTML='<div class="durum-yok">Hata: '+esc(e.message)+'</div>'; }
+}
+
+async function firsatYukle(){
+  $('firsatListe').innerHTML = '<div class="durum-yok">Yükleniyor…</div>';
+  try{
+    const r = await fetch(API+"?action=firsatlar&t="+Date.now(),{cache:"no-store"});
+    const j = await r.json();
+    const liste = (j.firsatlar||[]).filter(f=>!f.gizli);
+    if(!liste.length){ $('firsatListe').innerHTML='<div class="durum-yok">İçerik fırsatı yok.</div>'; return; }
+    $('firsatListe').innerHTML = liste.map(f=>`
+      <div class="firsat-kart ${f.durum}">
+        <div style="flex:1">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+            <span class="rozet r-${f.durum}">${f.durum}</span>
+            <span style="font-size:11px;color:var(--soluk)">"${esc(f.anahtar_kelime)}" araması</span>
+          </div>
+          <div style="font-size:14px;margin-bottom:4px">${esc(f.baslik)}</div>
+          <div style="font-size:11px;color:var(--soluk);margin-bottom:8px">${esc(f.tam_metin)}</div>
+          <button onclick="haberlestir('${esc(f.id)}')" style="background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600;font-size:11px;padding:4px 10px">📰 Haberleştir</button>
+          <button onclick="isaretle('${esc(f.id)}','gizli')" style="font-size:11px;padding:4px 10px">✕ Gizle</button>
+        </div>
+      </div>`).join('');
+  }catch(e){ $('firsatListe').innerHTML='<div class="durum-yok">Hata: '+esc(e.message)+'</div>'; }
+}
+
+let firsatVeri = [];
+async function haberlestir(id){
+  const r = await fetch(API+"?action=firsatlar&t="+Date.now(),{cache:"no-store"});
+  const j = await r.json();
+  const f = (j.firsatlar||[]).find(x=>x.id===id);
+  if(!f) return;
+  const prefill = {
+    baslik: f.baslik,
+    metin: `"${f.anahtar_kelime}" araması yapan okuyucuların sorduğu bir soru: ${f.baslik}\n\nBu soruyu Kayseri bağlamında yanıtlayan bir haber/rehber içeriği hazırlanabilir.`,
+    kategori: 'Güncel',
+  };
+  try { window.parent.postMessage({ type: 'rdrist:haberlestir', prefill }, '*'); } catch(e) {}
+  isaretle(id, 'yazildi');
+}
+
+async function isaretle(id, alan){
+  try{
+    await fetch(API+"?action=isaretle",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({id,alan,deger:true})});
+    firsatYukle();
+  }catch(e){}
+}
+
+async function tara(){
+  $('son').textContent = "Taranıyor… (Apify SERP taraması ~30-60sn sürebilir)";
+  try{
+    const r = await fetch(API+"?action=tara&t="+Date.now(),{cache:"no-store"});
+    const j = await r.json();
+    if(j.baslatildi){ $('son').textContent = "Tarama başlatıldı · ~1 dk sonra 'Yenile' ile sonucu topla"; }
+    else if(j.log){ $('son').textContent = "Tarama tamamlandı · "+j.log.yeni_firsat+" yeni fırsat"; yukleHepsi(); }
+    else { $('son').textContent = JSON.stringify(j); }
+  }catch(e){ $('son').textContent = "Hata: "+e.message; }
+}
+
+yukleHepsi();
+setInterval(yukleHepsi, 180000);
+</script>
+</body>
+</html>
