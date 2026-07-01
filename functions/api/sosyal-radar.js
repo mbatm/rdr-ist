@@ -493,6 +493,17 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
+    if (action === 'gnews-teshis') {
+      const gn = 'https://news.google.com/rss/search?q=Kayseri%20when:1d&hl=tr&gl=TR&ceid=TR:tr'
+      const res = await fetch(gn, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*', 'Accept-Language': 'tr-TR,tr;q=0.9' },
+        redirect: 'follow', cf: { cacheTtl: 0, cacheEverything: false },
+      })
+      const gövde = await res.text()
+      const headerObj = {}
+      res.headers.forEach((v, k) => { headerObj[k] = v })
+      return Response.json({ status: res.status, headers: headerObj, gövde_ilk_500: gövde.slice(0, 500) }, { headers: CORS })
+    }
     if (action === 'temizle') {
       await env.HABERLER.put('sosyal:firsatlar', JSON.stringify([]))
       await env.HABERLER.put('sosyal:gorulen', JSON.stringify([]))
