@@ -265,6 +265,7 @@ async function yaklasaniYukle(){
         birlesik.push({
           tarih: g.tarih || null, gun_kala: g.gun_kala,
           baslik: g.ad, tip: 'sabit', kaynak: 'Özel Gün Takvimi',
+          gun_id: g.id, alternatifler: g.alternatifler || [],
         });
       }
     }
@@ -287,27 +288,70 @@ async function yaklasaniYukle(){
   } catch(e) {}
 
   birlesik.sort((a,b) => (a.gun_kala ?? 999) - (b.gun_kala ?? 999));
+  yaklasanVeri = birlesik; // global — kart açma/taslak üretme fonksiyonları erişsin
 
   if (!birlesik.length){ $('yaklasanListe').innerHTML = '<div class="durum-yok">Yaklaşan kayıt yok.</div>'; return; }
 
-  $('yaklasanListe').innerHTML = birlesik.slice(0, 60).map(g => {
+  $('yaklasanListe').innerHTML = birlesik.slice(0, 60).map((g, idx) => {
     const d = g.tarih ? new Date(g.tarih) : null;
     const gun = d ? d.getUTCDate() : '?';
     const ay = d ? AY_KISA[d.getUTCMonth()] : '';
     const yakin = g.gun_kala != null && g.gun_kala <= 7;
     const baslikHtml = g.link ? `<a href="${esc(g.link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(g.baslik)}</a>` : esc(g.baslik);
+    const altSayisi = (g.alternatifler||[]).length;
+    const altButon = altSayisi ? `<button onclick="altAcKapat(${idx})" style="font-size:11px;padding:2px 8px">✍️ ${altSayisi} başlık önerisi</button>` : '';
     return `<div class="yg-kart ${yakin?'yg-yakin':''}">
       <div class="yg-tarih"><div class="gun">${gun}</div><div class="ay">${ay}</div></div>
-      <div class="yg-icerik">
+      <div class="yg-icerik" style="flex:1">
         <div class="yg-baslik">${baslikHtml}</div>
         <div class="yg-meta">
           <span class="yg-rozet ${g.tip}">${g.tip==='sabit'?'Takvim':'Canlı'}</span>
           <span>${esc(g.kaynak||'')}</span>
           ${g.gun_kala!=null ? `<span>${g.gun_kala===0?'Bugün':g.gun_kala===1?'Yarın':g.gun_kala+' gün sonra'}</span>` : ''}
+          ${altButon}
         </div>
+        <div id="alt-${idx}" style="display:none;margin-top:10px"></div>
       </div>
     </div>`;
   }).join('');
+}
+
+let yaklasanVeri = [];
+
+function altAcKapat(idx){
+  const kutu = $('alt-'+idx);
+  if (kutu.style.display === 'none') {
+    const g = yaklasanVeri[idx];
+    kutu.innerHTML = (g.alternatifler||[]).map((a, ai) => `
+      <div style="background:var(--kart2);border:1px solid var(--kenar);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+        <div style="font-size:13px;margin-bottom:3px">${esc(a.baslik)}</div>
+        <div style="font-size:11px;color:var(--soluk);margin-bottom:6px">${esc(a.aci||'')}</div>
+        <button onclick="taslakUret('${g.gun_id}',${ai},this)" style="font-size:11px;background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600">📰 Taslak Oluştur</button>
+      </div>
+    `).join('');
+    kutu.style.display = 'block';
+  } else {
+    kutu.style.display = 'none';
+  }
+}
+
+async function taslakUret(gunId, altId, btnEl){
+  const eskiMetin = btnEl.textContent;
+  btnEl.textContent = 'Üretiliyor…'; btnEl.disabled = true;
+  try {
+    const r = await fetch(OZEL_GUN_API, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'uret', gun_id: gunId, alt_id: altId })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Taslak üretilemedi');
+    const prefill = { baslik: j.baslik, metin: j.metin, kategori: j.kategori || 'Güncel' };
+    try { window.parent.postMessage({ type: 'rdrist:haberlestir', prefill }, '*'); } catch(e) {}
+    btnEl.textContent = '✓ Manuel girişe aktarıldı';
+  } catch(e) {
+    btnEl.textContent = 'Hata: ' + e.message;
+    setTimeout(()=>{ btnEl.textContent = eskiMetin; btnEl.disabled = false; }, 3000);
+  }
 }
 </script>
 </body>
