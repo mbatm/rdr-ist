@@ -3403,8 +3403,10 @@ function ManuelHaberModul({ user, onGeri, prefill }) {
     if (prefill.baslik)    setBaslik(prefill.baslik)
     if (prefill.metin)     setMetin(prefill.metin)
     if (prefill.kategori)  setKategori(prefill.kategori)
-    // Kaynak gorsel varsa medyalar listesine ekle
-    if (prefill.gorsel_url) {
+    // Kaynak görsel/video varsa medyalar listesine ekle (Sosyal Radar'dan gelen post medyası)
+    if (prefill.video_url) {
+      setMedyalar([{ url: prefill.video_url, tip: 'video', adi: 'kaynak_video.mp4', kapak: true }])
+    } else if (prefill.gorsel_url) {
       setMedyalar([{ url: prefill.gorsel_url, tip: 'gorsel', adi: 'kaynak_gorsel.jpg', kapak: true }])
     }
   }, [prefill])
@@ -6954,6 +6956,18 @@ export default function App() {
   },[])
 
   useEffect(()=>{yenile()},[])
+
+  // Sosyal Radar / Etkinlik Radar iframe'inden "haberleştir" sinyali
+  useEffect(() => {
+    const dinleyici = (e) => {
+      if (e?.data?.type === 'rdrist:haberlestir' && e.data.prefill) {
+        setZekaPreFill(e.data.prefill)
+        setAktifModul('manuel')
+      }
+    }
+    window.addEventListener('message', dinleyici)
+    return () => window.removeEventListener('message', dinleyici)
+  }, [])
 
   const isle = async (h) => {
     setSelectedHaber(h); setContent(null); setProcessing(true); setError(null)
