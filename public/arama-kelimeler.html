@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arama Radar · Kelime Yönetimi</title>
+<style>
+  :root { --bg:#0f1115; --kart:#181b22; --kart2:#1f232c; --kenar:#2a2f3a; --metin:#e6e8ec; --soluk:#9aa3b2; --vurgu:#4f9dff; --vurgu2:#2563eb; --kirmizi:#f85149; }
+  *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--metin);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:720px;margin:0 auto;}
+  h1{font-size:20px;margin:8px 0 4px;} .alt{color:var(--soluk);font-size:13px;margin-bottom:20px;}
+  .kart{background:var(--kart);border:1px solid var(--kenar);border-radius:12px;padding:16px;margin-bottom:16px;}
+  label{display:block;font-size:13px;color:var(--soluk);margin:10px 0 4px;}
+  input,select,textarea{width:100%;background:var(--kart2);border:1px solid var(--kenar);border-radius:8px;color:var(--metin);padding:10px 12px;font-size:14px;font-family:inherit;}
+  textarea{resize:vertical;min-height:70px;}
+  button{background:var(--vurgu2);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;margin-top:14px;}
+  button.ikincil{background:transparent;border:1px solid var(--kenar);color:var(--soluk);}
+  button.mini{padding:5px 10px;font-size:12px;margin:0;}
+  button.sil{background:transparent;border:1px solid var(--kenar);color:var(--kirmizi);}
+  .kw{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--kenar);border-radius:8px;margin-bottom:8px;background:var(--kart2);}
+  .kw.pasif{opacity:.5;} .kw .ad{flex:1;font-weight:500;}
+  .durum{font-size:13px;padding:10px 0;min-height:20px;} .durum.ok{color:#3fb950;} .durum.err{color:var(--kirmizi);}
+  .ust{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  .sayac{font-size:13px;color:var(--soluk);}
+</style>
+</head>
+<body>
+  <h1>🔍 Arama Radar · Kelime Yönetimi</h1>
+  <div class="alt">Kayseri ile ilgili takip edilecek Google arama kelimeleri</div>
+  <div style="margin-bottom:16px"><a href="/arama-radar.html" style="color:var(--soluk);font-size:13px;text-decoration:none;border:1px solid var(--kenar);padding:7px 13px;border-radius:8px">🔍 Arama Radar'a dön</a></div>
+
+  <div class="kart">
+    <strong>➕ Yeni Kelime Ekle</strong>
+    <label>Anahtar kelime</label>
+    <input id="girdi" placeholder="kayseri restoran">
+    <label>Öncelik</label>
+    <select id="oncelik"><option value="1">1 — Yüksek</option><option value="2" selected>2 — Normal</option><option value="3">3 — Düşük</option></select>
+    <button onclick="ekle()">Ekle</button>
+    <button class="ikincil" onclick="topluAc()">Toplu ekle</button>
+    <div id="topluAlan" style="display:none">
+      <label>Her satıra bir kelime</label>
+      <textarea id="toplu" placeholder="kayseri gezilecek yerler&#10;kayseri yemekleri&#10;kayseri konser"></textarea>
+      <button onclick="topluEkle()">Hepsini Ekle</button>
+    </div>
+    <div id="durumEkle" class="durum"></div>
+  </div>
+
+  <div class="kart">
+    <div class="ust"><strong>📋 Mevcut Kelimeler</strong><span class="sayac" id="sayac">—</span></div>
+    <div style="height:1px;background:var(--kenar);margin:14px 0"></div>
+    <div id="liste"></div>
+    <button class="ikincil" onclick="yukle()">↻ Yenile</button>
+  </div>
+
+<script>
+const API = "/api/arama-radar";
+const $ = id => document.getElementById(id);
+
+async function yukle(){
+  const l = $('liste'); l.innerHTML = '<div class="durum">Yükleniyor…</div>';
+  try{
+    const r = await fetch(API+"?action=kelimeler"); const j = await r.json();
+    $('sayac').textContent = j.toplam + ' kelime';
+    if(!j.kelimeler.length){ l.innerHTML='<div class="durum">Kelime yok.</div>'; return; }
+    l.innerHTML = j.kelimeler.map(k=>`
+      <div class="kw ${k.aktif===false?'pasif':''}">
+        <span class="ad">${esc(k.kw)}</span>
+        <span style="font-size:11px;color:var(--soluk)">öncelik ${k.oncelik}</span>
+        <button class="mini ikincil" onclick="acKapat('${esc(k.kw)}',${k.aktif===false})">${k.aktif===false?'Aç':'Durdur'}</button>
+        <button class="mini sil" onclick="sil('${esc(k.kw)}')">Sil</button>
+      </div>`).join('');
+  }catch(e){ l.innerHTML='<div class="durum err">Hata: '+esc(e.message)+'</div>'; }
+}
+
+async function ekle(){
+  const kw = $('girdi').value.trim();
+  if(!kw){ durum('Kelime gir', false); return; }
+  await gonder('kelime-ekle', { kw, oncelik: Number($('oncelik').value) });
+  $('girdi').value='';
+}
+async function topluEkle(){
+  const satirlar = $('toplu').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!satirlar.length) return;
+  await gonder('kelime-topla-ekle', { kelimeler: satirlar });
+  $('toplu').value='';
+}
+async function sil(kw){ if(!confirm(kw+' silinsin mi?')) return; await gonder('kelime-sil', { kw }); }
+async function acKapat(kw, suanPasif){ await gonder('kelime-guncelle', { kw, aktif: suanPasif }); }
+
+async function gonder(action, body){
+  try{
+    const r = await fetch(API+"?action="+action,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.hata||('HTTP '+r.status));
+    durum('Tamam', true); yukle();
+  }catch(e){ durum('Hata: '+e.message, false); }
+}
+function durum(m,ok){ const d=$('durumEkle'); d.textContent=m; d.className='durum '+(ok?'ok':'err'); }
+function topluAc(){ const t=$('topluAlan'); t.style.display = t.style.display==='none'?'block':'none'; }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+yukle();
+</script>
+</body>
+</html>
