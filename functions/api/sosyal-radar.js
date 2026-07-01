@@ -251,6 +251,7 @@ async function instagramSonucToparla(env, maxYasSaat = 24) {
       tam_metin: caption.slice(0, 1000),
       link: p.url,
       gorsel_url: p.displayUrl || (p.images && p.images[0]) || null,
+      video_url: p.videoUrl || null,
       tip: p.type,
       begeni: p.likesCount || 0,
       pubDate: ts,
