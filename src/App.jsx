@@ -5694,7 +5694,6 @@ KURALLAR:
         <div style={{display:'flex',gap:4,marginLeft:8}}>
           {[
             {id:'firsatlar', label:'🎯 Fırsatlar', count: firsat.length},
-            {id:'ozelgunler', label:'🗓️ Özel Günler', count: ozGunler.filter(g=>g.yaklasiyor).length},
             {id:'gecmis',    label:'📋 Geçmiş',    count: gecmis.length},
           ].map(t => (
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
@@ -5929,105 +5928,7 @@ KURALLAR:
           </div>
         )}
 
-        {/* ── ÖZEL GÜNLER TABI ── */}
-        {tab === 'ozelgunler' && (
-          <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8,flexWrap:'wrap'}}>
-              <div style={{fontSize:11,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>
-                🗓️ Yaklaşan özel günler — {ozGunler.length} kayıt
-              </div>
-              <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                <select value={ozUfuk} onChange={e=>{const v=parseInt(e.target.value);setOzUfuk(v);ozelGunleriYukle(v)}}
-                  style={{fontSize:11,background:'var(--surface)',border:'0.5px solid var(--border)',color:'var(--fg)',borderRadius:'var(--radius-sm)',padding:'3px 6px'}}>
-                  <option value={30}>30 gün</option>
-                  <option value={60}>60 gün</option>
-                  <option value={120}>120 gün</option>
-                  <option value={365}>1 yıl</option>
-                </select>
-                <button onClick={()=>ozelGunleriYukle()} disabled={ozYuk}
-                  style={{fontSize:11,background:'rgba(168,85,247,.1)',border:'0.5px solid rgba(168,85,247,.3)',color:'#A855F7'}}>
-                  <Ic n={ozYuk?'loader-2':'refresh'} size={12}/> {ozYuk?'…':'Yenile'}
-                </button>
-              </div>
-            </div>
-
-            {ozHata && (
-              <div style={{marginBottom:8,padding:'7px 12px',background:'rgba(230,57,70,.08)',border:'0.5px solid rgba(230,57,70,.3)',borderRadius:'var(--radius-md)',fontSize:12,color:'#ff7b7b',display:'flex',justifyContent:'space-between'}}>
-                {ozHata}<span style={{cursor:'pointer'}} onClick={()=>setOzHata(null)}>×</span>
-              </div>
-            )}
-
-            {ozYuk && ozGunler.length===0 ? (
-              <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)'}}>
-                <Ic n="loader-2" size={24} style={{display:'block',margin:'0 auto 10px'}}/>
-                <div style={{fontSize:13}}>Özel gün takvimi hesaplanıyor…</div>
-              </div>
-            ) : ozGunler.length===0 ? (
-              <div style={{textAlign:'center',padding:'3rem',color:'var(--muted)',fontSize:13}}>
-                Bu ufukta özel gün yok. Ufku genişletin.
-              </div>
-            ) : ozGunler.map((g) => {
-              const kalaEt = g.aktif ? 'AKTİF' : g.gun_kala===0 ? 'BUGÜN' : g.gun_kala+' gün'
-              const kalaRenk = g.aktif ? '#0EA5E9' : g.gun_kala<=g.lead ? '#E63946' : g.kat_renk
-              const tarihStr = (()=>{ try { return new Date(g.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'}) } catch { return g.tarih } })()
-              return (
-                <div key={g.id} style={{background:'var(--surface)',border:'0.5px solid var(--border)',borderLeft:`3px solid ${g.kat_renk}`,borderRadius:'var(--radius-md)',padding:'12px 14px',marginBottom:8}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-                    <div style={{textAlign:'center',flexShrink:0,width:54}}>
-                      <div style={{fontSize:22}}>{g.kat_emoji}</div>
-                      <div style={{fontSize:13,fontWeight:700,color:kalaRenk,marginTop:2}}>{kalaEt}</div>
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:3}}>
-                        <span style={{fontSize:13,fontWeight:600}}>{g.ad}</span>
-                        {g.yaklasiyor && <span style={{fontSize:9,padding:'1px 6px',borderRadius:8,background:'rgba(230,57,70,.12)',color:'#E63946',border:'0.5px solid rgba(230,57,70,.3)',fontWeight:600}}>⏰ İÇERİK ZAMANI</span>}
-                        {g.teyit && <span style={{fontSize:9,padding:'1px 6px',borderRadius:8,background:'rgba(239,159,39,.12)',color:'#EF9F27',border:'0.5px solid rgba(239,159,39,.3)'}} title="Tarih tahmini — Diyanet/resmi takvimle teyit edin">⚠ tarih teyidi</span>}
-                      </div>
-                      <div style={{fontSize:11,color:'var(--muted)',marginBottom:5}}>
-                        📅 {tarihStr}{g.aktif && g.sezon_son ? ' → ' + (()=>{try{return new Date(g.sezon_son).toLocaleDateString('tr-TR',{day:'numeric',month:'long'})}catch{return g.sezon_son}})() : ''}
-                        <span style={{margin:'0 6px',opacity:.4}}>·</span>
-                        <span style={{color:g.kat_renk}}>{g.kat_ad}</span>
-                      </div>
-                      {g.aciklama && <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.5,marginBottom:8,opacity:.85}}>{g.aciklama}</div>}
-
-                      {/* Haber alternatifleri */}
-                      <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                        {g.alternatifler.map(alt => {
-                          const key = g.id+':'+alt.alt_id
-                          const isUreten = ozUreten === key
-                          const uretildi = alt.durum === 'uretildi'
-                          return (
-                            <div key={alt.alt_id} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'7px 9px',background:'rgba(255,255,255,.02)',border:'0.5px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:12,fontWeight:500,lineHeight:1.35}}>{alt.baslik}</div>
-                                {alt.aci && <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{alt.aci}</div>}
-                              </div>
-                              <button onClick={()=>ozelGunUret(g, alt)} disabled={!!ozUreten}
-                                style={{flexShrink:0,fontSize:11,fontWeight:600,
-                                  background: uretildi?'rgba(29,158,117,.12)':'rgba(168,85,247,.15)',
-                                  border:'0.5px solid '+(uretildi?'rgba(29,158,117,.4)':'rgba(168,85,247,.4)'),
-                                  color: uretildi?'#1D9E75':'#A855F7'}}>
-                                <Ic n={isUreten?'loader-2':uretildi?'check':'sparkles'} size={11}/>
-                                {isUreten?'…':uretildi?'Tekrar':'✨ Oluştur'}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      <div style={{marginTop:8,display:'flex',gap:8}}>
-                        <button onClick={()=>ozelGunReddet(g)}
-                          style={{fontSize:10,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
-                          <Ic n="eye-off" size={10}/> Gizle
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        {/* ÖZEL GÜNLER — artık Etkinlik Radar > Yaklaşan sekmesinde */}
       </div>
     </div>
   )
