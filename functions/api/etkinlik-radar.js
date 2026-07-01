@@ -271,7 +271,7 @@ async function instagramSonucToparla(env, maxYasSaat = 48) {
     yeniFirsatlar.push({
       id: pid, kaynak_tip: 'instagram', hesap: p.ownerUsername, etiket,
       baslik: caption.slice(0, 200) || '(görsel/video — açıklama yok)',
-      tam_metin: caption.slice(0, 1000), link: p.url, gorsel_url: p.displayUrl || (p.images && p.images[0]) || null,
+      tam_metin: caption.slice(0, 1000), link: p.url, gorsel_url: p.displayUrl || (p.images && p.images[0]) || null, video_url: p.videoUrl || null,
       tip: p.type, begeni: p.likesCount || 0, pubDate: ts, oncelik, skor, durum: etkinlikDurum(skor),
       yazildi: false, gizli: false, bulundu: new Date().toISOString(),
     })
