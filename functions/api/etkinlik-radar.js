@@ -219,6 +219,7 @@ async function instagramTaramaBaslat(env) {
   const input = {
     directUrls: igHesaplar.map(k => `https://www.instagram.com/${k.handle}/`),
     resultsType: 'posts', resultsLimit: 4, addParentData: false,
+    proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
   }
   const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_IG_ACTOR}/runs?token=${env.APIFY_TOKEN}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
