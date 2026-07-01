@@ -166,12 +166,14 @@ async function instagramTaramaBaslat(env) {
   const igHesaplar = kaynaklar.filter(k => k.platform === 'instagram' && k.aktif !== false)
   if (!igHesaplar.length) return { hata: 'Aktif Instagram hesabı yok' }
 
-  // Son taramadan beri yeni postları iste — çoğu turda 0 döner (ucuz)
+  // Sabitlenmiş (pinned) post Instagram'da hep en üstte döner ve tarihi eski olabilir.
+  // Onu geçip gerçek son paylaşımlara ulaşmak için limiti biraz açık tutuyoruz.
+  // onlyPostsNewerThan Apify tarafında güvenilmez davranabiliyor (pinned'i de "yeni" sayabiliyor)
+  // — bizim kendi 24s yaş filtremiz (instagramSonucToparla içinde) zaten bunu doğru yapıyor.
   const input = {
     directUrls: igHesaplar.map(k => `https://www.instagram.com/${k.handle}/`),
     resultsType: 'posts',
-    resultsLimit: 2,                 // hesap başına en yeni 1–2 post yeter
-    onlyPostsNewerThan: '90 minutes',
+    resultsLimit: 4,                 // pinned post + gerçek son paylaşımlara ulaşmak için
     addParentData: false,
   }
 
@@ -222,6 +224,8 @@ async function instagramSonucToparla(env, maxYasSaat = 24) {
   for (const p of (Array.isArray(postlar) ? postlar : [])) {
     const pid = p.id || p.shortCode || p.url
     if (!pid || gorulen.has(pid)) continue
+    if (p.error) continue                          // "no_items" gibi hata kayıtları
+    if (p.isPinned) { gorulen.add(pid); continue }  // sabitlenmiş post — tarihi güncel değil
     const caption = p.caption || ''
     if (karaListede(caption)) continue            // reklam/yetişkin → at
 
@@ -489,23 +493,6 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
-    // GEÇİCİ TEŞHİS: son Apify run'ın gerçek çıktısı + hata mesajı
-    if (action === 'apify-teshis') {
-      if (!env.APIFY_TOKEN) return Response.json({ hata: 'APIFY_TOKEN yok' }, { headers: CORS })
-      const rr = await fetch(`https://api.apify.com/v2/acts/${APIFY_IG_ACTOR}/runs?token=${env.APIFY_TOKEN}&limit=1&desc=true`)
-      const rj = await rr.json()
-      const run = rj.data && rj.data.items && rj.data.items[0]
-      if (!run) return Response.json({ hata: 'run bulunamadı', ham: rj }, { headers: CORS })
-      const dr = await fetch(`https://api.apify.com/v2/datasets/${run.defaultDatasetId}/items?token=${env.APIFY_TOKEN}&clean=true&format=json`)
-      const items = await dr.json()
-      return Response.json({
-        run_id: run.id, status: run.status, statusMessage: run.statusMessage || null,
-        exitCode: run.exitCode, startedAt: run.startedAt, finishedAt: run.finishedAt,
-        cekilen: Array.isArray(items) ? items.length : items,
-        ornek: Array.isArray(items) ? items.slice(0, 3) : items,
-      }, { headers: CORS })
-    }
-
     if (action === 'temizle') {
       await env.HABERLER.put('sosyal:firsatlar', JSON.stringify([]))
       await env.HABERLER.put('sosyal:gorulen', JSON.stringify([]))
