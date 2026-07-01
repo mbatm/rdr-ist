@@ -494,6 +494,18 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
+    if (action === 'apify-actor-detay') {
+      const actorId = url.searchParams.get('id') || 'automation-lab/google-news-scraper'
+      const rr = await fetch(`https://api.apify.com/v2/acts/${actorId.replace('/', '~')}?token=${env.APIFY_TOKEN}`)
+      const rj = await rr.json()
+      const d = rj.data || {}
+      return Response.json({
+        ok: true, title: d.title, description: (d.description||'').slice(0,300),
+        inputSchema: d.inputSchema ? JSON.parse(d.inputSchema) : null,
+        pricingInfo: d.pricingInfo || null,
+        exampleRunInput: d.exampleRunInput || null,
+      }, { headers: CORS })
+    }
     if (action === 'apify-actor-ara') {
       const q = url.searchParams.get('q') || 'google news'
       const rr = await fetch(`https://api.apify.com/v2/store?search=${encodeURIComponent(q)}&limit=8&token=${env.APIFY_TOKEN}`)
