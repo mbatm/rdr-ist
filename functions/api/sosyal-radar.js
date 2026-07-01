@@ -489,6 +489,23 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
+    // GEÇİCİ TEŞHİS: son Apify run'ın gerçek çıktısı + hata mesajı
+    if (action === 'apify-teshis') {
+      if (!env.APIFY_TOKEN) return Response.json({ hata: 'APIFY_TOKEN yok' }, { headers: CORS })
+      const rr = await fetch(`https://api.apify.com/v2/acts/${APIFY_IG_ACTOR}/runs?token=${env.APIFY_TOKEN}&limit=1&desc=true`)
+      const rj = await rr.json()
+      const run = rj.data && rj.data.items && rj.data.items[0]
+      if (!run) return Response.json({ hata: 'run bulunamadı', ham: rj }, { headers: CORS })
+      const dr = await fetch(`https://api.apify.com/v2/datasets/${run.defaultDatasetId}/items?token=${env.APIFY_TOKEN}&clean=true&format=json`)
+      const items = await dr.json()
+      return Response.json({
+        run_id: run.id, status: run.status, statusMessage: run.statusMessage || null,
+        exitCode: run.exitCode, startedAt: run.startedAt, finishedAt: run.finishedAt,
+        cekilen: Array.isArray(items) ? items.length : items,
+        ornek: Array.isArray(items) ? items.slice(0, 3) : items,
+      }, { headers: CORS })
+    }
+
     if (action === 'temizle') {
       await env.HABERLER.put('sosyal:firsatlar', JSON.stringify([]))
       await env.HABERLER.put('sosyal:gorulen', JSON.stringify([]))
