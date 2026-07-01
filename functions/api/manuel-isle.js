@@ -33,6 +33,7 @@ export async function onRequestPost({ request, env }) {
 ## KRİTİK KURALLAR
 - Kaynak öneklerini (KAYSERİ(1HA)- gibi) kaldır
 - VERİLEN METNİ ŞIŞIRME: Kısa metin geldiyse olduğu gibi kullan, uydurma ekleme yapma
+- METİNDE OLMAYAN HİÇBİR BİLGİ EKLEME: Sayı, isim, tarih, olay, açıklama — kaynakta yoksa yazma. Kelime sayısını artırmak için bilgi uydurma
 - SADECE JSON döndür
 ${isVideo ? '- VİDEO HABER: Sosyal metinlere "izle" ekle' : ''}
 
@@ -45,7 +46,7 @@ SEO kelimeleri: ${katKw}
 ## KURALLAR
 - site_basligi: 55-65 karakter, Kayseri içermeli
 - url_slug: kayseri- ile başlasın
-- optimize_icerik: ${kisaMetin ? 'ORİJİNAL METNİ AYNEN KULLAN, hiç değiştirme' : '150-250 kelime haber ajansı dili'}
+- optimize_icerik: ${kisaMetin ? 'ORİJİNAL METNİ AYNEN KULLAN, hiç değiştirme' : 'kaynak metindeki bilgileri SEO/akış açısından düzenle — yeni bilgi/detay/rakam EKLEME, sadece dil ve yapıyı iyileştir'}
 - Sosyal medya: Mevcut içerikten üret, uydurma
 
 {
