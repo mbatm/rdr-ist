@@ -543,20 +543,6 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
-    if (action === 'apify-actor-ara') {
-      const q = url.searchParams.get('q') || 'google search results'
-      const rr = await fetch(`https://api.apify.com/v2/store?search=${encodeURIComponent(q)}&limit=10&token=${env.APIFY_TOKEN}`)
-      const rj = await rr.json()
-      const items = (rj.data && rj.data.items) || []
-      return Response.json({ ok: true, sonuclar: items.map(i => ({ tam_ad: `${i.username}/${i.name}`, baslik: i.title, aciklama: (i.description||'').slice(0,150) })) }, { headers: CORS })
-    }
-    if (action === 'apify-actor-detay') {
-      const actorId = url.searchParams.get('id') || ''
-      const rr = await fetch(`https://api.apify.com/v2/acts/${actorId.replace('/', '~')}?token=${env.APIFY_TOKEN}`)
-      const rj = await rr.json()
-      const d = rj.data || {}
-      return Response.json({ ok: true, title: d.title, exampleRunInput: d.exampleRunInput || null }, { headers: CORS })
-    }
     if (action === 'temizle') {
       await env.HABERLER.put('sosyal:firsatlar', JSON.stringify([]))
       await env.HABERLER.put('sosyal:gorulen', JSON.stringify([]))
