@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import GorselEditor from './GorselEditor.jsx'
 import OtoGorselUret from './OtoGorselUret.jsx'
 import KesfetRadar from './KesfetRadar.jsx'
 
@@ -6932,7 +6931,6 @@ export default function App() {
   const [filter, setFilter] = useState('hepsi')
   const [arama, setArama] = useState('')
   const [yenileniyor, setYenileniyor] = useState(false)
-  const [gorselEditor, setGorselEditor] = useState(false)
   const [zekaPreFill,  setZekaPreFill]  = useState(null) // ZekaModul -> ManuelHaberModul
 
   const yenile = useCallback(async () => {
@@ -7036,12 +7034,6 @@ export default function App() {
     </div>
   )
 
-  if (gorselEditor) return (
-    <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
-      <GorselEditor onKapat={()=>setGorselEditor(false)} ornek={selectedHaber}/>
-    </div>
-  )
-
   return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)',color:'var(--text)',fontFamily:'var(--font)'}}>
       {/* Header */}
@@ -7058,9 +7050,6 @@ export default function App() {
               <Ic n={ic} size={12}/> {label}
             </button>
           ))}
-          <button onClick={()=>setGorselEditor(true)} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
-            <Ic n="adjustments" size={12}/> Şablon
-          </button>
           {user?.rol==='admin'&&<button onClick={()=>setAdminLog(true)} style={{fontSize:12,color:'var(--muted)',background:'transparent',border:'0.5px solid var(--border)'}}>
             <Ic n="clipboard-list" size={12}/> Log
           </button>}
