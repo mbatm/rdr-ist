@@ -384,28 +384,76 @@ async function twitterRssTara(env) {
 async function googleNewsTara(env) {
   const gorulen = new Set(await env.HABERLER.get('sosyal:gorulen', 'json') || [])
   const yeniFirsatlar = []
+
+  // Apify üzerinden çek — Cloudflare Worker'ın paylaşılan IP'si Google tarafından
+  // "unusual traffic" olarak işaretlenip 503 dönebiliyor (test sıklığından bağımsız,
+  // yapısal bir IP itibarı sorunu). Apify'ın proxy altyapısı bunu bypass eder.
+  if (env.APIFY_TOKEN) {
+    try {
+      const r = await fetch(
+        `https://api.apify.com/v2/acts/automation-lab~google-news-scraper/run-sync-get-dataset-items?token=${env.APIFY_TOKEN}`,
+        {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queries: ['Kayseri'], language: 'tr', country: 'TR', maxArticles: 40 }),
+        }
+      )
+      if (r.ok) {
+        const arr = await r.json()
+        if (Array.isArray(arr)) {
+          for (const it of arr) {
+            const baslikHam = it.title || it.headline || ''
+            const linkHam = it.link || it.url || ''
+            const kaynakAdi = it.source || it.publisher || 'Google News'
+            const tarihHam = it.date || it.pubDate || it.publishedAt || null
+            const ozet = it.snippet || it.description || ''
+            if (!baslikHam || !linkHam) continue
+            if (karaListede(baslikHam)) continue
+            if (!kayseriIlgili(baslikHam)) continue
+            const pid = hashId(linkHam)
+            if (gorulen.has(pid)) continue
+            const ts = tarihHam ? new Date(tarihHam).toISOString() : new Date().toISOString()
+            const yas = (Date.now() - Date.parse(ts)) / 36e5
+            if (yas > 24) { gorulen.add(pid); continue }
+            const skor = Math.max(0, sosyalSkor({ ts, oncelik: 3, kayseri: true }) - 20)
+
+            yeniFirsatlar.push({
+              id: pid, kaynak_tip: 'gnews', hesap: kaynakAdi, etiket: 'Google News · ' + kaynakAdi,
+              baslik: baslikHam.slice(0, 200), tam_metin: ozet.slice(0, 600),
+              link: linkHam, gorsel_url: it.image || it.thumbnail || null, tip: 'haber', begeni: 0,
+              pubDate: ts, kayseri: true, oncelik: 3, skor, durum: sosyalDurum(skor, ts),
+              yazildi: false, gizli: false, bulundu: new Date().toISOString(),
+            })
+            gorulen.add(pid)
+          }
+          await firsatlariBirlestir(env, yeniFirsatlar)
+          await env.HABERLER.put('sosyal:gorulen', JSON.stringify([...gorulen].slice(-1500)))
+          return { ok: true, yeni: yeniFirsatlar.length, kaynak: 'apify' }
+        }
+      }
+      // Apify başarısızsa aşağıdaki doğrudan RSS'e düş
+    } catch (_) {}
+  }
+
+  // Yedek yol: doğrudan RSS (Apify yoksa veya başarısız olduysa)
   try {
     const gn = 'https://news.google.com/rss/search?q=Kayseri%20when:1d&hl=tr&gl=TR&ceid=TR:tr'
     const res = await fetch(gn, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*', 'Accept-Language': 'tr-TR,tr;q=0.9' },
       redirect: 'follow', cf: { cacheTtl: 0, cacheEverything: false },
     })
-    if (!res.ok) return { ok: false, mesaj: 'GNews ' + res.status }
-    const items = rssAyristir(await res.text()).slice(0, 40)  // en yeni 40 ile sınırla
+    if (!res.ok) return { ok: false, mesaj: 'GNews ' + res.status, kaynak: 'rss-yedek' }
+    const items = rssAyristir(await res.text()).slice(0, 40)
 
     for (const it of items) {
       if (karaListede(it.title)) continue
-      // Başlıkta gerçekten Kayseri/ilçe geçmeli — snippet eşleşmesi yetmez
       if (!kayseriIlgili(it.title)) continue
       const pid = hashId(it.link || it.title)
       if (gorulen.has(pid)) continue
       const yas = it.pubDate ? (Date.now() - Date.parse(it.pubDate)) / 36e5 : 0
       if (yas > 24) { gorulen.add(pid); continue }
       const ts = it.pubDate ? new Date(it.pubDate).toISOString() : new Date().toISOString()
-      // GNews başlığı "Başlık - Kaynak" formatında — kaynağı etikete al
       const parca = (it.title || '').split(' - ')
       const kaynakAdi = parca.length > 1 ? parca.pop().trim() : 'Google News'
-      // GNews ikincil sinyal (Keşfet Radar'da zaten var) → skoru düşür
       const skor = Math.max(0, sosyalSkor({ ts, oncelik: 3, kayseri: true }) - 20)
 
       yeniFirsatlar.push({
@@ -423,7 +471,7 @@ async function googleNewsTara(env) {
 
   await firsatlariBirlestir(env, yeniFirsatlar)
   await env.HABERLER.put('sosyal:gorulen', JSON.stringify([...gorulen].slice(-1500)))
-  return { ok: true, yeni: yeniFirsatlar.length }
+  return { ok: true, yeni: yeniFirsatlar.length, kaynak: 'rss-yedek' }
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
@@ -494,36 +542,6 @@ export async function onRequestGet({ request, env }) {
     }
 
     // Fırsat cache'ini temizle (eski/test verisi sıfırlama)
-    if (action === 'apify-actor-detay') {
-      const actorId = url.searchParams.get('id') || 'automation-lab/google-news-scraper'
-      const rr = await fetch(`https://api.apify.com/v2/acts/${actorId.replace('/', '~')}?token=${env.APIFY_TOKEN}`)
-      const rj = await rr.json()
-      const d = rj.data || {}
-      return Response.json({
-        ok: true, title: d.title, description: (d.description||'').slice(0,300),
-        inputSchema: d.inputSchema ? JSON.parse(d.inputSchema) : null,
-        pricingInfo: d.pricingInfo || null,
-        exampleRunInput: d.exampleRunInput || null,
-      }, { headers: CORS })
-    }
-    if (action === 'apify-actor-ara') {
-      const q = url.searchParams.get('q') || 'google news'
-      const rr = await fetch(`https://api.apify.com/v2/store?search=${encodeURIComponent(q)}&limit=8&token=${env.APIFY_TOKEN}`)
-      const rj = await rr.json()
-      const items = (rj.data && rj.data.items) || []
-      return Response.json({ ok: true, sonuclar: items.map(i => ({ id: i.name, sahip: i.username, tam_ad: `${i.username}/${i.name}`, baslik: i.title, aciklama: (i.description||'').slice(0,150) })) }, { headers: CORS })
-    }
-    if (action === 'gnews-teshis') {
-      const gn = 'https://news.google.com/rss/search?q=Kayseri%20when:1d&hl=tr&gl=TR&ceid=TR:tr'
-      const res = await fetch(gn, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/xml, text/xml, */*', 'Accept-Language': 'tr-TR,tr;q=0.9' },
-        redirect: 'follow', cf: { cacheTtl: 0, cacheEverything: false },
-      })
-      const gövde = await res.text()
-      const headerObj = {}
-      res.headers.forEach((v, k) => { headerObj[k] = v })
-      return Response.json({ status: res.status, headers: headerObj, gövde_ilk_500: gövde.slice(0, 500) }, { headers: CORS })
-    }
     if (action === 'temizle') {
       await env.HABERLER.put('sosyal:firsatlar', JSON.stringify([]))
       await env.HABERLER.put('sosyal:gorulen', JSON.stringify([]))
