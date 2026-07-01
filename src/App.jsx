@@ -5627,7 +5627,7 @@ KURALLAR:
   const ozelGunleriYukle = async (ufuk = ozUfuk) => {
     setOzYuk(true); setOzHata(null)
     try {
-      const r = await fetch('/api/ozel-gunler?action=liste&ufuk=' + ufuk)
+      const r = await fetch('/api/ozel-gunler?action=liste&ufuk=' + ufuk + '&kullanici=' + encodeURIComponent(user?.kullanici || ''))
       const d = await r.json()
       if (!d.ok) throw new Error(d.error || 'Liste alınamadı')
       setOzGunler(d.gunler || [])
@@ -5666,7 +5666,7 @@ KURALLAR:
     try {
       await fetch('/api/ozel-gunler', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'reddet', gun_id: gun.id })
+        body: JSON.stringify({ action:'reddet', gun_id: gun.id, kullanici: user?.kullanici })
       })
       setOzGunler(prev => prev.filter(g => g.id !== gun.id))
     } catch(e) {}
