@@ -6807,6 +6807,16 @@ function ModulSecici({ user, onModul }) {
       yetki: 'modul_kesfet',
     },
     {
+      id: 'etkinlik',
+      baslik: 'Etkinlik Radar',
+      aciklama: 'Kurum siteleri ve sosyal hesaplardan Kayseri etkinliklerini (konser, fuar, maç vb.) tara',
+      ic: 'calendar-event',
+      renk: '#f59e0b',
+      bg: 'rgba(245,158,11,0.08)',
+      border: 'rgba(245,158,11,0.2)',
+      yetki: 'modul_kesfet',
+    },
+    {
       id: 'metaads',
       baslik: 'Meta Ads Yonetimi',
       aciklama: 'Kampanya durumu, butce yonetimi, performans ve harcama takibi',
@@ -6986,6 +6996,17 @@ export default function App() {
         <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>📡 Sosyal Radar</span>
       </div>
       <iframe src="/sosyal-radar.html" style={{ flex:1, border:'none', width:'100%' }} title="Sosyal Radar" />
+    </div>
+  )
+  if (aktifModul === 'etkinlik') return (
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column', background:'var(--bg)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderBottom:'0.5px solid var(--border)', flexShrink:0 }}>
+        <button onClick={()=>setAktifModul(null)} style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'0.5px solid var(--border)', color:'var(--muted)', padding:'6px 12px', fontSize:13, borderRadius:'var(--radius-md)' }}>
+          <Ic n="arrow-left" size={14} /> Geri
+        </button>
+        <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>🎪 Etkinlik Radar</span>
+      </div>
+      <iframe src="/etkinlik-radar.html" style={{ flex:1, border:'none', width:'100%' }} title="Etkinlik Radar" />
     </div>
   )
   if (aktifModul === 'hedef') return <HedefTakipModul geri={() => setAktifModul(null)} />;
