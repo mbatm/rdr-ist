@@ -239,6 +239,54 @@ async function firsatlariBirlestir(env, yeniFirsatlar) {
 }
 
 // ── RSS/web kaynak taraması ───────────────────────────────────────────────────
+// ── Biletix özel işleyicisi ───────────────────────────────────────────────────
+// Biletix SPA olduğu için HTML çekilemez; ama arkasındaki Solr arama API'si açık
+// ve yapılandırılmış JSON döndürüyor (etkinlik adı, mekan, KESİN tarih, açıklama).
+async function biletixTara(env, kaynak, gorulen, yeniFirsatlar) {
+  const api = 'https://www.biletix.com/solr/tr/select/?q=*:*&fq=city:Kayseri&wt=json&rows=50&sort=start%20asc'
+  const res = await fetch(api, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://www.biletix.com/' },
+    cf: { cacheTtl: 0, cacheEverything: false },
+  })
+  if (!res.ok) return 0
+  let j
+  try { j = JSON.parse(await res.text()) } catch (_) { return 0 }
+  const docs = (j.response && j.response.docs) || []
+  let eklenen = 0
+
+  for (const d of docs) {
+    if (d.type && d.type !== 'event') continue
+    const ad = d.name || d.sname || ''
+    if (!ad) continue
+    const pid = 'btx-' + (d.venuecode || '') + '-' + hashId(ad + (d.start || ''))
+    if (gorulen.has(pid)) continue
+    const baslangic = d.start ? new Date(d.start) : null
+    if (!baslangic || isNaN(baslangic)) continue
+    if (baslangic < new Date()) { gorulen.add(pid); continue }   // geçmiş etkinlik → at
+
+    const aciklama = d.description || ''
+    const mekan = d.venue || ''
+    const kod = (d.a_spell || []).find(x => /^[0-9A-Z]{5,6}$/.test(String(x))) || ''
+    const link = kod ? `https://www.biletix.com/etkinlik/${kod}/TURKIYE/tr` : 'https://www.biletix.com/search/TURKIYE/tr?city_sb=Kayseri'
+
+    yeniFirsatlar.push({
+      id: pid, kaynak_tip: 'web', hesap: 'Biletix', etiket: kaynak.etiket || 'Biletix Kayseri',
+      baslik: ad + (mekan ? ' — ' + mekan : ''),
+      tam_metin: (aciklama || ad).slice(0, 1000),
+      link, gorsel_url: null, tip: 'etkinlik-bilet', begeni: 0,
+      pubDate: new Date().toISOString(),                 // duyuru "şimdi" görüldü
+      etkinlik_tarihi: baslangic.toISOString(),           // Biletix'ten KESİN tarih
+      oncelik: kaynak.oncelik || 1,
+      skor: etkinlikSkor({ ts: new Date().toISOString(), oncelik: kaynak.oncelik || 1 }),
+      durum: 'firsat',
+      yazildi: false, gizli: false, bulundu: new Date().toISOString(),
+    })
+    gorulen.add(pid)
+    eklenen++
+  }
+  return eklenen
+}
+
 async function webRssTara(env) {
   const kaynaklar = await kaynaklariGetir(env)
   const hedefler = kaynaklar.filter(k => (k.platform === 'rss' || k.platform === 'web') && k.aktif !== false)
@@ -250,6 +298,11 @@ async function webRssTara(env) {
   for (const kaynak of hedefler) {
     try {
       const hedefUrl = kaynak.url || kaynak.handle
+      // Biletix SPA — HTML yerine Solr API'sinden yapılandırılmış veri çek
+      if (/biletix\.com/i.test(hedefUrl)) {
+        await biletixTara(env, kaynak, gorulen, yeniFirsatlar)
+        continue
+      }
       const res = await fetch(hedefUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; rdr-ist/1.0)', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
         cf: { cacheTtl: 0, cacheEverything: false },
@@ -519,23 +572,6 @@ export async function onRequestGet({ request, env }) {
       await env.HABERLER.put('etkinlik:gorulen', JSON.stringify([]))
       return Response.json({ ok: true, mesaj: 'Fırsat cache temizlendi' }, { headers: CORS })
     }
-    // GEÇİCİ TEŞHİS: Biletix API endpoint keşfi — adaylar Worker içinde sabit
-    if (action === 'biletix-teshis') {
-      const ADAYLAR = {
-        '1': 'https://www.biletix.com/solr/tr/select/?q=*:*&fq=city:Kayseri&wt=json&rows=3',
-        '2': 'https://www.biletix.com/solr/en/select/?q=*:*&fq=city:"Kayseri"&wt=json&rows=3',
-        '3': 'https://www.biletix.com/sitemap.xml',
-        '4': 'https://www.biletix.com/solr/tr/select/?q=*:*&rows=3&wt=json',
-      }
-      const hedef = ADAYLAR[url.searchParams.get('aday') || '1']
-      if (!hedef) return Response.json({ hata: 'aday 1-4' }, { headers: CORS })
-      const res = await fetch(hedef, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.biletix.com/' },
-        cf: { cacheTtl: 0, cacheEverything: false },
-      })
-      const govde = await res.text()
-      return Response.json({ status: res.status, tip: res.headers.get('content-type'), ilk800: govde.slice(0, 800) }, { headers: CORS })
-    }
     return Response.json({ hata: 'Bilinmeyen action', mevcut: ['kaynaklar', 'firsatlar', 'tara', 'topla', 'temizle'] },
       { status: 400, headers: CORS })
   } catch (e) {
@@ -553,21 +589,6 @@ export async function onRequestPost({ request, env }) {
     let govde = {}
     try { govde = await request.json() } catch (_) {}
 
-    // GEÇİCİ TEŞHİS (POST): Biletix API keşfi — URL body'de gelir, sadece biletix.com
-    if (action === 'biletix-teshis-post') {
-      const hedef = String(govde.u || '')
-      let h
-      try { h = new URL(hedef).hostname } catch (_) { return Response.json({ hata: 'geçersiz url' }, { headers: CORS }) }
-      if (!(h === 'biletix.com' || h.endsWith('.biletix.com'))) {
-        return Response.json({ hata: 'sadece biletix.com' }, { status: 400, headers: CORS })
-      }
-      const res = await fetch(hedef, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.biletix.com/' },
-        cf: { cacheTtl: 0, cacheEverything: false },
-      })
-      const govdeMetin = await res.text()
-      return Response.json({ status: res.status, tip: res.headers.get('content-type'), ilk800: govdeMetin.slice(0, 800) }, { headers: CORS })
-    }
     if (action === 'kaynak-ekle') {
       const cozum = kaynagiCozumle(govde.girdi || govde.handle || govde.url)
       if (!cozum || !cozum.handle) return Response.json({ hata: 'Geçersiz girdi' }, { status: 400, headers: CORS })
