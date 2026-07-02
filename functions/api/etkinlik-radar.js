@@ -553,6 +553,21 @@ export async function onRequestPost({ request, env }) {
     let govde = {}
     try { govde = await request.json() } catch (_) {}
 
+    // GEÇİCİ TEŞHİS (POST): Biletix API keşfi — URL body'de gelir, sadece biletix.com
+    if (action === 'biletix-teshis-post') {
+      const hedef = String(govde.u || '')
+      let h
+      try { h = new URL(hedef).hostname } catch (_) { return Response.json({ hata: 'geçersiz url' }, { headers: CORS }) }
+      if (!(h === 'biletix.com' || h.endsWith('.biletix.com'))) {
+        return Response.json({ hata: 'sadece biletix.com' }, { status: 400, headers: CORS })
+      }
+      const res = await fetch(hedef, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.biletix.com/' },
+        cf: { cacheTtl: 0, cacheEverything: false },
+      })
+      const govdeMetin = await res.text()
+      return Response.json({ status: res.status, tip: res.headers.get('content-type'), ilk800: govdeMetin.slice(0, 800) }, { headers: CORS })
+    }
     if (action === 'kaynak-ekle') {
       const cozum = kaynagiCozumle(govde.girdi || govde.handle || govde.url)
       if (!cozum || !cozum.handle) return Response.json({ hata: 'Geçersiz girdi' }, { status: 400, headers: CORS })
