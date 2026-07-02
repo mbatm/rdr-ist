@@ -41,6 +41,20 @@ const KARA_LISTE = [
   'ifşa', 'ifsa', 't.me/', 'telegram.me/',
 ]
 
+// Geçmişte olmuş/bitmiş etkinlik anlatan (recap) postlar — ileriye dönük duyuru değil
+const GECMIS_ETKINLIK_TERIMLERI = [
+  'gerçekleşti', 'gerceklesti', 'tamamlandı', 'tamamlandi', 'sona erdi',
+  'başarıyla tamamlandı', 'basariyla tamamlandi', 'ile devam etti',
+  'katılım sağladı', 'katilim sagladi', 'düzenlendi', 'duzenlendi',
+  'coşkuyla kutlandı', 'coskuyla kutlandi', 'ile sonlandı', 'ile sonlandi',
+  'geride bıraktık', 'geride biraktik', 'ağırladık', 'agirladik',
+  'teşekkür ederiz', 'tesekkur ederiz', 'yoğun katılımla', 'yogun katilimla',
+]
+function gecmisEtkinlikMi(metin) {
+  const m = (metin || '').toLowerCase()
+  return GECMIS_ETKINLIK_TERIMLERI.some(t => m.includes(t))
+}
+
 // Etkinlik olduğunu gösteren anahtar kelimeler — bu geçmiyorsa aday olmaz
 const ETKINLIK_TERIMLERI = [
   'konser', 'festival', 'fuar', 'tiyatro', 'sergi', 'konferans', 'panel', 'söyleşi', 'soylesi',
@@ -133,17 +147,23 @@ const AY_ISIMLERI = {
 }
 // "5 Temmuz", "12 Ağustos Cumartesi", "18.07.2026", "18/07" gibi kalıpları yakalar.
 // Bulamazsa null döner — post tarihi (paylaşım anı) fallback olarak kullanılır.
+// Dönüş: { tarih: ISOString|null, kesinGecmis: boolean }
+// kesinGecmis=true → metinde net (yıl belirtilmiş) bir GEÇMİŞ tarih bulundu, bu kesin bir recap/bitmiş etkinlik demektir.
 function etkinlikTarihiCikar(metin, referansTs) {
-  if (!metin) return null
-  const bugun = referansTs ? new Date(referansTs) : new Date()
-  const yil = bugun.getUTCFullYear()
+  if (!metin) return { tarih: null, kesinGecmis: false }
+  const postZamani = referansTs ? new Date(referansTs) : new Date()
+  const gercekSimdi = new Date()
+  const yil = postZamani.getUTCFullYear()
 
-  // 1) "18.07.2026" / "18/07/2026" / "18-07-2026"
+  // 1) "18.07.2026" / "18/07/2026" / "18-07-2026" — yıl belirtilmiş, kaydırma yapılmaz.
   let m = metin.match(/\b(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})\b/)
   if (m) {
     const [, g, a, y] = m
     const d = new Date(Date.UTC(+y, +a - 1, +g))
-    if (!isNaN(d)) return d.toISOString()
+    if (!isNaN(d)) {
+      if (d < gercekSimdi) return { tarih: null, kesinGecmis: true }
+      return { tarih: d.toISOString(), kesinGecmis: false }
+    }
   }
   // 2) "18.07" / "18/07" (yıl yok, referans yılı kullan — geçmişse gelecek yıla al)
   m = metin.match(/\b(\d{1,2})[.\/](\d{1,2})\b/)
@@ -151,8 +171,8 @@ function etkinlikTarihiCikar(metin, referansTs) {
     const [, g, a] = m
     if (+a >= 1 && +a <= 12 && +g >= 1 && +g <= 31) {
       let d = new Date(Date.UTC(yil, +a - 1, +g))
-      if (d < bugun) d = new Date(Date.UTC(yil + 1, +a - 1, +g))
-      if (!isNaN(d)) return d.toISOString()
+      if (d < gercekSimdi) d = new Date(Date.UTC(yil + 1, +a - 1, +g))
+      if (!isNaN(d)) return { tarih: d.toISOString(), kesinGecmis: false }
     }
   }
   // 3) "5 Temmuz", "12 Ağustos Cumartesi" (ay ismi Türkçe)
@@ -163,11 +183,11 @@ function etkinlikTarihiCikar(metin, referansTs) {
     const ay = AY_ISIMLERI[m[2]]
     if (gun >= 1 && gun <= 31) {
       let d = new Date(Date.UTC(yil, ay - 1, gun))
-      if (d < bugun) d = new Date(Date.UTC(yil + 1, ay - 1, gun))
-      if (!isNaN(d)) return d.toISOString()
+      if (d < gercekSimdi) d = new Date(Date.UTC(yil + 1, ay - 1, gun))
+      if (!isNaN(d)) return { tarih: d.toISOString(), kesinGecmis: false }
     }
   }
-  return null
+  return { tarih: null, kesinGecmis: false }
 }
 
 function rssAyristir(xml) {
@@ -229,20 +249,22 @@ async function webRssTara(env) {
         if (karaListede(metin)) continue
         if (!kayseriIlgili(metin)) continue
         if (!etkinlikMi(metin)) continue
+        if (gecmisEtkinlikMi(metin)) continue   // "gerçekleşti/tamamlandı" → recap, at
         const pid = hashId(it.link || it.title)
         if (gorulen.has(pid)) continue
         const yas = it.pubDate ? (Date.now() - Date.parse(it.pubDate)) / 36e5 : 0
         if (yas > 48) { gorulen.add(pid); continue }  // duyurunun kendisi 48s'ten eski olmasın
         const ts = it.pubDate ? new Date(it.pubDate).toISOString() : new Date().toISOString()
         const skor = etkinlikSkor({ ts, oncelik: kaynak.oncelik || 2 })
-        const etkinlikTarihi = etkinlikTarihiCikar(metin, ts)
+        const tarihSonuc = etkinlikTarihiCikar(metin, ts)
+        if (tarihSonuc.kesinGecmis) { gorulen.add(pid); continue }   // net geçmiş tarih → bitmiş, at
 
         yeniFirsatlar.push({
           id: pid, kaynak_tip: kaynak.platform, hesap: kaynak.etiket || hedefUrl, etiket: kaynak.etiket || 'Web/RSS',
           baslik: (it.title || it.description || '').slice(0, 200),
           tam_metin: (it.description || it.title || '').slice(0, 1000),
           link: it.link, gorsel_url: null, tip: 'etkinlik-duyuru', begeni: 0,
-          pubDate: ts, etkinlik_tarihi: etkinlikTarihi, oncelik: kaynak.oncelik || 2, skor, durum: etkinlikDurum(skor),
+          pubDate: ts, etkinlik_tarihi: tarihSonuc.tarih, oncelik: kaynak.oncelik || 2, skor, durum: etkinlikDurum(skor),
           yazildi: false, gizli: false, bulundu: new Date().toISOString(),
         })
         gorulen.add(pid)
@@ -304,21 +326,25 @@ async function instagramSonucToparla(env, maxYasSaat = 48) {
     if (karaListede(caption)) continue
     if (!etkinlikMi(caption)) continue   // etkinlik anahtar kelimesi yoksa aday olmaz
 
+    const kaynak = handleEtiket.get(String(p.ownerUsername || '').toLowerCase())
+    const etiket = kaynak ? kaynak.etiket : (p.ownerUsername || 'instagram')
+    if (!kayseriIlgili(caption) && !kayseriIlgili(etiket)) continue   // Kayseri/ilçe ile ilgisiz → at
+    if (gecmisEtkinlikMi(caption)) { gorulen.add(pid); continue }     // "gerçekleşti/tamamlandı" → recap, at
+
     const postYas = p.timestamp ? (Date.now() - Date.parse(p.timestamp)) / 36e5 : 9999
     if (postYas > maxYasSaat) { gorulen.add(pid); continue }
 
-    const kaynak = handleEtiket.get(String(p.ownerUsername || '').toLowerCase())
     const oncelik = kaynak ? (kaynak.oncelik || 2) : 2
-    const etiket = kaynak ? kaynak.etiket : (p.ownerUsername || 'instagram')
     const ts = p.timestamp || null
     const skor = etkinlikSkor({ ts, oncelik })
-    const etkinlikTarihi = etkinlikTarihiCikar(caption, ts)
+    const tarihSonuc = etkinlikTarihiCikar(caption, ts)
+    if (tarihSonuc.kesinGecmis) { gorulen.add(pid); continue }        // net geçmiş tarih → bitmiş etkinlik, at
 
     yeniFirsatlar.push({
       id: pid, kaynak_tip: 'instagram', hesap: p.ownerUsername, etiket,
       baslik: caption.slice(0, 200) || '(görsel/video — açıklama yok)',
       tam_metin: caption.slice(0, 1000), link: p.url, gorsel_url: p.displayUrl || (p.images && p.images[0]) || null, video_url: p.videoUrl || null,
-      tip: p.type, begeni: p.likesCount || 0, pubDate: ts, etkinlik_tarihi: etkinlikTarihi, oncelik, skor, durum: etkinlikDurum(skor),
+      tip: p.type, begeni: p.likesCount || 0, pubDate: ts, etkinlik_tarihi: tarihSonuc.tarih, oncelik, skor, durum: etkinlikDurum(skor),
       yazildi: false, gizli: false, bulundu: new Date().toISOString(),
     })
     gorulen.add(pid)
