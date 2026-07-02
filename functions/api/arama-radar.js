@@ -230,6 +230,42 @@ export async function onRequestGet(context) {
       await env.HABERLER.put('arama:gorulen_paa', JSON.stringify([]))
       return Response.json({ ok: true, mesaj: 'Fırsat cache temizlendi' }, { headers: CORS })
     }
+    // KELİME ANALİZİ: tek kelime için Ahrefs SERP görünümü (24s cache'li).
+    // Panel bunu Claude strateji+sentez akışının 1. fazı olarak kullanır.
+    if (action === 'kelime-analiz') {
+      const kelime = (url.searchParams.get('kelime') || '').trim()
+      if (!kelime) return Response.json({ hata: 'kelime gerekli' }, { status: 400, headers: CORS })
+      const anahtar = env.AHREFS_TOKEN || env.AHREFS_API_KEY
+      const cacheKey = 'arama:serp:' + kelime.toLowerCase().replace(/[^a-z0-9ğüşöçıi]+/gi, '-').slice(0, 90)
+      let veri = await env.HABERLER.get(cacheKey, 'json')
+      let cacheten = !!veri
+      if (!veri) {
+        if (!anahtar) return Response.json({ ok: true, kelime, serp: [], not: 'AHREFS anahtarı yok — SERP bağlamı atlandı' }, { headers: CORS })
+        const u = new URL('https://api.ahrefs.com/v3/serp-overview/serp-overview')
+        u.searchParams.set('keyword', kelime)
+        u.searchParams.set('country', 'tr')
+        u.searchParams.set('select', 'position,url,domain_rating,traffic,backlinks')
+        u.searchParams.set('top_positions', '10')
+        const r = await fetch(u.toString(), { headers: { 'Authorization': 'Bearer ' + anahtar, 'Accept': 'application/json' } })
+        if (!r.ok) return Response.json({ hata: 'Ahrefs SERP: HTTP ' + r.status + ' ' + (await r.text()).slice(0, 120) }, { status: 502, headers: CORS })
+        const j = await r.json()
+        // Temizle: url'siz satırları at, url bazında tekilleştir, ilk 10
+        const gorulen = new Set()
+        const satirlar = []
+        for (const p of (j.positions || [])) {
+          if (!p.url || gorulen.has(p.url)) continue
+          gorulen.add(p.url)
+          let domain = ''
+          try { domain = new URL(p.url).hostname.replace(/^www\./, '') } catch (_) {}
+          satirlar.push({ position: p.position, url: p.url, domain, dr: p.domain_rating, traffic: p.traffic, backlinks: p.backlinks })
+          if (satirlar.length >= 10) break
+        }
+        veri = { kelime, serp: satirlar, cekildi: new Date().toISOString() }
+        await env.HABERLER.put(cacheKey, JSON.stringify(veri), { expirationTtl: 86400 })
+      }
+      return Response.json({ ok: true, ...veri, cache: cacheten }, { headers: CORS })
+    }
+
     if (action === 'seo') {
       const seo = await env.HABERLER.get('arama:seo', 'json') || null
       // HAFTALIK OTOMATİK TAZELEME: AHREFS_TOKEN tanımlıysa ve veri 7 günden
