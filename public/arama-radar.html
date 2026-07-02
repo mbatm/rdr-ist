@@ -59,6 +59,7 @@
   <div class="anasekme">
     <button class="as-btn as-aktif" data-as="rakip" onclick="anaSekmeDegis(this)">📊 Rakip Analizi</button>
     <button class="as-btn" data-as="firsat" onclick="anaSekmeDegis(this)">💡 İçerik Fırsatları</button>
+    <button class="as-btn" data-as="seo" onclick="anaSekmeDegis(this)">📈 SEO (Ahrefs)</button>
   </div>
 
   <div id="son" class="son"></div>
@@ -69,6 +70,10 @@
 
   <div id="firsatPaneli" style="display:none">
     <div id="firsatListe"><div class="durum-yok">Yükleniyor…</div></div>
+  </div>
+
+  <div id="seoPaneli" style="display:none">
+    <div id="seoListe"><div class="durum-yok">Yükleniyor…</div></div>
   </div>
 
 <script>
@@ -89,6 +94,8 @@ function anaSekmeDegis(el){
   const hedef = el.dataset.as;
   $('rakipPaneli').style.display = hedef==='rakip' ? '' : 'none';
   $('firsatPaneli').style.display = hedef==='firsat' ? '' : 'none';
+  $('seoPaneli').style.display = hedef==='seo' ? '' : 'none';
+  if(hedef==='seo' && !window._seoYuklendi){ seoYukle(); }
 }
 
 async function yukleHepsi(){
@@ -176,6 +183,94 @@ async function tara(){
     else if(j.log){ $('son').textContent = "Tarama tamamlandı · "+j.log.yeni_firsat+" yeni fırsat"; yukleHepsi(); }
     else { $('son').textContent = JSON.stringify(j); }
   }catch(e){ $('son').textContent = "Hata: "+e.message; }
+}
+
+// ── SEO (Ahrefs) sekmesi ─────────────────────────────────────────────
+function sayi(n){ return Number(n||0).toLocaleString('tr-TR'); }
+function kisaUrl(u){ try{ const p=new URL(u); return p.pathname.length>1?p.pathname.slice(0,55):p.hostname; }catch(e){ return String(u).slice(0,55); } }
+function gLink(kw){ return 'https://www.google.com/search?q='+encodeURIComponent(kw); }
+function pozRozet(p){
+  const r = p<=3 ? '#00D4AA' : p<=10 ? '#FFB700' : p<=20 ? '#ff9f43' : '#888';
+  return '<span style="display:inline-block;min-width:34px;text-align:center;font-weight:700;color:#0a0a0f;background:'+r+';border-radius:4px;padding:1px 6px">#'+p+'</span>';
+}
+function kwSatir(k){
+  return '<tr>'+
+    '<td><a class="link" target="_blank" href="'+gLink(k.keyword)+'">'+esc(k.keyword)+'</a></td>'+
+    '<td>'+pozRozet(k.best_position)+'</td>'+
+    '<td style="text-align:right">'+sayi(k.volume)+'</td>'+
+    '<td style="text-align:right">'+sayi(k.sum_traffic)+'</td>'+
+    '<td><a class="link" target="_blank" href="'+esc(k.best_position_url||'#')+'">'+esc(kisaUrl(k.best_position_url||''))+'</a></td>'+
+  '</tr>';
+}
+function kwTablo(baslik, aciklama, liste){
+  if(!liste.length) return '';
+  return '<div class="kw-kart" style="margin-bottom:14px">'+
+    '<div style="font-weight:700;margin-bottom:2px">'+baslik+' <span style="color:#888;font-weight:400;font-size:12px">('+liste.length+')</span></div>'+
+    '<div style="color:#888;font-size:12px;margin-bottom:8px">'+aciklama+'</div>'+
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
+    '<tr style="color:#888;font-size:11px;text-align:left"><th style="padding:4px">Kelime</th><th>Poz</th><th style="text-align:right">Aylık Hacim</th><th style="text-align:right">Trafik</th><th>Sayfa</th></tr>'+
+    liste.map(kwSatir).join('')+
+    '</table></div></div>';
+}
+async function seoYukle(){
+  window._seoYuklendi = true;
+  $('seoListe').innerHTML = '<div class="durum-yok">Yükleniyor…</div>';
+  try{
+    const r = await fetch(API+"?action=seo&t="+Date.now(),{cache:"no-store"});
+    const j = await r.json();
+    const seo = j.seo;
+    if(!seo){ $('seoListe').innerHTML='<div class="durum-yok">Henüz SEO verisi yüklenmemiş. "⟳ Ahrefs\'ten Güncelle" butonunu kullan veya Claude oturumundan yükle.</div>'; return; }
+    const K = seo.kelimeler||[];
+    const vurulabilir = K.filter(k=>k.best_position>=4 && k.best_position<=15).sort((a,b)=>b.volume-a.volume);
+    const ikinciSayfa = K.filter(k=>k.best_position>=16 && k.best_position<=30 && k.volume>=3000).sort((a,b)=>b.volume-a.volume);
+    const guclu = K.filter(k=>k.best_position<=3).sort((a,b)=>b.volume-a.volume);
+    const toplamTrafik = (seo.sayfalar||[]).reduce((t,s)=>t+(s.sum_traffic||0),0);
+
+    let html = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+      '<span style="color:#888;font-size:12px">Veri: '+esc(seo.tarih||'')+' · Güncelleme: '+zamanGec(seo.guncelleme)+' · Kaynak: '+esc(seo.kaynak||'')+'</span>'+
+      '<button onclick="seoGuncelle()" style="margin-left:auto">⟳ Ahrefs\'ten Güncelle</button></div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px">'+
+      [['İzlenen Kelime',K.length],['Top-3 Kelime',guclu.length],['Vurulabilir (4-15)',vurulabilir.length],['Top 20 Sayfa Trafiği',sayi(toplamTrafik)+'/ay']]
+      .map(c=>'<div class="kw-kart" style="text-align:center"><div style="font-size:20px;font-weight:700;color:#4dabf7">'+c[1]+'</div><div style="font-size:11px;color:#888">'+c[0]+'</div></div>').join('')+'</div>';
+
+    html += kwTablo('🎯 Vurulabilir Kelimeler (pozisyon 4-15)',
+      'Küçük dokunuşla ilk 3\'e taşınabilir: içeriği güncelle, başlığı optimize et, iç link ver. En yüksek hacimliler üstte.', vurulabilir);
+    html += kwTablo('🌊 İkinci Sayfa Hazineleri (16-30, hacim ≥3K)',
+      'Bu kelimeler için içerik zaten var ama 2-3. sayfada. Derinleştirilmiş güncelleme + yeni başlık = ilk sayfa şansı.', ikinciSayfa);
+    html += kwTablo('🏆 Korunacak Güçlü Pozisyonlar (1-3)',
+      'Trafik getiren mevkiler — bu sayfaların tazeliğini koru, rakip yaklaşırsa öncelik ver.', guclu);
+
+    if((seo.sayfalar||[]).length){
+      html += '<div class="kw-kart" style="margin-bottom:14px"><div style="font-weight:700;margin-bottom:8px">📄 En Çok Trafik Getiren Sayfalar</div>'+
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
+        '<tr style="color:#888;font-size:11px;text-align:left"><th style="padding:4px">Sayfa</th><th style="text-align:right">Trafik/ay</th><th style="text-align:right">Kelime</th><th>Top Kelime</th></tr>'+
+        seo.sayfalar.map(s=>'<tr><td><a class="link" target="_blank" href="'+esc(s.url)+'">'+esc(kisaUrl(s.url))+'</a></td>'+
+          '<td style="text-align:right;font-weight:600">'+sayi(s.sum_traffic)+'</td><td style="text-align:right">'+sayi(s.keywords)+'</td>'+
+          '<td>'+esc(s.top_keyword||'')+' '+(s.top_keyword_best_position?pozRozet(s.top_keyword_best_position):'')+'</td></tr>').join('')+
+        '</table></div></div>';
+    }
+    if((seo.rakipler||[]).length){
+      html += '<div class="kw-kart"><div style="font-weight:700;margin-bottom:8px">🥊 Organik Rakipler (ortak kelime bazlı)</div>'+
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
+        '<tr style="color:#888;font-size:11px;text-align:left"><th style="padding:4px">Domain</th><th style="text-align:right">DR</th><th style="text-align:right">Ortak Kelime</th><th style="text-align:right">Pay %</th></tr>'+
+        seo.rakipler.sort((a,b)=>b.keywords_common-a.keywords_common).map(rk=>'<tr><td>'+esc(rk.competitor_domain)+'</td>'+
+          '<td style="text-align:right">'+(rk.domain_rating??'—')+'</td><td style="text-align:right">'+sayi(rk.keywords_common)+'</td>'+
+          '<td style="text-align:right">'+(rk.share??'—')+'</td></tr>').join('')+
+        '</table></div></div>';
+    }
+    $('seoListe').innerHTML = html;
+  }catch(e){ $('seoListe').innerHTML='<div class="durum-yok">Hata: '+esc(e.message)+'</div>'; }
+}
+async function seoGuncelle(){
+  $('seoListe').innerHTML = '<div class="durum-yok">Ahrefs\'ten çekiliyor…</div>';
+  try{
+    const r = await fetch(API+"?action=seo-guncelle&t="+Date.now(),{cache:"no-store"});
+    const j = await r.json();
+    if(j.hata){ alert(j.hata); }
+    else if(j.atlandi){ alert(j.sebep); }
+    seoYukle();
+  }catch(e){ alert('Hata: '+e.message); seoYukle(); }
 }
 
 yukleHepsi();
