@@ -351,7 +351,7 @@ export async function onRequestPost({ request, env }) {
       for (const [igKey, s] of Object.entries(sonuclar.instagram||{})) {
         if (s.ok||s.bekliyor) all.unshift({ source_id:source_id||'', baslik:(baslik||'').slice(0,80),
           platform:s.story?'instagram_story':'instagram',
-          post_id:s.media_id||'', kullanici, tip:is_video?'video':'foto',
+          post_id:s.media_id||'', permalink:s.permalink||'', kullanici, tip:is_video?'video':'foto',
           hesap:s.ig_username||igKey.replace('_story',''),
           ig_id:igKey.replace('_story',''), tarih:new Date().toISOString() })
       }
