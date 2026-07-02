@@ -255,6 +255,7 @@ export async function onRequestGet(context) {
     // Ahrefs API v3'ten doğrudan tazeleme — env.AHREFS_TOKEN gerekli.
     // Token yoksa veri Claude oturumundan seo-yukle ile beslenir (anlık görüntü).
     if (action === 'seo-guncelle') {
+      const secret = url.searchParams.get('secret') || ''
       if (!(await yetkili(secret, env, request))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
       if (!(env.AHREFS_TOKEN || env.AHREFS_API_KEY)) {
         return Response.json({ hata: 'AHREFS_TOKEN tanımlı değil. Cloudflare Pages → Settings → Environment variables bölümüne Ahrefs API anahtarı eklenirse bu buton doğrudan Ahrefs\'ten canlı çeker. O zamana kadar veriler Claude oturumundan güncellenir.' }, { status: 400, headers: CORS })
