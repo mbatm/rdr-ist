@@ -38,6 +38,18 @@ jobs:
           SONUC=$(curl -sf --max-time 60 "https://rdr.ist/api/kesfet-radar?action=scan&secret=${{ secrets.RSS_API_KEY }}" 2>&1) || true
           echo "Kesfet Radar: $SONUC"
 
+      - name: Sosyal Radar Tara
+        continue-on-error: true
+        run: |
+          SONUC=$(curl -sf --max-time 60 "https://rdr.ist/api/sosyal-radar?action=tara" 2>&1) || true
+          echo "Sosyal Radar: $SONUC"
+
+      - name: Etkinlik Radar Tara
+        continue-on-error: true
+        run: |
+          SONUC=$(curl -sf --max-time 60 "https://rdr.ist/api/etkinlik-radar?action=tara" 2>&1) || true
+          echo "Etkinlik Radar: $SONUC"
+
   ahrefs-sync:
     name: Ahrefs Keyword Sync (Pzt/Çar/Cum)
     runs-on: ubuntu-latest
