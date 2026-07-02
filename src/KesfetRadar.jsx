@@ -139,6 +139,13 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
 
   useEffect(() => { getir() }, [getir])
 
+  // Panel açıkken 5 dk'da bir kendini yeniler; backend de 60+ dk bayatlıkta
+  // arka planda tarama başlattığı için veri en geç saatte bir tazelenir.
+  useEffect(() => {
+    const t = setInterval(getir, 300000)
+    return () => clearInterval(t)
+  }, [getir])
+
   // ── Oto pipeline: ayar + kuyruk ──
   const otoGetir = useCallback(async () => {
     try {
@@ -241,6 +248,24 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   // "Bu konuyu yaz" → Claude'dan ÖZGÜN + Discover taslak → Manuel editöre aktar
   const yaz = async (f) => {
     setUretilen(f.id); setHata(null)
+
+    // ÜSTLENME: başkası yazıyorsa mükerrer çalışmayı engelle, değilse üstümüze al
+    const benKim = user?.kullanici || 'editor'
+    try {
+      const u = await fetch(`/api/kesfet-radar?action=ustlen`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ustlen', id: f.id, kullanici: benKim, secret: token }),
+      }).then(r => r.json())
+      if (u && u.dolu) {
+        setHata(`⚠️ Bu haberi ${u.ustlenen} üstlenmiş (${u.ustlenme ? new Date(u.ustlenme).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : ''}) — mükerrer çalışma olmasın.`)
+        setUretilen(null)
+        getir()
+        return
+      }
+      // Yerel state'i anında güncelle — diğer sekme/kullanıcılar 5dk poll'da görür
+      setFirsatlar(prev => prev.map(x => x.id === f.id ? { ...x, ustlenen: benKim, ustlenme: new Date().toISOString() } : x))
+    } catch (_) {}
+
     const sistem = `Sen kayserim.net için çalışan kıdemli bir yerel haber editörüsün. Görevin, bir KONU sinyalinden Google Discover'a düşecek ÖZGÜN bir haber taslağı yazmak.
 
 KURALLAR (Şubat 2026 Discover core update sonrası):
@@ -458,6 +483,11 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
                       <span style={{ fontSize: 10, color: 'var(--muted)' }}>· {TUR_ET[f.tur] || f.tur}</span>
                       {f.yerel && <span style={{ fontSize: 10, color: '#00D4AA' }}>· yerel</span>}
                       {f.kaynak_sayisi >= 2 && <span style={{ fontSize: 10, color: '#FFB700' }}>· {f.kaynak_sayisi} kaynak (trend)</span>}
+                      {f.ustlenen && !f.yazildi && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(155,107,255,0.6)', padding: '1px 8px', borderRadius: 10 }}>
+                          ✍️ {f.ustlenen} yazıyor
+                        </span>
+                      )}
                       <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>{yas(f.pubDate)}</span>
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.35 }}>{f.baslik}</div>
@@ -470,10 +500,19 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
                         style={{ fontSize: 11, fontWeight: 500, color: '#4dabf7', background: 'rgba(77,171,247,0.10)', border: '0.5px solid rgba(77,171,247,0.30)', borderRadius: 5, padding: '4px 10px' }}>
                         {teyitId === f.id ? 'Teyit ediliyor…' : '🔍 Teyit et'}
                       </button>
-                      <button onClick={() => yaz(f)} disabled={uretilen === f.id || f.yazildi}
-                        style={{ fontSize: 11, fontWeight: 500, color: '#fff', background: f.yazildi ? 'rgba(255,255,255,.1)' : 'rgba(155,107,255,0.85)', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: f.yazildi ? 'default' : 'pointer' }}>
-                        {uretilen === f.id ? 'Taslak üretiliyor…' : f.yazildi ? '✓ Yazıldı' : '✍ Bu konuyu yaz'}
+                      <button onClick={() => yaz(f)} disabled={uretilen === f.id || f.yazildi || (f.ustlenen && f.ustlenen !== (user?.kullanici || 'editor'))}
+                        style={{ fontSize: 11, fontWeight: 500, color: '#fff', background: f.yazildi || (f.ustlenen && f.ustlenen !== (user?.kullanici || 'editor')) ? 'rgba(255,255,255,.1)' : 'rgba(155,107,255,0.85)', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: f.yazildi ? 'default' : 'pointer' }}>
+                        {uretilen === f.id ? 'Taslak üretiliyor…' : f.yazildi ? '✓ Yazıldı' : (f.ustlenen && f.ustlenen !== (user?.kullanici || 'editor')) ? `${f.ustlenen} yazıyor` : '✍ Bu konuyu yaz'}
                       </button>
+                      {f.ustlenen === (user?.kullanici || 'editor') && !f.yazildi && (
+                        <button onClick={async () => {
+                          await fetch(`/api/kesfet-radar?action=birak`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'birak', id: f.id, kullanici: user?.kullanici || 'editor', secret: token }) }).catch(() => {})
+                          setFirsatlar(prev => prev.map(x => x.id === f.id ? { ...x, ustlenen: null, ustlenme: null } : x))
+                        }}
+                          style={{ fontSize: 11, color: 'var(--muted)', background: 'transparent', border: '0.5px solid var(--border)', borderRadius: 5, padding: '4px 10px' }}>
+                          ↩ Bırak
+                        </button>
+                      )}
                       {f.link && <a href={f.link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none', border: '0.5px solid var(--border)', borderRadius: 5, padding: '4px 10px' }}>Kaynak ↗</a>}
                       {!f.gizli && !f.yazildi && (
                         <button onClick={() => isaretle(f.id, 'gizli')}
