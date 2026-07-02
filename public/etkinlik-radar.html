@@ -282,7 +282,7 @@ async function yaklasaniYukle(){
       if (gunKala < -1) continue; // geçmiş etkinlik
       birlesik.push({
         tarih: f.etkinlik_tarihi, gun_kala: gunKala,
-        baslik: f.baslik, tip: 'canli', kaynak: f.etiket || f.hesap, link: f.link,
+        baslik: f.baslik, tip: 'canli', kaynak: f.etiket || f.hesap, link: f.link, firsat_id: f.id,
         tam_metin: f.tam_metin || f.baslik, gorsel_url: f.gorsel_url || null, video_url: f.video_url || null,
       });
     }
@@ -302,6 +302,7 @@ async function yaklasaniYukle(){
     const altSayisi = (g.alternatifler||[]).length;
     const altButon = altSayisi ? `<button onclick="altAcKapat(${idx})" style="font-size:11px;padding:2px 8px">✍️ ${altSayisi} başlık önerisi</button>` : '';
     const haberButon = g.tip==='canli' ? `<button onclick="haberlestirYaklasan(${idx})" style="font-size:11px;padding:2px 10px;background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600">📰 Haberleştir</button>` : '';
+    const fikirButon = g.tip==='canli' ? `<button onclick="canliFikirAc(${idx})" style="font-size:11px;padding:2px 10px">✍️ Alternatif Fikirler</button>` : '';
     return `<div class="yg-kart ${yakin?'yg-yakin':''}">
       <div class="yg-tarih"><div class="gun">${gun}</div><div class="ay">${ay}</div></div>
       <div class="yg-icerik" style="flex:1">
@@ -312,8 +313,10 @@ async function yaklasaniYukle(){
           ${g.gun_kala!=null ? `<span>${g.gun_kala===0?'Bugün':g.gun_kala===1?'Yarın':g.gun_kala+' gün sonra'}</span>` : ''}
           ${altButon}
           ${haberButon}
+          ${fikirButon}
         </div>
         <div id="alt-${idx}" style="display:none;margin-top:10px"></div>
+        <div id="canli-fikir-${idx}" style="display:none;margin-top:10px"></div>
       </div>
     </div>`;
   }).join('');
@@ -370,6 +373,51 @@ function haberlestirYaklasan(idx){
   else if (g.gorsel_url) prefill.gorsel_url = g.gorsel_url;
   prefill.kaynak_notu = (g.kaynak || '') + ' · ' + (g.link || '');
   try { window.parent.postMessage({ type: 'rdrist:haberlestir', prefill }, '*'); } catch(e) {}
+}
+
+async function canliFikirAc(idx){
+  const g = yaklasanVeri[idx];
+  if (!g || !g.firsat_id) return;
+  const kutu = $('canli-fikir-'+idx);
+  if (kutu.style.display !== 'none') { kutu.style.display = 'none'; return; }
+  kutu.style.display = 'block';
+  kutu.innerHTML = '<div style="font-size:12px;color:var(--soluk)">Fikirler üretiliyor…</div>';
+  try {
+    const r = await fetch(API + "?action=alternatif-uret", {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id: g.firsat_id })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Üretilemedi');
+    kutu.innerHTML = (j.alternatifler||[]).map((a, ai) => `
+      <div style="background:var(--kart2);border:1px solid var(--kenar);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+        <div style="font-size:13px;margin-bottom:3px">${esc(a.baslik)}</div>
+        <div style="font-size:11px;color:var(--soluk);margin-bottom:6px">${esc(a.aci||'')}</div>
+        <button onclick="canliTaslakOlustur('${esc(g.firsat_id)}',${ai},this)" style="font-size:11px;background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600">📰 Bu Açıyla Taslak Oluştur</button>
+      </div>
+    `).join('') || '<div style="font-size:12px;color:var(--soluk)">Fikir üretilemedi.</div>';
+  } catch(e) {
+    kutu.innerHTML = '<div style="font-size:12px;color:#f85149">Hata: '+esc(e.message)+'</div>';
+  }
+}
+
+async function canliTaslakOlustur(firsatId, altId, btnEl){
+  const eskiMetin = btnEl.textContent;
+  btnEl.textContent = 'Üretiliyor…'; btnEl.disabled = true;
+  try {
+    const r = await fetch(API + "?action=canli-taslak-uret", {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id: firsatId, alt_id: altId })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Taslak üretilemedi');
+    const prefill = { baslik: j.baslik, metin: j.metin, kategori: j.kategori || 'Güncel' };
+    try { window.parent.postMessage({ type: 'rdrist:haberlestir', prefill }, '*'); } catch(e) {}
+    btnEl.textContent = '✓ Manuel girişe aktarıldı';
+  } catch(e) {
+    btnEl.textContent = 'Hata: ' + e.message;
+    setTimeout(()=>{ btnEl.textContent = eskiMetin; btnEl.disabled = false; }, 3000);
+  }
 }
 </script>
 </body>
