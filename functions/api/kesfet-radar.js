@@ -17,9 +17,10 @@
 
 const KENDI_RSS = 'https://www.kayserim.net/rss'
 
-// ── İzlenen rakip kaynaklar (Ahrefs organik rakip verisinden) ──────────────
-// Yeni site eklemek için sadece bu diziye ekle. feed_urls sırayla denenir.
-const KAYNAKLAR = [
+// ── İzlenen rakip kaynaklar ─────────────────────────────────────────────────
+// Liste artık KV'de (kesfet:kaynaklar) — panelden deploy'suz eklenip çıkarılır.
+// KV boşsa aşağıdaki varsayılanlar kullanılır (ilk kurulum tohumu).
+const VARSAYILAN_KAYNAKLAR = [
   { domain: 'kayseriolay.com',            oncelik: 1, tip: 'yerel' },
   { domain: 'kayserianadoluhaber.com.tr', oncelik: 1, tip: 'yerel' },
   { domain: 'kayserihaber.com.tr',        oncelik: 1, tip: 'yerel' },
@@ -29,6 +30,12 @@ const KAYNAKLAR = [
   { domain: 'kayserigundem.com.tr',       oncelik: 2, tip: 'yerel' },
   { domain: 'kayseriyerelhaber.com',      oncelik: 2, tip: 'yerel' },
 ]
+
+async function kaynaklariGetir(env) {
+  const kv = await env.HABERLER.get('kesfet:kaynaklar', 'json')
+  if (Array.isArray(kv) && kv.length) return kv
+  return VARSAYILAN_KAYNAKLAR
+}
 
 // Her domain için sırayla denenecek olası feed yolları
 function feedAdaylari(domain) {
@@ -247,6 +254,7 @@ async function tara(env) {
   const eslesir = (fp) => kendi.some(k => tokenJaccard(fp, k) >= 0.5)
 
   // Tüm kaynakları paralel çek
+  const KAYNAKLAR = (await kaynaklariGetir(env)).filter(k => k.aktif !== false)
   const sonuc = await Promise.all(KAYNAKLAR.map(async k => {
     const f = await feedCek(k.domain)
     return { ...k, feed_url: f.url, items: f.items, ok: f.items.length > 0 }
@@ -450,7 +458,7 @@ export async function onRequestGet(context) {
 
   try {
     if (action === 'sources') {
-      return Response.json({ ok: true, kaynaklar: KAYNAKLAR }, { headers: CORS })
+      return Response.json({ ok: true, kaynaklar: await kaynaklariGetir(env) }, { headers: CORS })
     }
 
     if (action === 'scan') {
@@ -555,6 +563,36 @@ export async function onRequestPost({ request, env }) {
       f.ustlenme = new Date().toISOString()
       await env.HABERLER.put('kesfet:firsatlar', JSON.stringify(list))
       return Response.json({ ok: true, ustlenen: kullanici }, { headers: CORS })
+    }
+
+    // KAYNAK YÖNETİMİ — liste KV'de, panelden deploy'suz güncellenir
+    if (action === 'kaynak-ekle') {
+      let d = String(body.domain || '').trim().toLowerCase()
+      d = d.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+      if (!d || !d.includes('.')) return Response.json({ hata: 'Geçerli bir domain girin (örn: ornek.com.tr)' }, { status: 400, headers: CORS })
+      const liste = await kaynaklariGetir(env)
+      if (liste.some(k => k.domain === d)) return Response.json({ hata: 'Bu kaynak zaten listede' }, { status: 409, headers: CORS })
+      liste.push({ domain: d, oncelik: Number(body.oncelik) || 2, tip: 'yerel', aktif: true, eklendi: new Date().toISOString() })
+      await env.HABERLER.put('kesfet:kaynaklar', JSON.stringify(liste))
+      return Response.json({ ok: true, domain: d, toplam: liste.length }, { headers: CORS })
+    }
+    if (action === 'kaynak-sil') {
+      const d = String(body.domain || '').trim().toLowerCase()
+      const liste = await kaynaklariGetir(env)
+      const kalan = liste.filter(k => k.domain !== d)
+      if (kalan.length === liste.length) return Response.json({ hata: 'Kaynak bulunamadı' }, { status: 404, headers: CORS })
+      await env.HABERLER.put('kesfet:kaynaklar', JSON.stringify(kalan))
+      return Response.json({ ok: true, toplam: kalan.length }, { headers: CORS })
+    }
+    if (action === 'kaynak-guncelle') {
+      const d = String(body.domain || '').trim().toLowerCase()
+      const liste = await kaynaklariGetir(env)
+      const k = liste.find(x => x.domain === d)
+      if (!k) return Response.json({ hata: 'Kaynak bulunamadı' }, { status: 404, headers: CORS })
+      if (typeof body.aktif === 'boolean') k.aktif = body.aktif
+      if (body.oncelik) k.oncelik = Number(body.oncelik)
+      await env.HABERLER.put('kesfet:kaynaklar', JSON.stringify(liste))
+      return Response.json({ ok: true, kaynak: k }, { headers: CORS })
     }
 
     if (action === 'birak') {
