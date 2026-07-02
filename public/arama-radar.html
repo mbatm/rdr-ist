@@ -200,6 +200,7 @@ function kwSatir(k){
     '<td style="text-align:right">'+sayi(k.volume)+'</td>'+
     '<td style="text-align:right">'+sayi(k.sum_traffic)+'</td>'+
     '<td><a class="link" target="_blank" href="'+esc(k.best_position_url||'#')+'">'+esc(kisaUrl(k.best_position_url||''))+'</a></td>'+
+    '<td><button class="fikir-btn" data-kw="'+esc(k.keyword)+'" data-poz="'+k.best_position+'" data-url="'+esc(k.best_position_url||'')+'" onclick="fikirUret(this)" title="Claude ile içerik fikri üret" style="padding:2px 8px;font-size:12px">✍ Üret</button></td>'+
   '</tr>';
 }
 function kwTablo(baslik, aciklama, liste){
@@ -208,7 +209,7 @@ function kwTablo(baslik, aciklama, liste){
     '<div style="font-weight:700;margin-bottom:2px">'+baslik+' <span style="color:#888;font-weight:400;font-size:12px">('+liste.length+')</span></div>'+
     '<div style="color:#888;font-size:12px;margin-bottom:8px">'+aciklama+'</div>'+
     '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
-    '<tr style="color:#888;font-size:11px;text-align:left"><th style="padding:4px">Kelime</th><th>Poz</th><th style="text-align:right">Aylık Hacim</th><th style="text-align:right">Trafik</th><th>Sayfa</th></tr>'+
+    '<tr style="color:#888;font-size:11px;text-align:left"><th style="padding:4px">Kelime</th><th>Poz</th><th style="text-align:right">Aylık Hacim</th><th style="text-align:right">Trafik</th><th>Sayfa</th><th></th></tr>'+
     liste.map(kwSatir).join('')+
     '</table></div></div>';
 }
@@ -261,6 +262,38 @@ async function seoYukle(){
     }
     $('seoListe').innerHTML = html;
   }catch(e){ $('seoListe').innerHTML='<div class="durum-yok">Hata: '+esc(e.message)+'</div>'; }
+}
+async function fikirUret(btn){
+  const kw = btn.dataset.kw, poz = btn.dataset.poz, sayfa = btn.dataset.url;
+  btn.disabled = true; btn.textContent = '…';
+  const tr = btn.closest('tr');
+  let fikirTr = tr.nextElementSibling;
+  if(!fikirTr || !fikirTr.classList.contains('fikir-satir')){
+    fikirTr = document.createElement('tr'); fikirTr.className = 'fikir-satir';
+    fikirTr.innerHTML = '<td colspan="6" style="background:rgba(77,171,247,.05);border-radius:6px;padding:10px;font-size:12.5px;color:#ccc">Üretiliyor…</td>';
+    tr.after(fikirTr);
+  }
+  const hucre = fikirTr.firstElementChild;
+  hucre.textContent = 'Claude içerik fikri üretiyor…';
+  try{
+    const sistem = 'Sen kayserim.net (Kayseri yerel haber sitesi) için çalışan kıdemli SEO editörüsün. Görev: verilen arama kelimesi için siteyi ilk 3 pozisyona taşıyacak içerik stratejisi üret. Bilgi uydurma; doğrulanması gereken noktaları [DOĞRULA] ile işaretle. Sadece JSON döndür.';
+    const soru = 'Kelime: "'+kw+'" · Mevcut pozisyon: #'+poz+' · Mevcut sayfa: '+sayfa+'\n\nŞu JSON\'u üret:\n{"strateji":"guncelle|yeni_sayfa|rehber","neden":"1 cümle","basliklar":["3 SEO başlık önerisi"],"aci":"içeriğin Kayseri-yerel açısı ve kapsaması gereken alt konular (2-3 cümle)","ilk_adim":"ekibin bugün atabileceği somut ilk adım"}';
+    const r = await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,system:sistem,messages:[{role:'user',content:soru}]})});
+    const d = await r.json();
+    const text = (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const m = text.match(/\{[\s\S]*\}/);
+    if(!m) throw new Error('JSON alınamadı');
+    const j = JSON.parse(m[0]);
+    const stratEt = {guncelle:'♻ Mevcut sayfayı güncelle', yeni_sayfa:'✚ Yeni sayfa aç', rehber:'📗 Kalıcı rehber sayfası kur'}[j.strateji] || j.strateji;
+    hucre.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="color:#4dabf7">'+esc(stratEt)+'</b><span style="color:#888">'+esc(j.neden||'')+'</span>'+
+      '<button onclick="this.closest(\'tr\').remove()" style="margin-left:auto;padding:1px 8px;font-size:11px">✕</button></div>'+
+      '<div style="margin-bottom:6px"><b>Başlık önerileri:</b><ul style="margin:4px 0 0 18px;padding:0">'+(j.basliklar||[]).map(b=>'<li>'+esc(b)+'</li>').join('')+'</ul></div>'+
+      '<div style="margin-bottom:6px"><b>Açı:</b> '+esc(j.aci||'')+'</div>'+
+      '<div><b>İlk adım:</b> '+esc(j.ilk_adim||'')+'</div>';
+  }catch(e){ hucre.textContent = 'Hata: '+e.message; }
+  btn.disabled = false; btn.textContent = '✍ Üret';
 }
 async function seoGuncelle(){
   $('seoListe').innerHTML = '<div class="durum-yok">Ahrefs\'ten çekiliyor…</div>';
