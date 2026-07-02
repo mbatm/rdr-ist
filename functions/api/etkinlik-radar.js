@@ -519,16 +519,16 @@ export async function onRequestGet({ request, env }) {
       await env.HABERLER.put('etkinlik:gorulen', JSON.stringify([]))
       return Response.json({ ok: true, mesaj: 'Fırsat cache temizlendi' }, { headers: CORS })
     }
-    // GEÇİCİ TEŞHİS: Biletix API endpoint keşfi — sadece biletix.com'a izinli
+    // GEÇİCİ TEŞHİS: Biletix API endpoint keşfi — adaylar Worker içinde sabit
     if (action === 'biletix-teshis') {
-      let hedef = url.searchParams.get('u') || ''
-      const u64 = url.searchParams.get('u64') || ''
-      if (u64) { try { hedef = atob(u64) } catch (_) {} }
-      let h
-      try { h = new URL(hedef).hostname } catch (_) { return Response.json({ hata: 'geçersiz url' }, { headers: CORS }) }
-      if (!(h === 'biletix.com' || h.endsWith('.biletix.com'))) {
-        return Response.json({ hata: 'sadece biletix.com' }, { status: 400, headers: CORS })
+      const ADAYLAR = {
+        '1': 'https://www.biletix.com/solr/tr/select/?q=*:*&fq=city:Kayseri&wt=json&rows=3',
+        '2': 'https://www.biletix.com/solr/en/select/?q=*:*&fq=city:"Kayseri"&wt=json&rows=3',
+        '3': 'https://www.biletix.com/sitemap.xml',
+        '4': 'https://www.biletix.com/solr/tr/select/?q=*:*&rows=3&wt=json',
       }
+      const hedef = ADAYLAR[url.searchParams.get('aday') || '1']
+      if (!hedef) return Response.json({ hata: 'aday 1-4' }, { headers: CORS })
       const res = await fetch(hedef, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.biletix.com/' },
         cf: { cacheTtl: 0, cacheEverything: false },
