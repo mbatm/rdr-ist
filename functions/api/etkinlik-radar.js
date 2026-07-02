@@ -68,15 +68,26 @@ function kaynagiCozumle(girdi) {
   if (!girdi) return null
   let s = String(girdi).trim()
   if (/\.xml(\?|$)/i.test(s) || /rss\.app/i.test(s)) return { platform: 'rss', handle: s, url: s }
-  const url = s.match(/^https?:\/\/([^\/]+)\/([^\/?#]+)/i)
-  if (url) {
-    const host = url[1].toLowerCase()
-    const seg = url[2].replace(/^@/, '')
-    if (host.includes('instagram.com')) return { platform: 'instagram', handle: seg }
-    if (host.includes('twitter.com') || host.includes('x.com')) return { platform: 'twitter', handle: seg }
-    if (host.includes('facebook.com')) return { platform: 'facebook', handle: seg }
-    return { platform: 'web', handle: s, url: s }
+
+  // http(s):// ile başlıyorsa native URL parser kullan — regex'in aksine path olmayan
+  // ("https://site.com/" veya "https://site.com/?q=1") adresleri de doğru ayrıştırır.
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      const u = new URL(s)
+      const host = u.hostname.toLowerCase()
+      const ilkSegment = u.pathname.split('/').filter(Boolean)[0] || ''
+      const seg = ilkSegment.replace(/^@/, '')
+      if (host.includes('instagram.com') && seg) return { platform: 'instagram', handle: seg }
+      if ((host.includes('twitter.com') || host.includes('x.com')) && seg) return { platform: 'twitter', handle: seg }
+      if (host.includes('facebook.com') && seg) return { platform: 'facebook', handle: seg }
+      // Sosyal medya değilse (ya da path yoksa) → web kaynağı, tam URL saklanır
+      return { platform: 'web', handle: s, url: s }
+    } catch (_) {
+      return { platform: 'web', handle: s, url: s }
+    }
   }
+
+  // http ile başlamıyorsa düz @handle/kullanıcı adı — Instagram varsay
   s = s.replace(/^@/, '')
   return { platform: 'instagram', handle: s }
 }
@@ -280,8 +291,13 @@ async function webRssTara(env) {
 async function instagramTaramaBaslat(env) {
   if (!env.APIFY_TOKEN) return { hata: 'APIFY_TOKEN env tanımlı değil' }
   const kaynaklar = await kaynaklariGetir(env)
-  const igHesaplar = kaynaklar.filter(k => k.platform === 'instagram' && k.aktif !== false)
-  if (!igHesaplar.length) return { hata: 'Aktif Instagram hesabı yok' }
+  const HANDLE_REGEX = /^[A-Za-z0-9._-]+$/
+  const igHesaplarTumu = kaynaklar.filter(k => k.platform === 'instagram' && k.aktif !== false)
+  // Geçersiz handle'ları (Türkçe karakter, URL kalıntısı vb.) ayıkla — tek bozuk kayıt
+  // Apify'ın tüm run'ı reddetmesine sebep oluyordu, artık sessizce atlanıyor.
+  const igHesaplar = igHesaplarTumu.filter(k => HANDLE_REGEX.test(k.handle))
+  const gecersizler = igHesaplarTumu.filter(k => !HANDLE_REGEX.test(k.handle))
+  if (!igHesaplar.length) return { hata: 'Aktif Instagram hesabı yok', gecersiz_atlanan: gecersizler.map(k => k.handle) }
 
   const input = {
     directUrls: igHesaplar.map(k => `https://www.instagram.com/${k.handle}/`),
@@ -295,7 +311,7 @@ async function instagramTaramaBaslat(env) {
   if (!r.ok || !j.data) return { hata: 'Apify run başlatılamadı', detay: j }
   const run = { runId: j.data.id, datasetId: j.data.defaultDatasetId, baslangic: new Date().toISOString(), hesap_sayisi: igHesaplar.length }
   await env.HABERLER.put('etkinlik:apify_run', JSON.stringify(run))
-  return { ok: true, baslatildi: run }
+  return { ok: true, baslatildi: run, gecersiz_atlanan: gecersizler.length ? gecersizler.map(k => k.handle) : undefined }
 }
 
 async function instagramSonucToparla(env, maxYasSaat = 48) {
