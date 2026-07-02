@@ -319,7 +319,7 @@ async function firsatlariBirlestir(env, yeniFirsatlar) {
     const o = map.get(f.id)
     map.set(f.id, o ? { ...f, yazildi: o.yazildi, gizli: o.gizli, bulundu: o.bulundu } : f)
   }
-  const birlesik = [...map.values()].sort((a, b) => b.skor - a.skor).slice(0, 200)
+  const birlesik = [...map.values()].sort((a, b) => Date.parse(b.pubDate || 0) - Date.parse(a.pubDate || 0)).slice(0, 200)
   await env.HABERLER.put('sosyal:firsatlar', JSON.stringify(birlesik))
   return birlesik
 }
