@@ -204,7 +204,48 @@ export async function onRequestGet({ request, env }) {
       await env.HABERLER.put('arama:gorulen_paa', JSON.stringify([]))
       return Response.json({ ok: true, mesaj: 'Fırsat cache temizlendi' }, { headers: CORS })
     }
-    return Response.json({ hata: 'Bilinmeyen action', mevcut: ['kelimeler', 'sonuclar', 'firsatlar', 'tara', 'topla', 'temizle'] },
+    if (action === 'seo') {
+      const seo = await env.HABERLER.get('arama:seo', 'json') || null
+      return Response.json({ ok: true, seo }, { headers: CORS })
+    }
+
+    // Ahrefs API v3'ten doğrudan tazeleme — env.AHREFS_TOKEN gerekli.
+    // Token yoksa veri Claude oturumundan seo-yukle ile beslenir (anlık görüntü).
+    if (action === 'seo-guncelle') {
+      if (!(await yetkili(secret, env, request))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
+      if (!env.AHREFS_TOKEN) {
+        return Response.json({ hata: 'AHREFS_TOKEN tanımlı değil. Cloudflare Pages → Settings → Environment variables bölümüne Ahrefs API anahtarı eklenirse bu buton doğrudan Ahrefs\'ten canlı çeker. O zamana kadar veriler Claude oturumundan güncellenir.' }, { status: 400, headers: CORS })
+      }
+      // API birimi koruması: 20 saatten taze veri varsa yeniden çekme (force=1 hariç)
+      const mevcutSeo = await env.HABERLER.get('arama:seo', 'json')
+      const force = url.searchParams.get('force') === '1'
+      if (!force && mevcutSeo && (Date.now() - Date.parse(mevcutSeo.guncelleme)) < 20 * 36e5) {
+        return Response.json({ ok: true, atlandi: true, sebep: 'Veri 20 saatten taze — Ahrefs birimi harcanmadı (zorlamak için force=1)', seo: mevcutSeo }, { headers: CORS })
+      }
+      const tarih = new Date().toISOString().slice(0, 10)
+      const H = { 'Authorization': 'Bearer ' + env.AHREFS_TOKEN, 'Accept': 'application/json' }
+      const cek = async (yol, params) => {
+        const u = new URL('https://api.ahrefs.com/v3/' + yol)
+        for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
+        const r = await fetch(u.toString(), { headers: H })
+        if (!r.ok) throw new Error(yol + ' → HTTP ' + r.status + ': ' + (await r.text()).slice(0, 150))
+        return r.json()
+      }
+      const ortak = { target: 'kayserim.net', mode: 'subdomains', country: 'tr', date: tarih }
+      const [kw, tp, oc] = await Promise.all([
+        cek('site-explorer/organic-keywords', { ...ortak, limit: '100', order_by: 'volume:desc', select: 'keyword,best_position,volume,sum_traffic,best_position_url' }),
+        cek('site-explorer/top-pages', { ...ortak, limit: '20', order_by: 'sum_traffic:desc', select: 'url,sum_traffic,keywords,top_keyword,top_keyword_best_position,top_keyword_volume' }),
+        cek('site-explorer/organic-competitors', { ...ortak, limit: '10', select: 'competitor_domain,keywords_common,share,traffic,domain_rating' }),
+      ])
+      const seo = {
+        guncelleme: new Date().toISOString(), kaynak: 'ahrefs-api', tarih,
+        kelimeler: kw.keywords || [], sayfalar: tp.pages || [], rakipler: oc.competitors || [],
+      }
+      await env.HABERLER.put('arama:seo', JSON.stringify(seo))
+      return Response.json({ ok: true, adet: { kelime: seo.kelimeler.length, sayfa: seo.sayfalar.length, rakip: seo.rakipler.length } }, { headers: CORS })
+    }
+
+    return Response.json({ hata: 'Bilinmeyen action', mevcut: ['kelimeler', 'sonuclar', 'firsatlar', 'tara', 'topla', 'temizle', 'seo', 'seo-guncelle'] },
       { status: 400, headers: CORS })
   } catch (e) {
     return Response.json({ hata: String(e).slice(0, 200) }, { status: 500, headers: CORS })
@@ -220,6 +261,20 @@ export async function onRequestPost({ request, env }) {
     if (!(await yetkili(secret, env, request))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
     let govde = {}
     try { govde = await request.json() } catch (_) {}
+
+    // SEO verisi ingest — Claude/MCP oturumundan veya harici betikten anlık görüntü yükleme
+    if (action === 'seo-yukle') {
+      const { kelimeler, sayfalar, rakipler } = body
+      if (!Array.isArray(kelimeler) || !kelimeler.length)
+        return Response.json({ hata: 'kelimeler dizisi gerekli' }, { status: 400, headers: CORS })
+      const seo = {
+        guncelleme: new Date().toISOString(), kaynak: body.kaynak || 'claude-mcp',
+        tarih: body.tarih || new Date().toISOString().slice(0, 10),
+        kelimeler, sayfalar: sayfalar || [], rakipler: rakipler || [],
+      }
+      await env.HABERLER.put('arama:seo', JSON.stringify(seo))
+      return Response.json({ ok: true, adet: { kelime: kelimeler.length, sayfa: (sayfalar || []).length, rakip: (rakipler || []).length } }, { headers: CORS })
+    }
 
     if (action === 'kelime-ekle') {
       const kw = String(govde.kw || '').trim().toLowerCase()
