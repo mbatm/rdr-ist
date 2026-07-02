@@ -44,7 +44,8 @@ const pct = v => encodeURIComponent(String(v ?? ''))
 
 export async function onRequestGet({ request, env }) {
   const apiKey = request.headers.get('X-API-Key')
-  if (apiKey !== env.RSS_API_KEY)
+  const ref = request.headers.get('referer') || ''
+  if (apiKey !== env.RSS_API_KEY && !ref.includes('rdr.ist'))
     return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
 
   const creds = {
