@@ -45,6 +45,31 @@ async function kelimeleriKaydet(env, liste) {
 function ayniKelime(a, b) {
   return String(a.kw).toLowerCase().trim() === String(b.kw).toLowerCase().trim()
 }
+// ── Ahrefs API v3'ten SEO verisi çek + KV'ye yaz (seo-guncelle + haftalık lazy-cron ortak) ──
+async function seoAhrefsCek(env) {
+  const tarih = new Date().toISOString().slice(0, 10)
+  const H = { 'Authorization': 'Bearer ' + env.AHREFS_TOKEN, 'Accept': 'application/json' }
+  const cek = async (yol, params) => {
+    const u = new URL('https://api.ahrefs.com/v3/' + yol)
+    for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
+    const r = await fetch(u.toString(), { headers: H })
+    if (!r.ok) throw new Error(yol + ' → HTTP ' + r.status + ': ' + (await r.text()).slice(0, 150))
+    return r.json()
+  }
+  const ortak = { target: 'kayserim.net', mode: 'subdomains', country: 'tr', date: tarih }
+  const [kw, tp, oc] = await Promise.all([
+    cek('site-explorer/organic-keywords', { ...ortak, limit: '100', order_by: 'volume:desc', select: 'keyword,best_position,volume,sum_traffic,best_position_url' }),
+    cek('site-explorer/top-pages', { ...ortak, limit: '20', order_by: 'sum_traffic:desc', select: 'url,sum_traffic,keywords,top_keyword,top_keyword_best_position,top_keyword_volume' }),
+    cek('site-explorer/organic-competitors', { ...ortak, limit: '10', select: 'competitor_domain,keywords_common,share,traffic,domain_rating' }),
+  ])
+  const seo = {
+    guncelleme: new Date().toISOString(), kaynak: 'ahrefs-api', tarih,
+    kelimeler: kw.keywords || [], sayfalar: tp.pages || [], rakipler: oc.competitors || [],
+  }
+  await env.HABERLER.put('arama:seo', JSON.stringify(seo))
+  return seo
+}
+
 async function yetkili(secret, env, request) {
   const ref = (request && request.headers.get('referer')) || ''
   if (ref.includes('rdr.ist') || ref.includes('kayserim.net')) return true
@@ -170,7 +195,8 @@ async function sonucToparla(env) {
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet(context) {
+  const { request, env } = context
   const url = new URL(request.url)
   const action = url.searchParams.get('action') || 'kelimeler'
   try {
@@ -206,7 +232,24 @@ export async function onRequestGet({ request, env }) {
     }
     if (action === 'seo') {
       const seo = await env.HABERLER.get('arama:seo', 'json') || null
-      return Response.json({ ok: true, seo }, { headers: CORS })
+      // HAFTALIK OTOMATİK TAZELEME: AHREFS_TOKEN tanımlıysa ve veri 7 günden
+      // eskiyse arka planda Ahrefs'ten çek (kilit ile çift çekim önlenir).
+      // Haftalık çekim ≈ 2.900 API birimi — birim bütçesine saygılı.
+      let otomatikTazeleme = false
+      try {
+        if (env.AHREFS_TOKEN) {
+          const yas = seo ? Date.now() - Date.parse(seo.guncelleme) : Infinity
+          if (yas > 7 * 24 * 36e5) {
+            const kilit = await env.HABERLER.get('arama:seo_kilit')
+            if (!kilit) {
+              await env.HABERLER.put('arama:seo_kilit', String(Date.now()), { expirationTtl: 600 })
+              context.waitUntil(seoAhrefsCek(env).catch(() => {}))
+              otomatikTazeleme = true
+            }
+          }
+        }
+      } catch (_) {}
+      return Response.json({ ok: true, seo, otomatik_tazeleme: otomatikTazeleme, token_var: !!env.AHREFS_TOKEN }, { headers: CORS })
     }
 
     // Ahrefs API v3'ten doğrudan tazeleme — env.AHREFS_TOKEN gerekli.
@@ -222,26 +265,7 @@ export async function onRequestGet({ request, env }) {
       if (!force && mevcutSeo && (Date.now() - Date.parse(mevcutSeo.guncelleme)) < 20 * 36e5) {
         return Response.json({ ok: true, atlandi: true, sebep: 'Veri 20 saatten taze — Ahrefs birimi harcanmadı (zorlamak için force=1)', seo: mevcutSeo }, { headers: CORS })
       }
-      const tarih = new Date().toISOString().slice(0, 10)
-      const H = { 'Authorization': 'Bearer ' + env.AHREFS_TOKEN, 'Accept': 'application/json' }
-      const cek = async (yol, params) => {
-        const u = new URL('https://api.ahrefs.com/v3/' + yol)
-        for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
-        const r = await fetch(u.toString(), { headers: H })
-        if (!r.ok) throw new Error(yol + ' → HTTP ' + r.status + ': ' + (await r.text()).slice(0, 150))
-        return r.json()
-      }
-      const ortak = { target: 'kayserim.net', mode: 'subdomains', country: 'tr', date: tarih }
-      const [kw, tp, oc] = await Promise.all([
-        cek('site-explorer/organic-keywords', { ...ortak, limit: '100', order_by: 'volume:desc', select: 'keyword,best_position,volume,sum_traffic,best_position_url' }),
-        cek('site-explorer/top-pages', { ...ortak, limit: '20', order_by: 'sum_traffic:desc', select: 'url,sum_traffic,keywords,top_keyword,top_keyword_best_position,top_keyword_volume' }),
-        cek('site-explorer/organic-competitors', { ...ortak, limit: '10', select: 'competitor_domain,keywords_common,share,traffic,domain_rating' }),
-      ])
-      const seo = {
-        guncelleme: new Date().toISOString(), kaynak: 'ahrefs-api', tarih,
-        kelimeler: kw.keywords || [], sayfalar: tp.pages || [], rakipler: oc.competitors || [],
-      }
-      await env.HABERLER.put('arama:seo', JSON.stringify(seo))
+      const seo = await seoAhrefsCek(env)
       return Response.json({ ok: true, adet: { kelime: seo.kelimeler.length, sayfa: seo.sayfalar.length, rakip: seo.rakipler.length } }, { headers: CORS })
     }
 
