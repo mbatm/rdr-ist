@@ -48,7 +48,7 @@ function ayniKelime(a, b) {
 // ── Ahrefs API v3'ten SEO verisi çek + KV'ye yaz (seo-guncelle + haftalık lazy-cron ortak) ──
 async function seoAhrefsCek(env) {
   const tarih = new Date().toISOString().slice(0, 10)
-  const H = { 'Authorization': 'Bearer ' + env.AHREFS_TOKEN, 'Accept': 'application/json' }
+  const H = { 'Authorization': 'Bearer ' + (env.AHREFS_TOKEN || env.AHREFS_API_KEY), 'Accept': 'application/json' }
   const cek = async (yol, params) => {
     const u = new URL('https://api.ahrefs.com/v3/' + yol)
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
@@ -237,7 +237,7 @@ export async function onRequestGet(context) {
       // Haftalık çekim ≈ 2.900 API birimi — birim bütçesine saygılı.
       let otomatikTazeleme = false
       try {
-        if (env.AHREFS_TOKEN) {
+        if (env.AHREFS_TOKEN || env.AHREFS_API_KEY) {
           const yas = seo ? Date.now() - Date.parse(seo.guncelleme) : Infinity
           if (yas > 7 * 24 * 36e5) {
             const kilit = await env.HABERLER.get('arama:seo_kilit')
@@ -249,14 +249,14 @@ export async function onRequestGet(context) {
           }
         }
       } catch (_) {}
-      return Response.json({ ok: true, seo, otomatik_tazeleme: otomatikTazeleme, token_var: !!env.AHREFS_TOKEN }, { headers: CORS })
+      return Response.json({ ok: true, seo, otomatik_tazeleme: otomatikTazeleme, token_var: !!(env.AHREFS_TOKEN || env.AHREFS_API_KEY) }, { headers: CORS })
     }
 
     // Ahrefs API v3'ten doğrudan tazeleme — env.AHREFS_TOKEN gerekli.
     // Token yoksa veri Claude oturumundan seo-yukle ile beslenir (anlık görüntü).
     if (action === 'seo-guncelle') {
       if (!(await yetkili(secret, env, request))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
-      if (!env.AHREFS_TOKEN) {
+      if (!(env.AHREFS_TOKEN || env.AHREFS_API_KEY)) {
         return Response.json({ hata: 'AHREFS_TOKEN tanımlı değil. Cloudflare Pages → Settings → Environment variables bölümüne Ahrefs API anahtarı eklenirse bu buton doğrudan Ahrefs\'ten canlı çeker. O zamana kadar veriler Claude oturumundan güncellenir.' }, { status: 400, headers: CORS })
       }
       // API birimi koruması: 20 saatten taze veri varsa yeniden çekme (force=1 hariç)
