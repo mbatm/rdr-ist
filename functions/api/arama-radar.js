@@ -264,12 +264,12 @@ export async function onRequestPost({ request, env }) {
 
     // SEO verisi ingest — Claude/MCP oturumundan veya harici betikten anlık görüntü yükleme
     if (action === 'seo-yukle') {
-      const { kelimeler, sayfalar, rakipler } = body
+      const { kelimeler, sayfalar, rakipler } = govde
       if (!Array.isArray(kelimeler) || !kelimeler.length)
         return Response.json({ hata: 'kelimeler dizisi gerekli' }, { status: 400, headers: CORS })
       const seo = {
-        guncelleme: new Date().toISOString(), kaynak: body.kaynak || 'claude-mcp',
-        tarih: body.tarih || new Date().toISOString().slice(0, 10),
+        guncelleme: new Date().toISOString(), kaynak: govde.kaynak || 'claude-mcp',
+        tarih: govde.tarih || new Date().toISOString().slice(0, 10),
         kelimeler, sayfalar: sayfalar || [], rakipler: rakipler || [],
       }
       await env.HABERLER.put('arama:seo', JSON.stringify(seo))
