@@ -1,5 +1,11 @@
 export async function onRequestPost({ request, env }) {
   try {
+    // YETKİ: RSS_API_KEY veya geçerli CMS oturum token'ı (önceden kontrolsüzdü!)
+    const apiKey = request.headers.get('X-API-Key') || ''
+    const cmsToken = apiKey && apiKey !== env.RSS_API_KEY ? await env.HABERLER.get('token:' + apiKey, 'json') : null
+    if (apiKey !== env.RSS_API_KEY && !cmsToken)
+      return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
+
     const { platform, post_id, page_id } = await request.json()
     if (!platform || !post_id) return Response.json({ hata: 'platform ve post_id gerekli' }, { status: 400 })
 
