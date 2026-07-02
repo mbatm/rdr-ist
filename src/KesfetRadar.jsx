@@ -124,6 +124,30 @@ export default function KesfetRadar({ user, onGeri, onManuelAc }) {
   const [calisiyor, setCalisiyor] = useState(false)
   const [kaydet, setKaydet] = useState(false)
   const [otoMsg, setOtoMsg] = useState(null)
+  const [kaynaklar, setKaynaklar] = useState([])
+  const [kaynakAcik, setKaynakAcik] = useState(false)
+  const [yeniKaynak, setYeniKaynak] = useState('')
+
+  const kaynakGetir = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/kesfet-radar?action=sources`)
+      const d = await r.json()
+      if (d.ok) setKaynaklar(d.kaynaklar || [])
+    } catch (_) {}
+  }, [])
+
+  const kaynakIslem = async (islem, govde) => {
+    try {
+      const r = await fetch(`/api/kesfet-radar?action=${islem}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...govde, action: islem, secret: token }),
+      })
+      const d = await r.json()
+      if (d.hata) { setHata(d.hata); return false }
+      kaynakGetir()
+      return true
+    } catch (e) { setHata(e.message); return false }
+  }
 
   const getir = useCallback(async () => {
     setYukleniyor(true); setHata(null)
@@ -349,6 +373,10 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
           ))}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => { setKaynakAcik(a => !a); if (!kaynaklar.length) kaynakGetir() }} title="İzlenen rakip kaynaklar"
+            style={{ fontSize: 12, color: 'var(--muted)', background: 'transparent', border: '0.5px solid var(--border)' }}>
+            ⚙ Kaynaklar
+          </button>
           <button onClick={() => setAyarAcik(a => !a)} title="Oto ayarlar"
             style={{ fontSize: 12, color: ayar?.aktif ? '#00D4AA' : 'var(--muted)', background: ayar?.aktif ? 'rgba(0,212,170,.1)' : 'transparent', border: '0.5px solid var(--border)' }}>
             ⚙ Oto {ayar ? (ayar.aktif ? `· ${ayar.mod === 'oto' ? 'TAM' : 'YARI'}` : '· pasif') : ''}
@@ -360,6 +388,38 @@ Yerel: ${f.yerel ? 'evet' : 'belirsiz'}
           </button>
         </div>
       </div>
+
+      {kaynakAcik && (
+        <div style={{ padding: '10px 1rem', borderBottom: '0.5px solid var(--border)', background: 'rgba(77,171,247,.04)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>İzlenen rakip kaynaklar — deploy gerekmeden ekle/çıkar</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {kaynaklar.map(k => (
+              <span key={k.domain} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, background: 'rgba(255,255,255,.04)', border: '0.5px solid var(--border)', borderRadius: 14, padding: '3px 6px 3px 10px', opacity: k.aktif === false ? 0.45 : 1 }}>
+                <span style={{ color: 'var(--text)' }}>{k.domain}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 10 }}>ö{k.oncelik}</span>
+                <button onClick={() => kaynakIslem('kaynak-guncelle', { domain: k.domain, aktif: k.aktif === false })}
+                  title={k.aktif === false ? 'Aktifleştir' : 'Duraklat'}
+                  style={{ fontSize: 10, background: 'transparent', border: 'none', color: k.aktif === false ? '#00D4AA' : '#FFB700', cursor: 'pointer', padding: '0 2px' }}>
+                  {k.aktif === false ? '▶' : '⏸'}
+                </button>
+                <button onClick={() => window.confirm(k.domain + ' listeden çıkarılsın mı?') && kaynakIslem('kaynak-sil', { domain: k.domain })}
+                  style={{ fontSize: 11, background: 'transparent', border: 'none', color: '#ff6b6b', cursor: 'pointer', padding: '0 2px' }}>✕</button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input value={yeniKaynak} onChange={e => setYeniKaynak(e.target.value)}
+              onKeyDown={async e => { if (e.key === 'Enter' && yeniKaynak.trim()) { if (await kaynakIslem('kaynak-ekle', { domain: yeniKaynak })) setYeniKaynak('') } }}
+              placeholder="yenisite.com.tr"
+              style={{ fontSize: 12, background: 'var(--bg)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 5, padding: '4px 10px', width: 200 }} />
+            <button onClick={async () => { if (yeniKaynak.trim() && await kaynakIslem('kaynak-ekle', { domain: yeniKaynak })) setYeniKaynak('') }}
+              style={{ fontSize: 12, color: '#4dabf7', background: 'rgba(77,171,247,0.10)', border: '0.5px solid rgba(77,171,247,0.30)', borderRadius: 5, padding: '4px 12px' }}>
+              + Ekle
+            </button>
+            <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Feed'i yoksa Apify GNews yedeği otomatik devreye girer · değişiklik sonraki taramada geçerli</span>
+          </div>
+        </div>
+      )}
 
       {ayarAcik && ayar && (
         <div style={{ padding: '10px 1rem', borderBottom: '0.5px solid var(--border)', background: 'rgba(155,107,255,.04)' }}>
