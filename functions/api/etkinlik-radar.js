@@ -381,6 +381,103 @@ async function instagramSonucToparla(env, maxYasSaat = 48) {
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
+// ── Canlı etkinlik için AI destekli alternatif başlık üretimi ────────────────
+// Post'un GERÇEK içeriğinden ayrılmadan, sadece farklı vurgu/açı sunar — uydurma yok.
+async function canliAlternatifUret(env, firsatId) {
+  if (!env.ANTHROPIC_API_KEY) return { ok: false, error: 'ANTHROPIC_API_KEY tanımlı değil' }
+  const liste = await env.HABERLER.get('etkinlik:firsatlar', 'json') || []
+  const f = liste.find(x => x.id === firsatId)
+  if (!f) return { ok: false, error: 'Fırsat bulunamadı' }
+
+  // Daha önce üretilmişse tekrar üretme (maliyet tasarrufu)
+  if (f._alternatifler) return { ok: true, alternatifler: f._alternatifler, onbellek: true }
+
+  const tarihMetin = f.etkinlik_tarihi
+    ? new Date(f.etkinlik_tarihi).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+    : 'belirtilmemiş'
+
+  const sistem = `Sen kayserim.net'in yerel haber editörüsün. Verilen sosyal medya paylaşımının GERÇEK içeriğine sadık kalarak farklı haber açıları önerirsin. METİNDE OLMAYAN HİÇBİR BİLGİ EKLEME — sayı, isim, detay uydurma. Sadece verilen bilgiyi farklı vurgu/başlıklarla sun. Sadece JSON döndür.`
+  const kullanici = `KAYNAK: ${f.etiket || f.hesap}
+PAYLAŞIM: ${f.tam_metin || f.baslik}
+ETKİNLİK TARİHİ: ${tarihMetin}
+
+Bu paylaşımdan yola çıkarak editörün seçebileceği 2-3 farklı haber başlığı öner. Her biri AYNI gerçek bilgiye dayanmalı, sadece farklı okuyucu ilgisine/açıya hitap etmeli (örn: pratik bilgi odaklı, etkinlik önemi odaklı, katılım çağrısı odaklı). Her biri için 1 cümlelik brief ver.
+Sadece JSON döndür: {"alternatifler":[{"baslik":"...","aci":"..."}]}`
+
+  try {
+    const ctrl = new AbortController()
+    const to = setTimeout(() => ctrl.abort(), 30000)
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 700, system: sistem, messages: [{ role: 'user', content: kullanici }] }),
+      signal: ctrl.signal,
+    })
+    clearTimeout(to)
+    const data = await r.json()
+    if (data.error) return { ok: false, error: data.error?.message || 'Anthropic hatası' }
+    const raw = data.content?.[0]?.text || ''
+    const jm = raw.match(/\{[\s\S]*\}/)
+    if (!jm) return { ok: false, error: 'JSON parse hatası' }
+    const parsed = JSON.parse(jm[0])
+    const alternatifler = parsed.alternatifler || []
+
+    // Cache'le — fırsat listesine yaz
+    f._alternatifler = alternatifler
+    await env.HABERLER.put('etkinlik:firsatlar', JSON.stringify(liste))
+    return { ok: true, alternatifler }
+  } catch (e) {
+    return { ok: false, error: e.name === 'AbortError' ? 'Zaman aşımı' : e.message }
+  }
+}
+
+// Seçilen alternatif açıdan tam haber metni üretir — kaynak içeriğe sadık, ekleme yok.
+async function canliTaslakUret(env, firsatId, altId) {
+  if (!env.ANTHROPIC_API_KEY) return { ok: false, error: 'ANTHROPIC_API_KEY tanımlı değil' }
+  const liste = await env.HABERLER.get('etkinlik:firsatlar', 'json') || []
+  const f = liste.find(x => x.id === firsatId)
+  if (!f) return { ok: false, error: 'Fırsat bulunamadı' }
+  const alt = (f._alternatifler || [])[altId]
+  if (!alt) return { ok: false, error: 'Alternatif bulunamadı' }
+
+  const tarihMetin = f.etkinlik_tarihi
+    ? new Date(f.etkinlik_tarihi).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    : ''
+
+  const sistem = `Sen kayserim.net'in yerel haber editörüsün. Kayseri merkezli, SEO uyumlu haber yazarsın. SADECE verilen kaynak paylaşımdaki bilgileri kullan — yeni bilgi, sayı, isim, detay UYDURMA/EKLEME. Sadece JSON döndür.`
+  const kullanici = `KAYNAK PAYLAŞIM (${f.etiket || f.hesap}): ${f.tam_metin || f.baslik}
+ETKİNLİK TARİHİ: ${tarihMetin || 'belirtilmemiş'}
+SEÇİLEN HABER AÇISI: ${alt.baslik}
+BRIEF: ${alt.aci}
+
+KURALLAR:
+- Başlık seçilen açıya uygun olsun
+- 200-350 kelime, SADECE kaynak paylaşımdaki bilgileri kullan
+- Kesinleşmemiş detay yoksa (saat/yer net değilse) uydurma, "etkinlik detayları" gibi genel ifade kullan
+- Sadece JSON döndür: {"baslik":"...","metin":"...","kategori":"Güncel"}`
+
+  try {
+    const ctrl = new AbortController()
+    const to = setTimeout(() => ctrl.abort(), 30000)
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200, system: sistem, messages: [{ role: 'user', content: kullanici }] }),
+      signal: ctrl.signal,
+    })
+    clearTimeout(to)
+    const data = await r.json()
+    if (data.error) return { ok: false, error: data.error?.message || 'Anthropic hatası' }
+    const raw = data.content?.[0]?.text || ''
+    const jm = raw.match(/\{[\s\S]*\}/)
+    if (!jm) return { ok: false, error: 'JSON parse hatası' }
+    const parsed = JSON.parse(jm[0])
+    return { ok: true, baslik: parsed.baslik || alt.baslik, metin: parsed.metin || '', kategori: parsed.kategori || 'Güncel' }
+  } catch (e) {
+    return { ok: false, error: e.name === 'AbortError' ? 'Zaman aşımı' : e.message }
+  }
+}
+
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url)
   const action = url.searchParams.get('action') || 'kaynaklar'
@@ -489,6 +586,14 @@ export async function onRequestPost({ request, env }) {
       f[alan] = !!deger
       await env.HABERLER.put('etkinlik:firsatlar', JSON.stringify(liste))
       return Response.json({ ok: true, guncellendi: { id, alan, deger: f[alan] } }, { headers: CORS })
+    }
+    if (action === 'alternatif-uret') {
+      const r = await canliAlternatifUret(env, govde.id)
+      return Response.json(r, { status: r.ok ? 200 : 500, headers: CORS })
+    }
+    if (action === 'canli-taslak-uret') {
+      const r = await canliTaslakUret(env, govde.id, govde.alt_id ?? 0)
+      return Response.json(r, { status: r.ok ? 200 : 500, headers: CORS })
     }
     return Response.json({ hata: 'Bilinmeyen action' }, { status: 400, headers: CORS })
   } catch (e) {
