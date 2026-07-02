@@ -38,6 +38,33 @@ export async function onRequestPost({ request, env }) {
       } catch { return null }
     }
 
+    // media_publish YANITINI NETLEŞTİRİR:
+    // Meta bazen (özellikle çok hesaba paralel paylaşımda) geçici 190 gibi hatalar
+    // döndürür ama içeriği ASLINDA yayınlar. Hata durumunda 4sn bekleyip container'ın
+    // status_code'u sorulur — PUBLISHED ise paylaşım başarılı kabul edilir.
+    const igPublishNetlestir = async (igId, containerId, pageToken, igUsername, ekstra = {}) => {
+      const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ creation_id: containerId, access_token: pageToken }),
+      })
+      const pData = await pRes.json()
+      if (!pData.error) {
+        return { ok:true, media_id:pData.id, ig_username:igUsername, permalink: await permalinkTeyit(pData.id, pageToken), ...ekstra }
+      }
+      // Şüpheli hata — Meta yayınlamış olabilir, container durumuyla doğrula
+      await new Promise(r=>setTimeout(r,4000))
+      try {
+        const sRes = await fetch(`https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${pageToken}`)
+        const sD = await sRes.json()
+        if (sD.status_code === 'PUBLISHED') {
+          return { ok:true, media_id:null, ig_username:igUsername,
+            dogrulama:'Meta hata döndürdü ama container PUBLISHED — içerik gerçekte yayınlandı',
+            gecici_hata:(pData.error.message||'').slice(0,100), ...ekstra }
+        }
+      } catch {}
+      return { hata: pData.error.message }
+    }
+
     const r2Kopyala = async (url, tip = 'gorsel') => {
       if (!url) return url
       // Zaten medya.rdr.ist ise kopyalama
@@ -196,14 +223,7 @@ export async function onRequestPost({ request, env }) {
               const carData = await carRes.json()
               if (!carData.error) {
                 await new Promise(r=>setTimeout(r,2000))
-                const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
-                  method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ creation_id: carData.id, access_token: sayfa.page_token }),
-                })
-                const pData = await pRes.json()
-                sonuclar.instagram[igId] = pData.error
-                  ? { hata: pData.error.message }
-                  : { ok:true, media_id: pData.id, ig_username: sayfa.ig_username, carousel: true, permalink: await permalinkTeyit(pData.id, sayfa.page_token) }
+                sonuclar.instagram[igId] = await igPublishNetlestir(igId, carData.id, sayfa.page_token, sayfa.ig_username, { carousel: true })
               } else {
                 sonuclar.instagram[igId] = { hata: carData.error.message }
               }
@@ -241,14 +261,7 @@ export async function onRequestPost({ request, env }) {
               )
               const statusData = await statusRes.json()
               if (statusData.status_code === 'FINISHED') {
-                const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
-                  method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ creation_id: containerId, access_token: sayfa.page_token }),
-                })
-                const pData = await pRes.json()
-                sonuclar.instagram[igId] = pData.error
-                  ? { hata: pData.error.message }
-                  : { ok:true, media_id: pData.id, ig_username: sayfa.ig_username, permalink: await permalinkTeyit(pData.id, sayfa.page_token) }
+                sonuclar.instagram[igId] = await igPublishNetlestir(igId, containerId, sayfa.page_token, sayfa.ig_username)
                 published = true
                 break
               } else if (statusData.status_code === 'ERROR') {
@@ -288,12 +301,7 @@ export async function onRequestPost({ request, env }) {
             sonuclar.instagram[igId] = { hata:cData.error.message }
           } else {
             await new Promise(r=>setTimeout(r,2000))
-            const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ creation_id:cData.id, access_token:sayfa.page_token }),
-            })
-            const pData = await pRes.json()
-            sonuclar.instagram[igId] = pData.error ? { hata:pData.error.message } : { ok:true, media_id:pData.id, ig_username:sayfa.ig_username, permalink: await permalinkTeyit(pData.id, sayfa.page_token) }
+            sonuclar.instagram[igId] = await igPublishNetlestir(igId, cData.id, sayfa.page_token, sayfa.ig_username)
           }
         }
 
