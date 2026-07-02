@@ -79,3 +79,29 @@ jobs:
         run: |
           SONUC=$(curl -sf --max-time 60 "https://rdr.ist/api/temizle?secret=${{ secrets.RSS_API_KEY }}&gun=10" 2>&1) || true
           echo "Temizlik: $SONUC"
+
+  tani:
+    name: Sistem Tanı (elle tetikleme)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sağlık Kontrolleri
+        run: |
+          TW=$(curl -s --max-time 30 -H "X-API-Key: ${{ secrets.RSS_API_KEY }}" "https://rdr.ist/api/twitter-test") || TW='{"hata":"erisim"}'
+          YT=$(curl -s --max-time 30 "https://rdr.ist/api/youtube-durum?secret=${{ secrets.RSS_API_KEY }}") || YT='{"hata":"erisim"}'
+          AH=$(curl -s --max-time 60 "https://rdr.ist/api/ahrefs-sync?secret=${{ secrets.RSS_API_KEY }}") || AH='{"hata":"erisim"}'
+          SEO=$(curl -s --max-time 30 "https://rdr.ist/api/arama-radar?action=seo" | head -c 400) || SEO='{"hata":"erisim"}'
+          printf '{"zaman":"%s","twitter_test":%s,"youtube_durum":%s,"ahrefs_sync":%s,"arama_seo_ozet":%s}\n' \
+            "$(date -u +%FT%TZ)" "$TW" "$YT" "$AH" "\"$(echo $SEO | tr -d '"' | head -c 300)\"" > tani-sonuc.json
+          cat tani-sonuc.json
+      - name: Sonucu Kaydet
+        run: |
+          git config user.name "tani-bot"
+          git config user.email "tani@rdr.ist"
+          git add tani-sonuc.json
+          git commit -m "chore(tani): sistem saglik raporu [skip ci]" || echo "değişiklik yok"
+          git push
