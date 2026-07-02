@@ -7,8 +7,44 @@
  * HaberKodu, UstKategori, Kategori, Sehir, SonDakika,
  * title, description, body, pubDate, images, videos
  */
-export async function onRequestGet({ env }) {
+// ── NABIZ: kayserim.net bu feed'i sürekli çektiği için burası sistemin kalp
+// atışıdır. GitHub cron ~3 saate düşebildiğinden, zamanlanmış işler feed
+// trafiğine bindirilerek garanti altına alınır. Yanıt bekletilmez (waitUntil).
+async function nabiz(env) {
   try {
+    const kilit = await env.HABERLER.get('nabiz:kilit')
+    if (kilit) return
+    await env.HABERLER.put('nabiz:kilit', String(Date.now()), { expirationTtl: 240 })
+    const durum = await env.HABERLER.get('nabiz:durum', 'json') || {}
+    const simdi = Date.now()
+    const isler = []
+    const S = encodeURIComponent(env.RSS_API_KEY || '')
+    // 1ha haber işleme — hedef her 10 dk (cron sadece ~3 saatte bir yetişiyor)
+    if (simdi - (durum.oto || 0) > 10 * 60e3) {
+      durum.oto = simdi
+      isler.push(fetch(`https://rdr.ist/api/oto-isle?adet=10&secret=${S}`).catch(() => {}))
+    }
+    // Sosyal Radar — saatte bir (tara kendi penceresini ve Apify fazını yönetir)
+    if (simdi - (durum.sosyal || 0) > 60 * 60e3) {
+      durum.sosyal = simdi
+      isler.push(fetch(`https://rdr.ist/api/sosyal-radar?action=tara`).catch(() => {}))
+    }
+    // Etkinlik Radar — saatte bir
+    if (simdi - (durum.etkinlik || 0) > 60 * 60e3) {
+      durum.etkinlik = simdi
+      isler.push(fetch(`https://rdr.ist/api/etkinlik-radar?action=tara`).catch(() => {}))
+    }
+    if (isler.length) {
+      await env.HABERLER.put('nabiz:durum', JSON.stringify(durum))
+      await Promise.allSettled(isler)
+    }
+  } catch (_) {}
+}
+
+export async function onRequestGet(context) {
+  const { env } = context
+  try {
+    context.waitUntil(nabiz(env))
     const haberler      = (await env.HABERLER.get('liste', 'json'))       || []
     const radarHaberlerTum = (await env.HABERLER.get('radar_liste', 'json')) || []
     // kayserim.net kaynaklı haberleri çıkar — zaten 1ha feed'inde var
