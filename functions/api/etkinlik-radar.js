@@ -77,9 +77,12 @@ function kaynagiCozumle(girdi) {
       const host = u.hostname.toLowerCase()
       const ilkSegment = u.pathname.split('/').filter(Boolean)[0] || ''
       const seg = ilkSegment.replace(/^@/, '')
-      if (host.includes('instagram.com') && seg) return { platform: 'instagram', handle: seg }
-      if ((host.includes('twitter.com') || host.includes('x.com')) && seg) return { platform: 'twitter', handle: seg }
-      if (host.includes('facebook.com') && seg) return { platform: 'facebook', handle: seg }
+      // Tam hostname eşleşmesi (substring DEĞİL) — yoksa "biletix.com" içindeki
+      // "x.com" parçası Twitter sanılıyor, benzer adresler de yanıltabilir.
+      const hostEsit = (h, alan) => h === alan || h.endsWith('.' + alan)
+      if (hostEsit(host, 'instagram.com') && seg) return { platform: 'instagram', handle: seg }
+      if ((hostEsit(host, 'twitter.com') || hostEsit(host, 'x.com')) && seg) return { platform: 'twitter', handle: seg }
+      if (hostEsit(host, 'facebook.com') && seg) return { platform: 'facebook', handle: seg }
       // Sosyal medya değilse (ya da path yoksa) → web kaynağı, tam URL saklanır
       return { platform: 'web', handle: s, url: s }
     } catch (_) {
@@ -515,6 +518,21 @@ export async function onRequestGet({ request, env }) {
       await env.HABERLER.put('etkinlik:firsatlar', JSON.stringify([]))
       await env.HABERLER.put('etkinlik:gorulen', JSON.stringify([]))
       return Response.json({ ok: true, mesaj: 'Fırsat cache temizlendi' }, { headers: CORS })
+    }
+    // GEÇİCİ TEŞHİS: Biletix API endpoint keşfi — sadece biletix.com'a izinli
+    if (action === 'biletix-teshis') {
+      const hedef = url.searchParams.get('u') || ''
+      let h
+      try { h = new URL(hedef).hostname } catch (_) { return Response.json({ hata: 'geçersiz url' }, { headers: CORS }) }
+      if (!(h === 'biletix.com' || h.endsWith('.biletix.com'))) {
+        return Response.json({ hata: 'sadece biletix.com' }, { status: 400, headers: CORS })
+      }
+      const res = await fetch(hedef, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.biletix.com/' },
+        cf: { cacheTtl: 0, cacheEverything: false },
+      })
+      const govde = await res.text()
+      return Response.json({ status: res.status, tip: res.headers.get('content-type'), ilk800: govde.slice(0, 800) }, { headers: CORS })
     }
     return Response.json({ hata: 'Bilinmeyen action', mevcut: ['kaynaklar', 'firsatlar', 'tara', 'topla', 'temizle'] },
       { status: 400, headers: CORS })
