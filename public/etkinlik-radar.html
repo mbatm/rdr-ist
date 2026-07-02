@@ -283,6 +283,7 @@ async function yaklasaniYukle(){
       birlesik.push({
         tarih: f.etkinlik_tarihi, gun_kala: gunKala,
         baslik: f.baslik, tip: 'canli', kaynak: f.etiket || f.hesap, link: f.link,
+        tam_metin: f.tam_metin || f.baslik, gorsel_url: f.gorsel_url || null, video_url: f.video_url || null,
       });
     }
   } catch(e) {}
@@ -300,6 +301,7 @@ async function yaklasaniYukle(){
     const baslikHtml = g.link ? `<a href="${esc(g.link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(g.baslik)}</a>` : esc(g.baslik);
     const altSayisi = (g.alternatifler||[]).length;
     const altButon = altSayisi ? `<button onclick="altAcKapat(${idx})" style="font-size:11px;padding:2px 8px">✍️ ${altSayisi} başlık önerisi</button>` : '';
+    const haberButon = g.tip==='canli' ? `<button onclick="haberlestirYaklasan(${idx})" style="font-size:11px;padding:2px 10px;background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600">📰 Haberleştir</button>` : '';
     return `<div class="yg-kart ${yakin?'yg-yakin':''}">
       <div class="yg-tarih"><div class="gun">${gun}</div><div class="ay">${ay}</div></div>
       <div class="yg-icerik" style="flex:1">
@@ -309,6 +311,7 @@ async function yaklasaniYukle(){
           <span>${esc(g.kaynak||'')}</span>
           ${g.gun_kala!=null ? `<span>${g.gun_kala===0?'Bugün':g.gun_kala===1?'Yarın':g.gun_kala+' gün sonra'}</span>` : ''}
           ${altButon}
+          ${haberButon}
         </div>
         <div id="alt-${idx}" style="display:none;margin-top:10px"></div>
       </div>
@@ -352,6 +355,21 @@ async function taslakUret(gunId, altId, btnEl){
     btnEl.textContent = 'Hata: ' + e.message;
     setTimeout(()=>{ btnEl.textContent = eskiMetin; btnEl.disabled = false; }, 3000);
   }
+}
+
+function haberlestirYaklasan(idx){
+  const g = yaklasanVeri[idx];
+  if (!g) return;
+  const tarihMetin = g.tarih ? new Date(g.tarih).toLocaleDateString('tr-TR', {day:'numeric', month:'long', timeZone:'UTC'}) : '';
+  const prefill = {
+    baslik: g.baslik,
+    metin: (g.tam_metin || g.baslik) + (tarihMetin ? `\n\nEtkinlik tarihi: ${tarihMetin}` : ''),
+    kategori: 'Güncel',
+  };
+  if (g.video_url) prefill.video_url = g.video_url;
+  else if (g.gorsel_url) prefill.gorsel_url = g.gorsel_url;
+  prefill.kaynak_notu = (g.kaynak || '') + ' · ' + (g.link || '');
+  try { window.parent.postMessage({ type: 'rdrist:haberlestir', prefill }, '*'); } catch(e) {}
 }
 </script>
 </body>
