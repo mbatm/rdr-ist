@@ -367,7 +367,7 @@ async function anlikKwCek(haber, ahrefsKey) {
     if (kelimeler.length === 0) return null
     const sorgular = kelimeler.map(k => `kayseri ${k}`).join(',')
     const res = await fetch(
-      `https://apiv3.ahrefs.com/v3/keywords-explorer/overview?country=tr&keywords=${encodeURIComponent(sorgular)}&select=keyword,volume,difficulty,traffic_potential`,
+      `https://api.ahrefs.com/v3/keywords-explorer/overview?country=tr&keywords=${encodeURIComponent(sorgular)}&select=keyword,volume,difficulty,traffic_potential`,
       { headers: { 'Authorization': `Bearer ${ahrefsKey}` } }
     )
     const data = await res.json()
