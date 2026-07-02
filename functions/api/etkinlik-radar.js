@@ -521,7 +521,9 @@ export async function onRequestGet({ request, env }) {
     }
     // GEÇİCİ TEŞHİS: Biletix API endpoint keşfi — sadece biletix.com'a izinli
     if (action === 'biletix-teshis') {
-      const hedef = url.searchParams.get('u') || ''
+      let hedef = url.searchParams.get('u') || ''
+      const u64 = url.searchParams.get('u64') || ''
+      if (u64) { try { hedef = atob(u64) } catch (_) {} }
       let h
       try { h = new URL(hedef).hostname } catch (_) { return Response.json({ hata: 'geçersiz url' }, { headers: CORS }) }
       if (!(h === 'biletix.com' || h.endsWith('.biletix.com'))) {
