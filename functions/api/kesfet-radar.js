@@ -33,7 +33,7 @@ const KAYNAKLAR = [
 // Her domain için sırayla denenecek olası feed yolları
 function feedAdaylari(domain) {
   const bases = ['https://www.' + domain, 'https://' + domain]
-  const paths = ['/rss/', '/rss', '/feed/', '/feed', '/rss.xml', '/export/rss', '/sitemap-news.xml']
+  const paths = ['/rss/', '/rss', '/feed/', '/feed', '/rss.xml', '/feed.xml', '/?feed=rss2', '/export/rss', '/sitemap-news.xml']
   const list = []
   for (const b of bases) for (const p of paths) list.push(b + p)
   return list
@@ -252,6 +252,50 @@ async function tara(env) {
     return { ...k, feed_url: f.url, items: f.items, ok: f.items.length > 0 }
   }))
 
+  // ── ALTERNATİF KAYNAK: feed'i bulunamayan siteler için Apify GNews yedeği ──
+  // news.google.com/rss Worker IP'lerini engelliyor (kalıcı 'unusual traffic');
+  // Sosyal Radar'da kanıtlanmış Apify actor'ü ile site bazlı GNews araması yapılır.
+  const feedsizler = sonuc.filter(s => !s.ok)
+  if (feedsizler.length && env.APIFY_TOKEN) {
+    try {
+      const r = await fetch(
+        `https://api.apify.com/v2/acts/automation-lab~google-news-scraper/run-sync-get-dataset-items?token=${env.APIFY_TOKEN}`,
+        {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            queries: feedsizler.map(s => 'site:' + s.domain),
+            language: 'tr', country: 'TR', maxArticles: 15,
+          }),
+        }
+      )
+      if (r.ok) {
+        const arr = await r.json()
+        const norm = (x) => String(x || '').toLowerCase().replace(/[\s.\-]/g, '')
+        if (Array.isArray(arr)) {
+          for (const it of arr) {
+            const title = it.title || it.headline || ''
+            const link  = it.link || it.url || ''
+            if (!title || !link) continue
+            const kaynakAdi = it.source || it.publisher || ''
+            const sahip = feedsizler.find(s => {
+              const kok = norm(s.domain.replace(/\.(com|net|org|gen)(\.tr)?$/, ''))
+              return norm(link).includes(norm(s.domain)) || (kok && norm(kaynakAdi).includes(kok)) || (kok && norm(title).includes(kok))
+            })
+            if (!sahip) continue
+            sahip.items.push({
+              title, link,
+              pubDate: it.date || it.pubDate || it.publishedAt || new Date().toISOString(),
+              gorsel_url: it.image || it.thumbnail || '', domain: sahip.domain,
+            })
+          }
+          for (const s of feedsizler) {
+            if (s.items.length) { s.ok = true; s.feed_url = 'apify-gnews (alternatif)' }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   // Konu bazında grupla (parmak izi)
   const konular = new Map()
   for (const src of sonuc) {
@@ -306,11 +350,11 @@ async function tara(env) {
   const oncekiMap = new Map(onceki.map(o => [o.id, o]))
   const birlesik = firsatlar.map(f => {
     const o = oncekiMap.get(f.id)
-    return o ? { ...f, yazildi: o.yazildi, gizli: o.gizli, bulundu: o.bulundu } : f
+    return o ? { ...f, yazildi: o.yazildi, gizli: o.gizli, bulundu: o.bulundu, ustlenen: o.ustlenen || null, ustlenme: o.ustlenme || null } : f
   })
-  // Yeni taramada görünmeyen ama yazılmış/gizlenmiş eskileri 48s tut
+  // Yeni taramada görünmeyen ama yazılmış/gizlenmiş/üstlenilmiş eskileri 48s tut
   for (const o of onceki) {
-    if (!birlesik.find(b => b.id === o.id) && (o.yazildi || o.gizli)) {
+    if (!birlesik.find(b => b.id === o.id) && (o.yazildi || o.gizli || o.ustlenen)) {
       if (Date.now() - Date.parse(o.bulundu) < 48 * 36e5) birlesik.push(o)
     }
   }
@@ -398,7 +442,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet(context) {
+  const { request, env } = context
   const url = new URL(request.url)
   const action = url.searchParams.get('action') || 'list'
   const secret = url.searchParams.get('secret') || ''
@@ -439,7 +484,24 @@ export async function onRequestGet({ request, env }) {
       if (!(await yetkili(secret, env))) return Response.json({ hata: 'Yetkisiz' }, { status: 401, headers: CORS })
       const firsatlar = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
       const son       = await env.HABERLER.get('kesfet:son_tarama', 'json') || null
-      return Response.json({ ok: true, firsatlar, son_tarama: son }, { headers: CORS })
+
+      // SAATLİK OTOMATİK TAZELEME (lazy cron): son tarama 60+ dk eskiyse
+      // yanıtı bekletmeden arka planda yeni tarama başlat. Kilit ile çift
+      // tarama önlenir — panel açık olduğu sürece veri kendini saatte bir yeniler.
+      let arkaPlanTarama = false
+      try {
+        const yas = son && son.zaman ? Date.now() - Date.parse(son.zaman) : Infinity
+        if (yas > 3600000) {
+          const kilit = await env.HABERLER.get('kesfet:tarama_kilit')
+          if (!kilit) {
+            await env.HABERLER.put('kesfet:tarama_kilit', String(Date.now()), { expirationTtl: 300 })
+            context.waitUntil(tara(env).catch(() => {}))
+            arkaPlanTarama = true
+          }
+        }
+      } catch (_) {}
+
+      return Response.json({ ok: true, firsatlar, son_tarama: son, arka_plan_tarama: arkaPlanTarama }, { headers: CORS })
     }
 
     if (action === 'verify') {
@@ -476,6 +538,37 @@ export async function onRequestPost({ request, env }) {
       const list = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
       const f = list.find(x => x.id === id)
       if (f) { f[alan] = true; await env.HABERLER.put('kesfet:firsatlar', JSON.stringify(list)) }
+      return Response.json({ ok: true }, { headers: CORS })
+    }
+
+    // ÜSTLENME: bir haberi kim yazıyor, herkes görsün — mükerrer çalışma önlenir
+    if (action === 'ustlen') {
+      const { id, kullanici } = body
+      if (!id || !kullanici) return Response.json({ hata: 'id ve kullanici gerekli' }, { status: 400, headers: CORS })
+      const list = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
+      const f = list.find(x => x.id === id)
+      if (!f) return Response.json({ hata: 'Fırsat bulunamadı' }, { status: 404, headers: CORS })
+      if (f.ustlenen && f.ustlenen !== kullanici) {
+        return Response.json({ ok: false, dolu: true, ustlenen: f.ustlenen, ustlenme: f.ustlenme }, { headers: CORS })
+      }
+      f.ustlenen = kullanici
+      f.ustlenme = new Date().toISOString()
+      await env.HABERLER.put('kesfet:firsatlar', JSON.stringify(list))
+      return Response.json({ ok: true, ustlenen: kullanici }, { headers: CORS })
+    }
+
+    if (action === 'birak') {
+      const { id, kullanici } = body
+      const list = await env.HABERLER.get('kesfet:firsatlar', 'json') || []
+      const f = list.find(x => x.id === id)
+      if (!f) return Response.json({ hata: 'Fırsat bulunamadı' }, { status: 404, headers: CORS })
+      // Sadece üstlenen kişi (veya admin) bırakabilir
+      if (f.ustlenen && f.ustlenen !== kullanici && kullanici !== 'admin') {
+        return Response.json({ ok: false, hata: `Bu haberi ${f.ustlenen} üstlenmiş, sadece o bırakabilir` }, { status: 403, headers: CORS })
+      }
+      f.ustlenen = null
+      f.ustlenme = null
+      await env.HABERLER.put('kesfet:firsatlar', JSON.stringify(list))
       return Response.json({ ok: true }, { headers: CORS })
     }
 
