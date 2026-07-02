@@ -174,6 +174,9 @@ function ciz(){
 function kart(f){
   const dur=f.durum||'izle';
   const gorsel=f.gorsel_url?`<img class="gorsel" src="${esc(f.gorsel_url)}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';
+  const etkTarih = f.etkinlik_tarihi
+    ? new Date(f.etkinlik_tarihi).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
+    : null;
   return `<div class="firsat-kart ${dur} ${f.yazildi?'yazildi':''}">
     ${gorsel}
     <div class="icerik">
@@ -181,13 +184,13 @@ function kart(f){
         <span class="rozet r-${dur}">${dur}</span>
         <span class="tip t-${f.kaynak_tip}">${({instagram:'IG',rss:'RSS',web:'WEB',twitter:'X',youtube:'YT'})[f.kaynak_tip]||f.kaynak_tip}</span>
         <span class="etiket">${esc(f.etiket||f.hesap||'')}</span>
+        ${etkTarih?`<span style="background:#12331c;color:#56d364;font-size:11px;padding:2px 9px;border-radius:20px;font-weight:700;white-space:nowrap">📅 ${etkTarih}</span>`:''}
         <span class="skor">${f.skor}</span>
       </div>
       <div class="baslik"><a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.baslik)}</a></div>
       <div class="meta">
         <span>${zamanGec(f.pubDate)}</span>
         ${f.begeni?`<span>❤ ${f.begeni}</span>`:''}
-        ${f.kaynak_tip?'<span>🎪 Etkinlik</span>':''}
         <span class="aksiyon">
           <button onclick="haberlestir('${esc(f.id)}')" style="background:var(--vurgu);color:#fff;border-color:var(--vurgu);font-weight:600">📰 Haberleştir</button>
           <button onclick="isaretle('${esc(f.id)}','yazildi')">${f.yazildi?'↩ Geri':'✓ Yazıldı'}</button>
@@ -201,9 +204,12 @@ function kart(f){
 function haberlestir(id){
   const f = veri.find(x=>x.id===id);
   if (!f) return;
+  const etkTarih = f.etkinlik_tarihi
+    ? new Date(f.etkinlik_tarihi).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
+    : null;
   const prefill = {
     baslik: f.baslik || '',
-    metin: f.tam_metin || f.baslik || '',
+    metin: (f.tam_metin || f.baslik || '') + (etkTarih ? `\n\nEtkinlik tarihi: ${etkTarih}` : ''),
     kategori: 'Güncel',
   };
   if (f.video_url) prefill.video_url = f.video_url;
