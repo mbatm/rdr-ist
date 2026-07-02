@@ -132,8 +132,9 @@ async function tweetAt(metin, mediaIds, creds) {
 
 // ── Ana handler ──────────────────────────────────────────────────────────────
 export async function onRequestPost({ request, env }) {
-  const apiKey = request.headers.get('X-API-Key')
-  if (apiKey !== env.RSS_API_KEY)
+  const apiKey = request.headers.get('X-API-Key') || ''
+  const cmsToken = apiKey && apiKey !== env.RSS_API_KEY ? await env.HABERLER.get('token:' + apiKey, 'json') : null
+  if (apiKey !== env.RSS_API_KEY && !cmsToken)
     return Response.json({ hata: 'Yetkisiz' }, { status: 401 })
 
   const creds = {
