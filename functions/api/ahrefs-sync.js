@@ -87,7 +87,7 @@ export async function onRequestGet({ env, request }) {
     const grup = tumKeywordler.slice(i, i + 10).join(',')
     try {
       const res = await fetch(
-        `https://apiv3.ahrefs.com/v3/keywords-explorer/overview?` +
+        `https://api.ahrefs.com/v3/keywords-explorer/overview?` +
         `country=tr&keywords=${encodeURIComponent(grup)}&select=keyword,volume,difficulty,traffic_potential,cpc`,
         { headers: { 'Authorization': `Bearer ${AHREFS_KEY}` } }
       )
